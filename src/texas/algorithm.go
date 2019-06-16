@@ -448,6 +448,14 @@ func GetWinTypeId(str string) int {
 	return keyData.ty
 }
 
+func GetWinTypeByBytes(bytes []int8) int {
+	keyData := GetKeyDataByKey(GenCardBind(bytes))
+	if keyData == nil {
+		return 0
+	}
+	return keyData.ty
+}
+
 func Compare(str1 string, str2 string) int {
 	return CompareByBytes(StrToBytes(str1), StrToBytes(str2))
 }
