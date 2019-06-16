@@ -1,5 +1,10 @@
 package texas
 
+import (
+	"github.com/esrrhs/go-engine/src/loggo"
+	"time"
+)
+
 func getAllCards() map[int8]int {
 	ret := make(map[int8]int)
 	for _, p := range allCards {
@@ -32,10 +37,33 @@ func GetExHandProbability(hand string, pub string) float32 {
 }
 
 type calcData struct {
-	win   int64
-	lose  int64
-	tie   int64
-	total int64
+	win       int64
+	lose      int64
+	tie       int64
+	total     int64
+	totalcalc int64
+	pronum    int64
+	prolast   int64
+	probegin  int64
+}
+
+func getExTotal(pub int) int64 {
+
+	var totalcalc int64
+	totalcalc = 1
+	for i := 0; i < 5-pub; i++ {
+		totalcalc = totalcalc * int64(52-2-pub-i)
+	}
+	for i := 5 - pub; i >= 1; i-- {
+		totalcalc = totalcalc / int64(i)
+	}
+	for i := 0; i < 2; i++ {
+		totalcalc = totalcalc * int64(52-7-i)
+	}
+	for i := 2; i >= 1; i-- {
+		totalcalc = totalcalc / int64(i)
+	}
+	return totalcalc
 }
 
 func getExHandProbabilityByBytes(hand []int8, pub []int8) float32 {
@@ -52,6 +80,8 @@ func getExHandProbabilityByBytes(hand []int8, pub []int8) float32 {
 	otherhand := make([]int8, 2)
 
 	data := &calcData{}
+	data.probegin = time.Now().Unix()
+	data.totalcalc = getExTotal(len(pub))
 
 	permutation(func(tmp []int8) {
 		onOtherHandGen(hand, pub, tmp, data, &list, calcExHandProbabilityByBytes)
@@ -81,7 +111,20 @@ func onOtherHandGen(hand []int8, pub []int8, otherhand []int8, data *calcData, l
 
 func onLeftPubGen(hand []int8, pub []int8, otherhand []int8, leftpub []int8, data *calcData, list *map[int8]int,
 	f func(hand []int8, pub []int8, otherhand []int8, leftpub []int8, data *calcData)) {
+
 	f(hand, pub, otherhand, leftpub, data)
+
+	if data.totalcalc > 1000000 {
+		data.pronum++
+		cur := data.pronum * 100 / data.totalcalc
+		if cur != data.prolast {
+			data.prolast = cur
+			now := time.Now().Unix()
+			per := (float32)(now-data.probegin) / float32(data.pronum)
+			loggo.Info("%v%% 需要%v分 用时%v分 速度%v条/秒", cur, per*float32(data.totalcalc-data.pronum)/60,
+				(now-data.probegin)/60, float32(data.pronum)/float32(now-data.probegin))
+		}
+	}
 }
 
 func calcExHandProbabilityByBytes(hand []int8, pub []int8, otherhand []int8, leftpub []int8, data *calcData) {
@@ -164,6 +207,9 @@ func GetExAllTypeProbabilityByBytes(hand []int8, pub []int8) []float32 {
 	otherhand := make([]int8, 2)
 
 	data := &calcData{}
+	data.probegin = time.Now().Unix()
+	data.totalcalc = getExTotal(len(pub))
+
 	var retp []float32
 	retp = make([]float32, len(winName))
 
