@@ -15,18 +15,36 @@ func Load() {
 
 	loggo.Info("texas Load start")
 
-	err := LoadNormalColor()
+	err := LoadNormalColor(false)
 	if err != nil {
 		panic(err)
 	}
-	err = LoadProbility()
+	err = LoadProbility(false)
 	if err != nil {
 		panic(err)
 	}
 }
-func LoadNormalColor() error {
 
-	path := common.GetDataDir() + "/texas/"
+func LoadLocal() {
+
+	loggo.Info("texas LoadLocal start")
+
+	err := LoadNormalColor(true)
+	if err != nil {
+		panic(err)
+	}
+	err = LoadProbility(true)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func LoadNormalColor(local bool) error {
+
+	var path string
+	if !local {
+		path = common.GetDataDir() + "/texas/"
+	}
 
 	err := LoadColor(path + "texas_data_color.txt")
 	if err != nil {
@@ -54,9 +72,12 @@ func LoadNormalColor() error {
 	}
 	return nil
 }
-func LoadProbility() error {
+func LoadProbility(local bool) error {
 
-	path := common.GetDataDir() + "/texas/"
+	var path string
+	if !local {
+		path = common.GetDataDir() + "/texas/"
+	}
 
 	for i := 6; i >= 2; i-- {
 		err := loadProbility(i, path+"texas_data_opt_"+strconv.Itoa(i)+".txt")
