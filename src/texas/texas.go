@@ -295,7 +295,8 @@ var winName = []string{"无",
 	"葫芦",
 	"四条",
 	"同花顺",
-	"皇家同花顺"}
+	"皇家同花顺",
+	"MAX"}
 
 var GUI = Poke{PokeColor_GUI, PokeValue_GUI}
 
