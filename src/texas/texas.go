@@ -15,18 +15,36 @@ func Load() {
 
 	loggo.Info("texas Load start")
 
-	err := LoadNormalColor()
+	err := LoadNormalColor(false)
 	if err != nil {
 		panic(err)
 	}
-	err = LoadProbility()
+	err = LoadProbility(false)
 	if err != nil {
 		panic(err)
 	}
 }
-func LoadNormalColor() error {
 
-	path := common.GetDataDir() + "/texas/"
+func LoadLocal() {
+
+	loggo.Info("texas LoadLocal start")
+
+	err := LoadNormalColor(true)
+	if err != nil {
+		panic(err)
+	}
+	err = LoadProbility(true)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func LoadNormalColor(local bool) error {
+
+	var path string
+	if !local {
+		path = common.GetDataDir() + "/texas/"
+	}
 
 	err := LoadColor(path + "texas_data_color.txt")
 	if err != nil {
@@ -54,9 +72,12 @@ func LoadNormalColor() error {
 	}
 	return nil
 }
-func LoadProbility() error {
+func LoadProbility(local bool) error {
 
-	path := common.GetDataDir() + "/texas/"
+	var path string
+	if !local {
+		path = common.GetDataDir() + "/texas/"
+	}
 
 	for i := 6; i >= 2; i-- {
 		err := loadProbility(i, path+"texas_data_opt_"+strconv.Itoa(i)+".txt")
@@ -115,7 +136,7 @@ func loadProbility(i int, file string) error {
 			break
 		}
 
-		line = strings.Trim(line, "\n")
+		line = strings.TrimSpace(line)
 		params := strings.Split(line, " ")
 
 		key, _ := strconv.ParseInt(params[0], 10, 64)
@@ -162,7 +183,7 @@ func LoadNormal(file string) error {
 			break
 		}
 
-		line = strings.Trim(line, "\n")
+		line = strings.TrimSpace(line)
 		params := strings.Split(line, " ")
 
 		key, _ := strconv.ParseInt(params[0], 10, 64)
@@ -206,7 +227,7 @@ func LoadColor(file string) error {
 			break
 		}
 
-		line = strings.Trim(line, "\n")
+		line = strings.TrimSpace(line)
 		params := strings.Split(line, " ")
 
 		key, _ := strconv.ParseInt(params[0], 10, 64)
@@ -295,7 +316,8 @@ var winName = []string{"无",
 	"葫芦",
 	"四条",
 	"同花顺",
-	"皇家同花顺"}
+	"皇家同花顺",
+	"MAX"}
 
 var GUI = Poke{PokeColor_GUI, PokeValue_GUI}
 
@@ -303,3 +325,29 @@ const (
 	GUINUM = 2
 	GENNUM = 52 + GUINUM
 )
+
+var allCards = genAllCards()
+
+func genAllCards() []int8 {
+	var ret []int8
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 52/4; j++ {
+			p := Poke{int8(i), int8(j + PokeValue_2)}
+			ret = append(ret, p.ToByte())
+		}
+	}
+	return ret
+}
+
+func GetWinNameId(n string) int {
+	for i, p := range winName {
+		if p == n {
+			return i
+		}
+	}
+	return 0
+}
+
+func GetWinName(id int) string {
+	return winName[id]
+}

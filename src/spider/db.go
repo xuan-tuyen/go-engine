@@ -104,7 +104,7 @@ func Load(dsn string, conn int) *DB {
 	}
 	ret.gLastStmt = stmt
 
-	stmt, err = gdb.Prepare("select title,name,url from spider.link_info where name like ? or title like ? limit 0,?")
+	stmt, err = gdb.Prepare("select title,name,url from (select title,name,url,time from spider.link_info where name like ? or title like ?  limit 0,?) as A  order by time desc ")
 	if err != nil {
 		loggo.Error("Prepare mysql fail %v", err)
 		return nil
