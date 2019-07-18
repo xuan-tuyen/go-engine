@@ -6,7 +6,6 @@ go语言开发通用代码库
 * 循环数组
 * 有锁链表
 * tcp网络(TODO)
-* kv cache
 * DHT爬虫
 * 德州扑克算法
 * nodejs执行环境
