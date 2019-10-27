@@ -17,9 +17,10 @@ const (
 )
 
 type Config struct {
-	Level  int
-	Prefix string
-	MaxDay int
+	Level     int
+	Prefix    string
+	MaxDay    int
+	NoLogFile bool
 }
 
 var gConfig Config
@@ -47,9 +48,11 @@ func Ini(config Config) {
 func Debug(format string, a ...interface{}) {
 	if gConfig.Level <= LEVEL_DEBUG {
 		str := genLog(LEVEL_DEBUG, format, a...)
-		file := openLog(LEVEL_DEBUG)
-		defer file.Close()
-		file.WriteString(str)
+		if !gConfig.NoLogFile {
+			file := openLog(LEVEL_DEBUG)
+			defer file.Close()
+			file.WriteString(str)
+		}
 		fmt.Print(str)
 	}
 }
@@ -57,13 +60,17 @@ func Debug(format string, a ...interface{}) {
 func Info(format string, a ...interface{}) {
 	if gConfig.Level <= LEVEL_INFO {
 		str := genLog(LEVEL_INFO, format, a...)
-		file := openLog(LEVEL_INFO)
-		defer file.Close()
-		file.WriteString(str)
+		if !gConfig.NoLogFile {
+			file := openLog(LEVEL_INFO)
+			defer file.Close()
+			file.WriteString(str)
+		}
 		if gConfig.Level <= LEVEL_DEBUG {
-			file1 := openLog(LEVEL_DEBUG)
-			defer file1.Close()
-			file1.WriteString(str)
+			if !gConfig.NoLogFile {
+				file1 := openLog(LEVEL_DEBUG)
+				defer file1.Close()
+				file1.WriteString(str)
+			}
 		}
 		fmt.Print(str)
 	}
@@ -72,18 +79,24 @@ func Info(format string, a ...interface{}) {
 func Warn(format string, a ...interface{}) {
 	if gConfig.Level <= LEVEL_WARN {
 		str := genLog(LEVEL_WARN, format, a...)
-		file := openLog(LEVEL_WARN)
-		defer file.Close()
-		file.WriteString(str)
+		if !gConfig.NoLogFile {
+			file := openLog(LEVEL_WARN)
+			defer file.Close()
+			file.WriteString(str)
+		}
 		if gConfig.Level <= LEVEL_INFO {
-			file1 := openLog(LEVEL_INFO)
-			defer file1.Close()
-			file1.WriteString(str)
+			if !gConfig.NoLogFile {
+				file1 := openLog(LEVEL_INFO)
+				defer file1.Close()
+				file1.WriteString(str)
+			}
 		}
 		if gConfig.Level <= LEVEL_DEBUG {
-			file2 := openLog(LEVEL_DEBUG)
-			defer file2.Close()
-			file2.WriteString(str)
+			if !gConfig.NoLogFile {
+				file2 := openLog(LEVEL_DEBUG)
+				defer file2.Close()
+				file2.WriteString(str)
+			}
 		}
 		fmt.Print(str)
 	}
@@ -92,23 +105,31 @@ func Warn(format string, a ...interface{}) {
 func Error(format string, a ...interface{}) {
 	if gConfig.Level <= LEVEL_ERROR {
 		str := genLog(LEVEL_ERROR, format, a...)
-		file := openLog(LEVEL_ERROR)
-		defer file.Close()
-		file.WriteString(str)
+		if !gConfig.NoLogFile {
+			file := openLog(LEVEL_ERROR)
+			defer file.Close()
+			file.WriteString(str)
+		}
 		if gConfig.Level <= LEVEL_WARN {
-			file0 := openLog(LEVEL_WARN)
-			defer file0.Close()
-			file0.WriteString(str)
+			if !gConfig.NoLogFile {
+				file0 := openLog(LEVEL_WARN)
+				defer file0.Close()
+				file0.WriteString(str)
+			}
 		}
 		if gConfig.Level <= LEVEL_INFO {
-			file1 := openLog(LEVEL_INFO)
-			defer file1.Close()
-			file1.WriteString(str)
+			if !gConfig.NoLogFile {
+				file1 := openLog(LEVEL_INFO)
+				defer file1.Close()
+				file1.WriteString(str)
+			}
 		}
 		if gConfig.Level <= LEVEL_DEBUG {
-			file2 := openLog(LEVEL_DEBUG)
-			defer file2.Close()
-			file2.WriteString(str)
+			if !gConfig.NoLogFile {
+				file2 := openLog(LEVEL_DEBUG)
+				defer file2.Close()
+				file2.WriteString(str)
+			}
 		}
 		fmt.Print(str)
 	}
