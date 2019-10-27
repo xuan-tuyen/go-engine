@@ -137,7 +137,7 @@ func Error(format string, a ...interface{}) {
 
 func genLog(level int, format string, a ...interface{}) string {
 	file, funcName, line := getFunc()
-	t := time.Now().Format(time.RFC3339)
+	t := time.Now().Format(time.RFC3339Nano)
 	str := fmt.Sprintf(format, a...)
 	ret := fmt.Sprintf("[%v] [%v] [%v:%v] [%v] %v\n", levelName(level), t, file, line, funcName, str)
 	return ret
