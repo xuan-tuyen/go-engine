@@ -197,7 +197,7 @@ func NameToLevel(name string) int {
 	case "ERROR":
 		return LEVEL_ERROR
 	}
-	return LEVEL_DEBUG
+	return -1
 }
 
 func openLog(level int) os.File {
