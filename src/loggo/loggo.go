@@ -189,6 +189,20 @@ func levelName(level int) string {
 	return "NIL"
 }
 
+func NameToLevel(name string) int {
+	switch strings.ToUpper(name) {
+	case "DEBUG":
+		return LEVEL_DEBUG
+	case "INFO":
+		return LEVEL_INFO
+	case "WARN":
+		return LEVEL_WARN
+	case "ERROR":
+		return LEVEL_ERROR
+	}
+	return -1
+}
+
 func openLog(level int) os.File {
 	date := time.Now().Format("2006-01-02")
 	fileName := gConfig.Prefix + "_" + levelName(level) + "_" + date + ".log"
