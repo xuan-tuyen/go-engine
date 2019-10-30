@@ -26,9 +26,10 @@ type Config struct {
 var gConfig Config
 
 func Ini(config Config) {
+	initbefore := false
 	if gConfig.MaxDay != 0 {
 		fmt.Println("loggo had ini before " + gConfig.Prefix)
-		return
+		initbefore = true
 	}
 
 	gConfig = config
@@ -42,7 +43,9 @@ func Ini(config Config) {
 
 	Warn("loggo Ini")
 
-	go loopCheck(gConfig)
+	if !initbefore {
+		go loopCheck(gConfig)
+	}
 }
 
 func Debug(format string, a ...interface{}) {
