@@ -235,12 +235,16 @@ func (fm *FrameMgr) preProcessRecvList() (map[int32]int, map[int32]int, map[int3
 		if f.Type == (int32)(Frame_REQ) {
 			for _, id := range f.Dataid {
 				tmpreq[id]++
-				loggo.Debug("recv req %d %s", f.Id, common.Int32ArrayToString(f.Dataid, ","))
+				if loggo.IsDebug() {
+					loggo.Debug("recv req %d %s", f.Id, common.Int32ArrayToString(f.Dataid, ","))
+				}
 			}
 		} else if f.Type == (int32)(Frame_ACK) {
 			for _, id := range f.Dataid {
 				tmpack[id]++
-				loggo.Debug("recv ack %d %s", f.Id, common.Int32ArrayToString(f.Dataid, ","))
+				if loggo.IsDebug() {
+					loggo.Debug("recv ack %d %s", f.Id, common.Int32ArrayToString(f.Dataid, ","))
+				}
 			}
 		} else if f.Type == (int32)(Frame_DATA) {
 			tmpackto[f.Id] = f
@@ -313,7 +317,9 @@ func (fm *FrameMgr) processRecvList(tmpreq map[int32]int, tmpack map[int32]int, 
 				Id:     0,
 				Dataid: tmp[0:index]}
 			fm.sendlist.PushBack(f)
-			loggo.Debug("send ack %d %s", f.Id, common.Int32ArrayToString(f.Dataid, ","))
+			if loggo.IsDebug() {
+				loggo.Debug("send ack %d %s", f.Id, common.Int32ArrayToString(f.Dataid, ","))
+			}
 		}
 	}
 }
@@ -461,7 +467,9 @@ func (fm *FrameMgr) combineWindowToRecvBuffer() {
 			}
 		}
 		fm.sendlist.PushBack(f)
-		loggo.Debug("send req %d %s", f.Id, common.Int32ArrayToString(f.Dataid, ","))
+		if loggo.IsDebug() {
+			loggo.Debug("send req %d %s", f.Id, common.Int32ArrayToString(f.Dataid, ","))
+		}
 	}
 }
 
