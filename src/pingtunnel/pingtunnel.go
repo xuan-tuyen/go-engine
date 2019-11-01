@@ -13,7 +13,6 @@ import (
 	"io"
 	"net"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -63,19 +62,7 @@ func sendICMP(id int, sequence int, conn icmp.PacketConn, server *net.IPAddr, ta
 		return
 	}
 
-	for {
-		if _, err := conn.WriteTo(bytes, server); err != nil {
-			if neterr, ok := err.(*net.OpError); ok {
-				if neterr.Err == syscall.ENOBUFS {
-					continue
-				}
-			}
-			loggo.Info("sendICMP WriteTo error %s %s", server.String(), err)
-		}
-		break
-	}
-
-	return
+	conn.WriteTo(bytes, server)
 }
 
 func recvICMP(workResultLock *sync.WaitGroup, exit *bool, conn icmp.PacketConn, recv chan<- *Packet) {
