@@ -1,5 +1,7 @@
 package common
 
+import "hash/fnv"
+
 func MinOfInt(vars ...int) int {
 	min := vars[0]
 
@@ -67,4 +69,10 @@ func AbsInt64(v int64) int64 {
 		return v
 	}
 	return -v
+}
+
+func HashString(s string) uint32 {
+	h := fnv.New32a()
+	h.Write([]byte(s))
+	return h.Sum32()
 }
