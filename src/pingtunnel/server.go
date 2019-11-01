@@ -13,25 +13,31 @@ import (
 
 func NewServer(key int, maxconn int, maxprocessthread int, maxprocessbuffer int) (*Server, error) {
 	s := &Server{
-		exit:    false,
-		key:     key,
-		maxconn: maxconn,
+		exit:             false,
+		key:              key,
+		maxconn:          maxconn,
+		maxprocessthread: maxprocessthread,
+		maxprocessbuffer: maxprocessbuffer,
 	}
 
-	s.processtp = threadpool.NewThreadPool(maxprocessthread, maxprocessbuffer, func(v interface{}) {
-		packet := v.(*Packet)
-		s.processDataPacket(packet)
-	})
+	if maxprocessthread > 0 {
+		s.processtp = threadpool.NewThreadPool(maxprocessthread, maxprocessbuffer, func(v interface{}) {
+			packet := v.(*Packet)
+			s.processDataPacket(packet)
+		})
+	}
 
 	return s, nil
 }
 
 type Server struct {
-	exit           bool
-	key            int
-	interval       *time.Ticker
-	workResultLock sync.WaitGroup
-	maxconn        int
+	exit             bool
+	key              int
+	interval         *time.Ticker
+	workResultLock   sync.WaitGroup
+	maxconn          int
+	maxprocessthread int
+	maxprocessbuffer int
 
 	conn *icmp.PacketConn
 
@@ -135,7 +141,11 @@ func (p *Server) processPacket(packet *Packet) {
 		return
 	}
 
-	p.processtp.AddJob((int)(common.HashString(packet.my.Id)), packet)
+	if p.maxprocessthread > 0 {
+		p.processtp.AddJob((int)(common.HashString(packet.my.Id)), packet)
+	} else {
+		p.processDataPacket(packet)
+	}
 }
 
 func (p *Server) processDataPacket(packet *Packet) {
