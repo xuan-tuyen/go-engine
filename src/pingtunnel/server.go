@@ -101,6 +101,7 @@ func (p *Server) Run() error {
 func (p *Server) Stop() {
 	p.exit = true
 	p.workResultLock.Wait()
+	p.processtp.Stop()
 	p.conn.Close()
 	p.interval.Stop()
 }
