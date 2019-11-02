@@ -566,8 +566,11 @@ func (p *Server) remoteError(uuid string, rprpto int, src *net.IPAddr) {
 }
 
 func (p *Server) addConnError(addr string) {
-	now := common.GetNowUpdateInSecond()
-	p.connErrorMap.Store(addr, now)
+	_, ok := p.connErrorMap.Load(addr)
+	if !ok {
+		now := common.GetNowUpdateInSecond()
+		p.connErrorMap.Store(addr, now)
+	}
 }
 
 func (p *Server) isConnError(addr string) bool {
@@ -588,7 +591,7 @@ func (p *Server) updateConnError() {
 	now := common.GetNowUpdateInSecond()
 	for id, t := range tmp {
 		diff := now.Sub(t)
-		if diff > time.Minute {
+		if diff > time.Second*10 {
 			p.connErrorMap.Delete(id)
 		}
 	}
