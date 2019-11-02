@@ -109,6 +109,8 @@ type Client struct {
 	recvPacketSize         uint64
 	localAddrToConnMapSize int
 	localIdToConnMapSize   int
+
+	recvcontrol chan int
 }
 
 type ClientConn struct {
@@ -203,6 +205,7 @@ func (p *Client) Run() error {
 	}
 
 	recv := make(chan *Packet, 10000)
+	p.recvcontrol = make(chan int, 1)
 	go recvICMP(&p.workResultLock, &p.exit, *p.conn, recv)
 
 	go func() {
@@ -223,6 +226,8 @@ func (p *Client) Run() error {
 
 		for !p.exit {
 			select {
+			case <-p.recvcontrol:
+				return
 			case r := <-recv:
 				p.processPacket(r)
 			}
@@ -234,6 +239,7 @@ func (p *Client) Run() error {
 
 func (p *Client) Stop() {
 	p.exit = true
+	p.recvcontrol <- 1
 	p.workResultLock.Wait()
 	p.conn.Close()
 	if p.tcplistenConn != nil {
