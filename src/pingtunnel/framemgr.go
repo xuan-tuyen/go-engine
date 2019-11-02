@@ -37,10 +37,12 @@ type FrameMgr struct {
 	sendb *rbuffergo.RBuffergo
 	recvb *rbuffergo.RBuffergo
 
-	recvlock      sync.Locker
-	windowsize    int
-	resend_timems int
-	compress      int
+	sendbufferlock sync.Locker
+	recvbufferlock sync.Locker
+	recvlock       sync.Locker
+	windowsize     int
+	resend_timems  int
+	compress       int
 
 	sendwin  *list.List
 	sendlist *list.List
@@ -72,7 +74,7 @@ func NewFrameMgr(buffersize int, windowsize int, resend_timems int, compress int
 	recvb := rbuffergo.New(buffersize, false)
 
 	fm := &FrameMgr{sendb: sendb, recvb: recvb,
-		recvlock:   &sync.Mutex{},
+		sendbufferlock: &sync.Mutex{}, recvbufferlock: &sync.Mutex{}, recvlock: &sync.Mutex{},
 		windowsize: windowsize, resend_timems: resend_timems, compress: compress,
 		sendwin: list.New(), sendlist: list.New(), sendid: 0,
 		recvwin: list.New(), recvlist: list.New(), recvid: 0,
@@ -87,11 +89,17 @@ func NewFrameMgr(buffersize int, windowsize int, resend_timems int, compress int
 }
 
 func (fm *FrameMgr) GetSendBufferLeft() int {
+	fm.sendbufferlock.Lock()
+	defer fm.sendbufferlock.Unlock()
+
 	left := fm.sendb.Capacity() - fm.sendb.Size()
 	return left
 }
 
 func (fm *FrameMgr) WriteSendBuffer(data []byte) {
+	fm.sendbufferlock.Lock()
+	defer fm.sendbufferlock.Unlock()
+
 	fm.sendb.Write(data)
 	loggo.Debug("WriteSendBuffer %d %d", fm.sendb.Size(), len(data))
 }
@@ -116,6 +124,9 @@ func (fm *FrameMgr) Update() {
 }
 
 func (fm *FrameMgr) cutSendBufferToWindow(cur int64) {
+
+	fm.sendbufferlock.Lock()
+	defer fm.sendbufferlock.Unlock()
 
 	sendall := false
 
@@ -356,6 +367,9 @@ func (fm *FrameMgr) addToRecvWin(rf *Frame) bool {
 
 func (fm *FrameMgr) processRecvFrame(f *Frame) bool {
 	if f.Data.Type == (int32)(FrameData_USER_DATA) {
+		fm.recvbufferlock.Lock()
+		defer fm.recvbufferlock.Unlock()
+
 		left := fm.recvb.Capacity() - fm.recvb.Size()
 		if left >= len(f.Data.Data) {
 			src := f.Data.Data
@@ -470,25 +484,35 @@ func (fm *FrameMgr) combineWindowToRecvBuffer(cur int64) {
 }
 
 func (fm *FrameMgr) GetRecvBufferSize() int {
+	fm.recvbufferlock.Lock()
+	defer fm.recvbufferlock.Unlock()
+
 	return fm.recvb.Size()
 }
 
 func (fm *FrameMgr) GetRecvReadLineBuffer() []byte {
+	fm.recvbufferlock.Lock()
+	defer fm.recvbufferlock.Unlock()
+
 	ret := fm.recvb.GetReadLineBuffer()
 	loggo.Debug("GetRecvReadLineBuffer %d %d", fm.recvb.Size(), len(ret))
 	return ret
 }
 
 func (fm *FrameMgr) SkipRecvBuffer(size int) {
+	fm.recvbufferlock.Lock()
+	defer fm.recvbufferlock.Unlock()
+
 	fm.recvb.SkipRead(size)
 	loggo.Debug("SkipRead %d %d", fm.recvb.Size(), size)
 }
 
 func (fm *FrameMgr) Close() {
-	fm.recvlock.Lock()
-	defer fm.recvlock.Unlock()
-
 	fm.close = true
+}
+
+func (fm *FrameMgr) IsClosed() bool {
+	return fm.close
 }
 
 func (fm *FrameMgr) IsRemoteClosed() bool {

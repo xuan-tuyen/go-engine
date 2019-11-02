@@ -303,31 +303,55 @@ func (p *Server) RecvTCP(conn *ServerConn, id string, src *net.IPAddr) {
 
 	bytes := make([]byte, 10240)
 
-	tcpActiveRecvTime := common.GetNowUpdateInSecond()
-	tcpActiveSendTime := common.GetNowUpdateInSecond()
+	go func() {
+		for !p.exit && !conn.exit && !conn.fm.IsClosed() {
+			left := common.MinOfInt(conn.fm.GetSendBufferLeft(), len(bytes))
+			if left > 0 {
+				conn.tcpconn.SetReadDeadline(time.Now().Add(time.Millisecond * 1))
+				n, err := conn.tcpconn.Read(bytes[0:left])
+				if err != nil {
+					nerr, ok := err.(net.Error)
+					if !ok || !nerr.Timeout() {
+						loggo.Info("Error read tcp %s %s %s", conn.id, conn.tcpaddrTarget.String(), err)
+						conn.fm.Close()
+						break
+					}
+				}
+				if n > 0 {
+					conn.fm.WriteSendBuffer(bytes[:n])
+				}
+			} else {
+				time.Sleep(time.Millisecond * 100)
+			}
+		}
+	}()
+
+	go func() {
+		for !p.exit && !conn.exit && !conn.fm.IsClosed() {
+			if conn.fm.GetRecvBufferSize() > 0 {
+				rr := conn.fm.GetRecvReadLineBuffer()
+				conn.tcpconn.SetWriteDeadline(time.Now().Add(time.Millisecond * 1))
+				n, err := conn.tcpconn.Write(rr)
+				if err != nil {
+					nerr, ok := err.(net.Error)
+					if !ok || !nerr.Timeout() {
+						loggo.Info("Error write tcp %s %s %s", conn.id, conn.tcpaddrTarget.String(), err)
+						conn.fm.Close()
+						break
+					}
+				}
+				if n > 0 {
+					conn.fm.SkipRecvBuffer(n)
+				}
+			} else {
+				time.Sleep(time.Millisecond * 100)
+			}
+		}
+	}()
 
 	for !p.exit && !conn.exit {
 		now := common.GetNowUpdateInSecond()
 		sleep := true
-
-		left := common.MinOfInt(conn.fm.GetSendBufferLeft(), len(bytes))
-		if left > 0 {
-			conn.tcpconn.SetReadDeadline(time.Now().Add(time.Millisecond * 1))
-			n, err := conn.tcpconn.Read(bytes[0:left])
-			if err != nil {
-				nerr, ok := err.(net.Error)
-				if !ok || !nerr.Timeout() {
-					loggo.Info("Error read tcp %s %s %s", conn.id, conn.tcpaddrTarget.String(), err)
-					conn.fm.Close()
-					break
-				}
-			}
-			if n > 0 {
-				sleep = false
-				conn.fm.WriteSendBuffer(bytes[:n])
-				tcpActiveRecvTime = now
-			}
-		}
 
 		conn.fm.Update()
 
@@ -351,35 +375,13 @@ func (p *Server) RecvTCP(conn *ServerConn, id string, src *net.IPAddr) {
 			}
 		}
 
-		if conn.fm.GetRecvBufferSize() > 0 {
-			sleep = false
-			rr := conn.fm.GetRecvReadLineBuffer()
-			conn.tcpconn.SetWriteDeadline(time.Now().Add(time.Millisecond * 1))
-			n, err := conn.tcpconn.Write(rr)
-			if err != nil {
-				nerr, ok := err.(net.Error)
-				if !ok || !nerr.Timeout() {
-					loggo.Info("Error write tcp %s %s %s", conn.id, conn.tcpaddrTarget.String(), err)
-					conn.fm.Close()
-					break
-				}
-			}
-			if n > 0 {
-				conn.fm.SkipRecvBuffer(n)
-				tcpActiveSendTime = now
-			}
-		}
-
 		if sleep {
 			time.Sleep(time.Millisecond * 10)
 		}
 
 		diffrecv := now.Sub(conn.activeRecvTime)
 		diffsend := now.Sub(conn.activeSendTime)
-		tcpdiffrecv := now.Sub(tcpActiveRecvTime)
-		tcpdiffsend := now.Sub(tcpActiveSendTime)
-		if diffrecv > time.Second*(time.Duration(conn.timeout)) || diffsend > time.Second*(time.Duration(conn.timeout)) ||
-			tcpdiffrecv > time.Second*(time.Duration(conn.timeout)) || tcpdiffsend > time.Second*(time.Duration(conn.timeout)) {
+		if diffrecv > time.Second*(time.Duration(conn.timeout)) || diffsend > time.Second*(time.Duration(conn.timeout)) {
 			loggo.Info("close inactive conn %s %s", conn.id, conn.tcpaddrTarget.String())
 			conn.fm.Close()
 			break
