@@ -152,7 +152,7 @@ func (p *Server) processDataPacket(packet *Packet) {
 
 	loggo.Debug("processPacket %s %s %d", packet.my.Id, packet.src.String(), len(packet.my.Data))
 
-	now := time.Now()
+	now := common.GetNowUpdateInSecond()
 
 	id := packet.my.Id
 	localConn := p.getServerConnById(id)
@@ -245,7 +245,7 @@ func (p *Server) RecvTCP(conn *ServerConn, id string, src *net.IPAddr) {
 	loggo.Info("server waiting target response %s -> %s %s", conn.tcpaddrTarget.String(), conn.id, conn.tcpconn.LocalAddr().String())
 
 	loggo.Info("start wait remote connect tcp %s %s", conn.id, conn.tcpaddrTarget.String())
-	startConnectTime := time.Now()
+	startConnectTime := common.GetNowUpdateInSecond()
 	for !p.exit && !conn.exit {
 		if conn.fm.IsConnected() {
 			break
@@ -263,7 +263,7 @@ func (p *Server) RecvTCP(conn *ServerConn, id string, src *net.IPAddr) {
 			p.sendPacketSize += (uint64)(len(mb))
 		}
 		time.Sleep(time.Millisecond * 10)
-		now := time.Now()
+		now := common.GetNowUpdateInSecond()
 		diffclose := now.Sub(startConnectTime)
 		if diffclose > time.Second*(time.Duration(conn.timeout)) {
 			loggo.Info("can not connect remote tcp %s %s", conn.id, conn.tcpaddrTarget.String())
@@ -278,11 +278,11 @@ func (p *Server) RecvTCP(conn *ServerConn, id string, src *net.IPAddr) {
 
 	bytes := make([]byte, 10240)
 
-	tcpActiveRecvTime := time.Now()
-	tcpActiveSendTime := time.Now()
+	tcpActiveRecvTime := common.GetNowUpdateInSecond()
+	tcpActiveSendTime := common.GetNowUpdateInSecond()
 
 	for !p.exit && !conn.exit {
-		now := time.Now()
+		now := common.GetNowUpdateInSecond()
 		sleep := true
 
 		left := common.MinOfInt(conn.fm.GetSendBufferLeft(), len(bytes))
@@ -367,9 +367,9 @@ func (p *Server) RecvTCP(conn *ServerConn, id string, src *net.IPAddr) {
 		}
 	}
 
-	startCloseTime := time.Now()
+	startCloseTime := common.GetNowUpdateInSecond()
 	for !p.exit && !conn.exit {
-		now := time.Now()
+		now := common.GetNowUpdateInSecond()
 
 		conn.fm.Update()
 
@@ -440,7 +440,7 @@ func (p *Server) Recv(conn *ServerConn, id string, src *net.IPAddr) {
 			}
 		}
 
-		now := time.Now()
+		now := common.GetNowUpdateInSecond()
 		conn.activeSendTime = now
 
 		sendICMP(p.echoId, p.echoSeq, *p.conn, src, "", id, (uint32)(MyMsg_DATA), bytes[:n],
@@ -476,7 +476,7 @@ func (p *Server) checkTimeoutConn() {
 		return true
 	})
 
-	now := time.Now()
+	now := common.GetNowUpdateInSecond()
 	for _, conn := range tmp {
 		if conn.tcpmode > 0 {
 			continue
