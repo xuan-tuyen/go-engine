@@ -303,7 +303,7 @@ func (p *Client) AcceptTcpConn(conn *net.TCPConn, targetAddr string) {
 		sendlist := clientConn.fm.getSendList()
 		for e := sendlist.Front(); e != nil; e = e.Next() {
 			f := e.Value.(*Frame)
-			mb, _ := proto.Marshal(f)
+			mb, _ := clientConn.fm.MarshalFrame(f)
 			p.sequence++
 			sendICMP(p.id, p.sequence, *p.conn, p.ipaddrServer, targetAddr, clientConn.id, (uint32)(MyMsg_DATA), mb,
 				SEND_PROTO, RECV_PROTO, p.key,
@@ -362,7 +362,7 @@ func (p *Client) AcceptTcpConn(conn *net.TCPConn, targetAddr string) {
 			clientConn.activeSendTime = now
 			for e := sendlist.Front(); e != nil; e = e.Next() {
 				f := e.Value.(*Frame)
-				mb, err := proto.Marshal(f)
+				mb, err := clientConn.fm.MarshalFrame(f)
 				if err != nil {
 					loggo.Error("Error tcp Marshal %s %s %s", uuid, tcpsrcaddr.String(), err)
 					continue
@@ -427,7 +427,7 @@ func (p *Client) AcceptTcpConn(conn *net.TCPConn, targetAddr string) {
 		sendlist := clientConn.fm.getSendList()
 		for e := sendlist.Front(); e != nil; e = e.Next() {
 			f := e.Value.(*Frame)
-			mb, _ := proto.Marshal(f)
+			mb, _ := clientConn.fm.MarshalFrame(f)
 			p.sequence++
 			sendICMP(p.id, p.sequence, *p.conn, p.ipaddrServer, targetAddr, clientConn.id, (uint32)(MyMsg_DATA), mb,
 				SEND_PROTO, RECV_PROTO, p.key,
