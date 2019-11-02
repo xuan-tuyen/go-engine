@@ -52,7 +52,8 @@ type Server struct {
 	echoId  int
 	echoSeq int
 
-	processtp *threadpool.ThreadPool
+	processtp   *threadpool.ThreadPool
+	recvcontrol chan int
 }
 
 type ServerConn struct {
@@ -81,6 +82,7 @@ func (p *Server) Run() error {
 	p.conn = conn
 
 	recv := make(chan *Packet, 10000)
+	p.recvcontrol = make(chan int, 1)
 	go recvICMP(&p.workResultLock, &p.exit, *p.conn, recv)
 
 	go func() {
@@ -101,6 +103,8 @@ func (p *Server) Run() error {
 
 		for !p.exit {
 			select {
+			case <-p.recvcontrol:
+				return
 			case r := <-recv:
 				p.processPacket(r)
 			}
@@ -112,6 +116,7 @@ func (p *Server) Run() error {
 
 func (p *Server) Stop() {
 	p.exit = true
+	p.recvcontrol <- 1
 	p.workResultLock.Wait()
 	p.processtp.Stop()
 	p.conn.Close()
