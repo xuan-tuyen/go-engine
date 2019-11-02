@@ -33,7 +33,6 @@ func NewServer(key int, maxconn int, maxprocessthread int, maxprocessbuffer int)
 type Server struct {
 	exit             bool
 	key              int
-	interval         *time.Ticker
 	workResultLock   sync.WaitGroup
 	maxconn          int
 	maxprocessthread int
@@ -84,7 +83,17 @@ func (p *Server) Run() error {
 	recv := make(chan *Packet, 10000)
 	go recvICMP(&p.workResultLock, &p.exit, *p.conn, recv)
 
-	p.interval = time.NewTicker(time.Second)
+	go func() {
+		p.workResultLock.Add(1)
+		defer p.workResultLock.Done()
+
+		for !p.exit {
+			p.checkTimeoutConn()
+			p.showNet()
+			p.updateConnError()
+			time.Sleep(time.Second)
+		}
+	}()
 
 	go func() {
 		p.workResultLock.Add(1)
@@ -92,10 +101,6 @@ func (p *Server) Run() error {
 
 		for !p.exit {
 			select {
-			case <-p.interval.C:
-				p.checkTimeoutConn()
-				p.showNet()
-				p.updateConnError()
 			case r := <-recv:
 				p.processPacket(r)
 			}
@@ -110,7 +115,6 @@ func (p *Server) Stop() {
 	p.workResultLock.Wait()
 	p.processtp.Stop()
 	p.conn.Close()
-	p.interval.Stop()
 }
 
 func (p *Server) processPacket(packet *Packet) {
