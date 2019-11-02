@@ -97,23 +97,25 @@ func (fm *FrameMgr) WriteSendBuffer(data []byte) {
 }
 
 func (fm *FrameMgr) Update() {
-	fm.cutSendBufferToWindow()
+	cur := time.Now().UnixNano()
+
+	fm.cutSendBufferToWindow(cur)
 
 	fm.sendlist.Init()
 
 	tmpreq, tmpack, tmpackto := fm.preProcessRecvList()
 	fm.processRecvList(tmpreq, tmpack, tmpackto)
 
-	fm.combineWindowToRecvBuffer()
+	fm.combineWindowToRecvBuffer(cur)
 
-	fm.calSendList()
+	fm.calSendList(cur)
 
 	fm.ping()
 
-	fm.printStat()
+	fm.printStat(cur)
 }
 
-func (fm *FrameMgr) cutSendBufferToWindow() {
+func (fm *FrameMgr) cutSendBufferToWindow(cur int64) {
 
 	sendall := false
 
@@ -191,9 +193,8 @@ func (fm *FrameMgr) cutSendBufferToWindow() {
 	}
 }
 
-func (fm *FrameMgr) calSendList() {
+func (fm *FrameMgr) calSendList(cur int64) {
 
-	cur := time.Now().UnixNano()
 	for e := fm.sendwin.Front(); e != nil; e = e.Next() {
 		f := e.Value.(*Frame)
 		if f.Resend || cur-f.Sendtime > int64(fm.resend_timems*(int)(time.Millisecond)) {
@@ -401,7 +402,7 @@ func (fm *FrameMgr) processRecvFrame(f *Frame) bool {
 	}
 }
 
-func (fm *FrameMgr) combineWindowToRecvBuffer() {
+func (fm *FrameMgr) combineWindowToRecvBuffer(cur int64) {
 
 	for {
 		done := false
@@ -429,7 +430,6 @@ func (fm *FrameMgr) combineWindowToRecvBuffer() {
 		}
 	}
 
-	cur := time.Now().UnixNano()
 	reqtmp := make(map[int]int)
 	e := fm.recvwin.Front()
 	id := fm.recvid
@@ -648,9 +648,8 @@ func (fm *FrameMgr) resetStat() {
 	fm.fs.recvAckNumsMap = make(map[int32]int)
 }
 
-func (fm *FrameMgr) printStat() {
+func (fm *FrameMgr) printStat(cur int64) {
 	if fm.openstat > 0 {
-		cur := time.Now().UnixNano()
 		if cur-fm.lastPrintStat > (int64)(time.Second) {
 			fm.lastPrintStat = cur
 			fs := fm.fs

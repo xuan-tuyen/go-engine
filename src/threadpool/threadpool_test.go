@@ -3,7 +3,6 @@ package threadpool
 import (
 	"fmt"
 	"testing"
-	"time"
 )
 
 func TestNew(t *testing.T) {
@@ -17,7 +16,6 @@ func TestNew(t *testing.T) {
 	tp.AddJob(3, 3)
 	tp.AddJob(4, 4)
 	tp.AddJob(201, 201)
-	time.Sleep(time.Second * 10)
 	tp.Stop()
 	fmt.Println("Stop")
 }

@@ -294,7 +294,7 @@ func (p *Client) AcceptTcpConn(conn *net.TCPConn, targetAddr string) {
 
 	loggo.Info("start connect remote tcp %s %s", uuid, tcpsrcaddr.String())
 	clientConn.fm.Connect()
-	startConnectTime := time.Now()
+	startConnectTime := common.GetNowUpdateInSecond()
 	for !p.exit && !clientConn.exit {
 		if clientConn.fm.IsConnected() {
 			break
@@ -313,7 +313,7 @@ func (p *Client) AcceptTcpConn(conn *net.TCPConn, targetAddr string) {
 			p.sendPacketSize += (uint64)(len(mb))
 		}
 		time.Sleep(time.Millisecond * 10)
-		now := time.Now()
+		now := common.GetNowUpdateInSecond()
 		diffclose := now.Sub(startConnectTime)
 		if diffclose > time.Second*(time.Duration(p.timeout)) {
 			loggo.Info("can not connect remote tcp %s %s", uuid, tcpsrcaddr.String())
@@ -328,11 +328,11 @@ func (p *Client) AcceptTcpConn(conn *net.TCPConn, targetAddr string) {
 
 	bytes := make([]byte, 10240)
 
-	tcpActiveRecvTime := time.Now()
-	tcpActiveSendTime := time.Now()
+	tcpActiveRecvTime := common.GetNowUpdateInSecond()
+	tcpActiveSendTime := common.GetNowUpdateInSecond()
 
 	for !p.exit && !clientConn.exit {
-		now := time.Now()
+		now := common.GetNowUpdateInSecond()
 		sleep := true
 
 		left := common.MinOfInt(clientConn.fm.GetSendBufferLeft(), len(bytes))
@@ -418,9 +418,9 @@ func (p *Client) AcceptTcpConn(conn *net.TCPConn, targetAddr string) {
 		}
 	}
 
-	startCloseTime := time.Now()
+	startCloseTime := common.GetNowUpdateInSecond()
 	for !p.exit && !clientConn.exit {
-		now := time.Now()
+		now := common.GetNowUpdateInSecond()
 
 		clientConn.fm.Update()
 
@@ -493,7 +493,7 @@ func (p *Client) Accept() error {
 			continue
 		}
 
-		now := time.Now()
+		now := common.GetNowUpdateInSecond()
 		clientConn := p.getClientConnByAddr(srcaddr.String())
 		if clientConn == nil {
 			if p.maxconn > 0 && p.localIdToConnMapSize >= p.maxconn {
@@ -561,7 +561,7 @@ func (p *Client) processPacket(packet *Packet) {
 		return
 	}
 
-	now := time.Now()
+	now := common.GetNowUpdateInSecond()
 	clientConn.activeRecvTime = now
 
 	if p.tcpmode > 0 {
@@ -607,7 +607,7 @@ func (p *Client) checkTimeoutConn() {
 		return true
 	})
 
-	now := time.Now()
+	now := common.GetNowUpdateInSecond()
 	for _, conn := range tmp {
 		diffrecv := now.Sub(conn.activeRecvTime)
 		diffsend := now.Sub(conn.activeSendTime)
