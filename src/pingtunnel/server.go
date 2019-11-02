@@ -170,7 +170,7 @@ func (p *Server) processDataPacket(packet *Packet) {
 
 			c, err := net.DialTimeout("tcp", addr, time.Second)
 			if err != nil {
-				loggo.Error("Error listening for tcp packets: %s", err.Error())
+				loggo.Error("Error listening for tcp packets: %s %s", id, err.Error())
 				p.remoteError(id, packet)
 				return
 			}
@@ -193,7 +193,7 @@ func (p *Server) processDataPacket(packet *Packet) {
 
 			c, err := net.DialTimeout("udp", addr, time.Second)
 			if err != nil {
-				loggo.Error("Error listening for tcp packets: %s", err.Error())
+				loggo.Error("Error listening for tcp packets: %s %s", id, err.Error())
 				p.remoteError(id, packet)
 				return
 			}
