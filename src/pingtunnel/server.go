@@ -165,7 +165,7 @@ func (p *Server) processDataPacketNewConn(id string, packet *Packet) *ServerConn
 
 	addr := packet.my.Target
 	if p.isConnError(addr) {
-		loggo.Error("addr connect Error before: %s %s", id, addr)
+		loggo.Info("addr connect Error before: %s %s", id, addr)
 		p.remoteError(id, packet)
 		return nil
 	}
