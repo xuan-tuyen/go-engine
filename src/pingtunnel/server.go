@@ -41,8 +41,8 @@ type Server struct {
 
 	conn *icmp.PacketConn
 
-	localConnMap       sync.Map
-	remoteConnErrorMap sync.Map
+	localConnMap sync.Map
+	connErrorMap sync.Map
 
 	sendPacket       uint64
 	recvPacket       uint64
@@ -95,6 +95,7 @@ func (p *Server) Run() error {
 			case <-p.interval.C:
 				p.checkTimeoutConn()
 				p.showNet()
+				p.updateConnError()
 			case r := <-recv:
 				p.processPacket(r)
 			}
@@ -148,6 +149,72 @@ func (p *Server) processPacket(packet *Packet) {
 	}
 }
 
+func (p *Server) processDataPacketNewConn(id string, packet *Packet) *ServerConn {
+
+	now := common.GetNowUpdateInSecond()
+
+	if p.maxconn > 0 && p.localConnMapSize >= p.maxconn {
+		loggo.Info("too many connections %d, server connected target fail %s", p.localConnMapSize, packet.my.Target)
+		p.remoteError(id, packet)
+		return nil
+	}
+
+	addr := packet.my.Target
+	if p.isConnError(addr) {
+		loggo.Error("addr connect Error before: %s %s", id, addr)
+		p.remoteError(id, packet)
+		return nil
+	}
+
+	if packet.my.Tcpmode > 0 {
+
+		c, err := net.DialTimeout("tcp", addr, time.Millisecond*400)
+		if err != nil {
+			loggo.Error("Error listening for tcp packets: %s %s", id, err.Error())
+			p.remoteError(id, packet)
+			p.addConnError(addr)
+			return nil
+		}
+		targetConn := c.(*net.TCPConn)
+		ipaddrTarget := targetConn.RemoteAddr().(*net.TCPAddr)
+
+		fm := NewFrameMgr((int)(packet.my.TcpmodeBuffersize), (int)(packet.my.TcpmodeMaxwin), (int)(packet.my.TcpmodeResendTimems), (int)(packet.my.TcpmodeCompress),
+			(int)(packet.my.TcpmodeStat))
+
+		localConn := &ServerConn{exit: false, timeout: (int)(packet.my.Timeout), tcpconn: targetConn, tcpaddrTarget: ipaddrTarget, id: id, activeRecvTime: now, activeSendTime: now, close: false,
+			rproto: (int)(packet.my.Rproto), fm: fm, tcpmode: (int)(packet.my.Tcpmode)}
+
+		p.addServerConn(id, localConn)
+
+		go p.RecvTCP(localConn, id, packet.src)
+
+		return localConn
+
+	} else {
+
+		c, err := net.DialTimeout("udp", addr, time.Millisecond*400)
+		if err != nil {
+			loggo.Error("Error listening for tcp packets: %s %s", id, err.Error())
+			p.remoteError(id, packet)
+			p.addConnError(addr)
+			return nil
+		}
+		targetConn := c.(*net.UDPConn)
+		ipaddrTarget := targetConn.RemoteAddr().(*net.UDPAddr)
+
+		localConn := &ServerConn{exit: false, timeout: (int)(packet.my.Timeout), conn: targetConn, ipaddrTarget: ipaddrTarget, id: id, activeRecvTime: now, activeSendTime: now, close: false,
+			rproto: (int)(packet.my.Rproto), tcpmode: (int)(packet.my.Tcpmode)}
+
+		p.addServerConn(id, localConn)
+
+		go p.Recv(localConn, id, packet.src)
+
+		return localConn
+	}
+
+	return nil
+}
+
 func (p *Server) processDataPacket(packet *Packet) {
 
 	loggo.Debug("processPacket %s %s %d", packet.my.Id, packet.src.String(), len(packet.my.Data))
@@ -157,55 +224,9 @@ func (p *Server) processDataPacket(packet *Packet) {
 	id := packet.my.Id
 	localConn := p.getServerConnById(id)
 	if localConn == nil {
-
-		if p.maxconn > 0 && p.localConnMapSize >= p.maxconn {
-			loggo.Info("too many connections %d, server connected target fail %s", p.localConnMapSize, packet.my.Target)
-			p.remoteError(id, packet)
+		localConn = p.processDataPacketNewConn(id, packet)
+		if localConn == nil {
 			return
-		}
-
-		if packet.my.Tcpmode > 0 {
-
-			addr := packet.my.Target
-
-			c, err := net.DialTimeout("tcp", addr, time.Second)
-			if err != nil {
-				loggo.Error("Error listening for tcp packets: %s %s", id, err.Error())
-				p.remoteError(id, packet)
-				return
-			}
-			targetConn := c.(*net.TCPConn)
-			ipaddrTarget := targetConn.RemoteAddr().(*net.TCPAddr)
-
-			fm := NewFrameMgr((int)(packet.my.TcpmodeBuffersize), (int)(packet.my.TcpmodeMaxwin), (int)(packet.my.TcpmodeResendTimems), (int)(packet.my.TcpmodeCompress),
-				(int)(packet.my.TcpmodeStat))
-
-			localConn = &ServerConn{exit: false, timeout: (int)(packet.my.Timeout), tcpconn: targetConn, tcpaddrTarget: ipaddrTarget, id: id, activeRecvTime: now, activeSendTime: now, close: false,
-				rproto: (int)(packet.my.Rproto), fm: fm, tcpmode: (int)(packet.my.Tcpmode)}
-
-			p.addServerConn(id, localConn)
-
-			go p.RecvTCP(localConn, id, packet.src)
-
-		} else {
-
-			addr := packet.my.Target
-
-			c, err := net.DialTimeout("udp", addr, time.Second)
-			if err != nil {
-				loggo.Error("Error listening for tcp packets: %s %s", id, err.Error())
-				p.remoteError(id, packet)
-				return
-			}
-			targetConn := c.(*net.UDPConn)
-			ipaddrTarget := targetConn.RemoteAddr().(*net.UDPAddr)
-
-			localConn = &ServerConn{exit: false, timeout: (int)(packet.my.Timeout), conn: targetConn, ipaddrTarget: ipaddrTarget, id: id, activeRecvTime: now, activeSendTime: now, close: false,
-				rproto: (int)(packet.my.Rproto), tcpmode: (int)(packet.my.Tcpmode)}
-
-			p.addServerConn(id, localConn)
-
-			go p.Recv(localConn, id, packet.src)
 		}
 	}
 
@@ -534,4 +555,33 @@ func (p *Server) remoteError(uuid string, packet *Packet) {
 		(int)(packet.my.Rproto), -1, p.key,
 		0, 0, 0, 0, 0, 0,
 		0)
+}
+
+func (p *Server) addConnError(addr string) {
+	now := common.GetNowUpdateInSecond()
+	p.connErrorMap.Store(addr, now)
+}
+
+func (p *Server) isConnError(addr string) bool {
+	_, ok := p.connErrorMap.Load(addr)
+	return ok
+}
+
+func (p *Server) updateConnError() {
+
+	tmp := make(map[string]time.Time)
+	p.connErrorMap.Range(func(key, value interface{}) bool {
+		id := key.(string)
+		t := value.(time.Time)
+		tmp[id] = t
+		return true
+	})
+
+	now := common.GetNowUpdateInSecond()
+	for id, t := range tmp {
+		diff := now.Sub(t)
+		if diff > time.Minute {
+			p.connErrorMap.Delete(id)
+		}
+	}
 }
