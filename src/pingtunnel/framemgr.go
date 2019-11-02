@@ -7,6 +7,7 @@ import (
 	"github.com/esrrhs/go-engine/src/common"
 	"github.com/esrrhs/go-engine/src/loggo"
 	"github.com/esrrhs/go-engine/src/rbuffergo"
+	"github.com/golang/protobuf/proto"
 	"io"
 	"strconv"
 	"sync"
@@ -56,8 +57,7 @@ type FrameMgr struct {
 	lastPingTime int64
 	rttns        int64
 
-	reqmap  map[int32]int64
-	sendmap map[int32]int64
+	reqmap map[int32]int64
 
 	connected bool
 
@@ -78,7 +78,7 @@ func NewFrameMgr(buffersize int, windowsize int, resend_timems int, compress int
 		recvwin: list.New(), recvlist: list.New(), recvid: 0,
 		close: false, remoteclosed: false, closesend: false,
 		lastPingTime: time.Now().UnixNano(), rttns: (int64)(resend_timems * 1000),
-		reqmap: make(map[int32]int64), sendmap: make(map[int32]int64),
+		reqmap:    make(map[int32]int64),
 		connected: false, openstat: openstat, lastPrintStat: time.Now().UnixNano()}
 	if openstat > 0 {
 		fm.resetStat()
@@ -197,19 +197,16 @@ func (fm *FrameMgr) calSendList(cur int64) {
 
 	for e := fm.sendwin.Front(); e != nil; e = e.Next() {
 		f := e.Value.(*Frame)
-		if f.Resend || cur-f.Sendtime > int64(fm.resend_timems*(int)(time.Millisecond)) {
-			oldsend := fm.sendmap[f.Id]
-			if cur-oldsend > fm.rttns {
-				f.Sendtime = cur
-				fm.sendlist.PushBack(f)
-				f.Resend = false
-				fm.sendmap[f.Id] = cur
-				if fm.openstat > 0 {
-					fm.fs.sendDataNum++
-					fm.fs.sendDataNumsMap[f.Id]++
-				}
-				loggo.Debug("push frame to sendlist %d %d", f.Id, len(f.Data.Data))
+		if (f.Resend || cur-f.Sendtime > int64(fm.resend_timems*(int)(time.Millisecond))) &&
+			cur-f.Sendtime > fm.rttns {
+			f.Sendtime = cur
+			fm.sendlist.PushBack(f)
+			f.Resend = false
+			if fm.openstat > 0 {
+				fm.fs.sendDataNum++
+				fm.fs.sendDataNumsMap[f.Id]++
 			}
+			loggo.Debug("push frame to sendlist %d %d", f.Id, len(f.Data.Data))
 		}
 	}
 }
@@ -288,7 +285,6 @@ func (fm *FrameMgr) processRecvList(tmpreq map[int32]int, tmpack map[int32]int, 
 			f := e.Value.(*Frame)
 			if f.Id == id {
 				fm.sendwin.Remove(e)
-				delete(fm.sendmap, f.Id)
 				loggo.Debug("remove send win %d %d", f.Id, len(f.Data.Data))
 				break
 			}
@@ -690,4 +686,13 @@ func (fm *FrameMgr) printStatMap(m *map[int32]int) string {
 		ret = "none"
 	}
 	return ret
+}
+
+func (fm *FrameMgr) MarshalFrame(f *Frame) ([]byte, error) {
+	resend := f.Resend
+	sendtime := f.Sendtime
+	mb, err := proto.Marshal(f)
+	f.Resend = resend
+	f.Sendtime = sendtime
+	return mb, err
 }

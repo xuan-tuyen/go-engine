@@ -275,7 +275,7 @@ func (p *Server) RecvTCP(conn *ServerConn, id string, src *net.IPAddr) {
 		sendlist := conn.fm.getSendList()
 		for e := sendlist.Front(); e != nil; e = e.Next() {
 			f := e.Value.(*Frame)
-			mb, _ := proto.Marshal(f)
+			mb, _ := conn.fm.MarshalFrame(f)
 			sendICMP(p.echoId, p.echoSeq, *p.conn, src, "", id, (uint32)(MyMsg_DATA), mb,
 				conn.rproto, -1, p.key,
 				0, 0, 0, 0, 0, 0,
@@ -333,7 +333,7 @@ func (p *Server) RecvTCP(conn *ServerConn, id string, src *net.IPAddr) {
 			conn.activeSendTime = now
 			for e := sendlist.Front(); e != nil; e = e.Next() {
 				f := e.Value.(*Frame)
-				mb, err := proto.Marshal(f)
+				mb, err := conn.fm.MarshalFrame(f)
 				if err != nil {
 					loggo.Error("Error tcp Marshal %s %s %s", conn.id, conn.tcpaddrTarget.String(), err)
 					continue
@@ -397,7 +397,7 @@ func (p *Server) RecvTCP(conn *ServerConn, id string, src *net.IPAddr) {
 		sendlist := conn.fm.getSendList()
 		for e := sendlist.Front(); e != nil; e = e.Next() {
 			f := e.Value.(*Frame)
-			mb, _ := proto.Marshal(f)
+			mb, _ := conn.fm.MarshalFrame(f)
 			sendICMP(p.echoId, p.echoSeq, *p.conn, src, "", id, (uint32)(MyMsg_DATA), mb,
 				conn.rproto, -1, p.key,
 				0, 0, 0, 0, 0, 0,
