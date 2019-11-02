@@ -63,6 +63,7 @@ func NewClient(addr string, server string, target string, timeout int, key int,
 		tcpmode_stat:          tcpmode_stat,
 		open_sock5:            open_sock5,
 		maxconn:               maxconn,
+		pongTime:              time.Now(),
 	}, nil
 }
 
@@ -111,6 +112,8 @@ type Client struct {
 	localIdToConnMapSize   int
 
 	recvcontrol chan int
+
+	pongTime time.Time
 }
 
 type ClientConn struct {
@@ -545,9 +548,11 @@ func (p *Client) processPacket(packet *Packet) {
 	if packet.my.Type == (int32)(MyMsg_PING) {
 		t := time.Time{}
 		t.UnmarshalBinary(packet.my.Data)
-		d := time.Now().Sub(t)
+		now := time.Now()
+		d := now.Sub(t)
 		loggo.Info("pong from %s %s", packet.src.String(), d.String())
 		p.rtt = d
+		p.pongTime = now
 		return
 	}
 
@@ -641,6 +646,9 @@ func (p *Client) ping() {
 		0)
 	loggo.Info("ping %s %s %d %d %d %d", p.addrServer, now.String(), p.sproto, p.rproto, p.id, p.sequence)
 	p.sequence++
+	if now.Sub(p.pongTime) > time.Second*3 {
+		p.rtt = 0
+	}
 }
 
 func (p *Client) showNet() {
