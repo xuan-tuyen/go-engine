@@ -319,7 +319,7 @@ func (p *Client) AcceptTcpConn(conn *net.TCPConn, targetAddr string) {
 		time.Sleep(time.Millisecond * 10)
 		now := common.GetNowUpdateInSecond()
 		diffclose := now.Sub(startConnectTime)
-		if diffclose > time.Second*(time.Duration(p.timeout)) {
+		if diffclose > time.Second*5 {
 			loggo.Info("can not connect remote tcp %s %s", uuid, tcpsrcaddr.String())
 			p.close(clientConn)
 			return
@@ -453,14 +453,12 @@ func (p *Client) AcceptTcpConn(conn *net.TCPConn, targetAddr string) {
 		}
 
 		diffclose := now.Sub(startCloseTime)
-		timeout := diffclose > time.Second*(time.Duration(p.timeout))
-		remoteclosed := clientConn.fm.IsRemoteClosed()
-
-		if timeout {
+		if diffclose > time.Second*5 {
 			loggo.Info("close conn had timeout %s %s", clientConn.id, clientConn.tcpaddr.String())
 			break
 		}
 
+		remoteclosed := clientConn.fm.IsRemoteClosed()
 		if remoteclosed && nodatarecv {
 			loggo.Info("remote conn had closed %s %s", clientConn.id, clientConn.tcpaddr.String())
 			break
