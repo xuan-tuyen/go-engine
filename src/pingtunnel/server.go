@@ -11,13 +11,14 @@ import (
 	"time"
 )
 
-func NewServer(key int, maxconn int, maxprocessthread int, maxprocessbuffer int) (*Server, error) {
+func NewServer(key int, maxconn int, maxprocessthread int, maxprocessbuffer int, connecttmeout int) (*Server, error) {
 	s := &Server{
 		exit:             false,
 		key:              key,
 		maxconn:          maxconn,
 		maxprocessthread: maxprocessthread,
 		maxprocessbuffer: maxprocessbuffer,
+		connecttmeout:    connecttmeout,
 	}
 
 	if maxprocessthread > 0 {
@@ -37,6 +38,7 @@ type Server struct {
 	maxconn          int
 	maxprocessthread int
 	maxprocessbuffer int
+	connecttmeout    int
 
 	conn *icmp.PacketConn
 
@@ -179,7 +181,7 @@ func (p *Server) processDataPacketNewConn(id string, packet *Packet) *ServerConn
 
 	if packet.my.Tcpmode > 0 {
 
-		c, err := net.DialTimeout("tcp", addr, time.Millisecond*1000)
+		c, err := net.DialTimeout("tcp", addr, time.Millisecond*time.Duration(p.connecttmeout))
 		if err != nil {
 			loggo.Error("Error listening for tcp packets: %s %s", id, err.Error())
 			p.remoteError(id, (int)(packet.my.Rproto), packet.src)
@@ -203,7 +205,7 @@ func (p *Server) processDataPacketNewConn(id string, packet *Packet) *ServerConn
 
 	} else {
 
-		c, err := net.DialTimeout("udp", addr, time.Millisecond*400)
+		c, err := net.DialTimeout("udp", addr, time.Millisecond*time.Duration(p.connecttmeout))
 		if err != nil {
 			loggo.Error("Error listening for tcp packets: %s %s", id, err.Error())
 			p.remoteError(id, (int)(packet.my.Rproto), packet.src)
@@ -593,7 +595,7 @@ func (p *Server) updateConnError() {
 	now := common.GetNowUpdateInSecond()
 	for id, t := range tmp {
 		diff := now.Sub(t)
-		if diff > time.Second*10 {
+		if diff > time.Second*5 {
 			p.connErrorMap.Delete(id)
 		}
 	}
