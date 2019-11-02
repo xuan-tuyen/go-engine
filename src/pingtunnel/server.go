@@ -162,6 +162,8 @@ func (p *Server) processDataPacketNewConn(id string, packet *Packet) *ServerConn
 
 	now := common.GetNowUpdateInSecond()
 
+	loggo.Info("start add new connect  %s %s", id, packet.my.Target)
+
 	if p.maxconn > 0 && p.localConnMapSize >= p.maxconn {
 		loggo.Info("too many connections %d, server connected target fail %s", p.localConnMapSize, packet.my.Target)
 		p.remoteError(id, (int)(packet.my.Rproto), packet.src)
@@ -177,7 +179,7 @@ func (p *Server) processDataPacketNewConn(id string, packet *Packet) *ServerConn
 
 	if packet.my.Tcpmode > 0 {
 
-		c, err := net.DialTimeout("tcp", addr, time.Millisecond*400)
+		c, err := net.DialTimeout("tcp", addr, time.Millisecond*1000)
 		if err != nil {
 			loggo.Error("Error listening for tcp packets: %s %s", id, err.Error())
 			p.remoteError(id, (int)(packet.my.Rproto), packet.src)
