@@ -69,7 +69,6 @@ func NewClient(addr string, server string, target string, timeout int, key int,
 type Client struct {
 	exit           bool
 	rtt            time.Duration
-	interval       *time.Ticker
 	workResultLock sync.WaitGroup
 	maxconn        int
 
@@ -206,7 +205,17 @@ func (p *Client) Run() error {
 	recv := make(chan *Packet, 10000)
 	go recvICMP(&p.workResultLock, &p.exit, *p.conn, recv)
 
-	p.interval = time.NewTicker(time.Second)
+	go func() {
+		p.workResultLock.Add(1)
+		defer p.workResultLock.Done()
+
+		for !p.exit {
+			p.checkTimeoutConn()
+			p.ping()
+			p.showNet()
+			time.Sleep(time.Second)
+		}
+	}()
 
 	go func() {
 		p.workResultLock.Add(1)
@@ -214,10 +223,6 @@ func (p *Client) Run() error {
 
 		for !p.exit {
 			select {
-			case <-p.interval.C:
-				p.checkTimeoutConn()
-				p.ping()
-				p.showNet()
 			case r := <-recv:
 				p.processPacket(r)
 			}
@@ -237,7 +242,6 @@ func (p *Client) Stop() {
 	if p.listenConn != nil {
 		p.listenConn.Close()
 	}
-	p.interval.Stop()
 }
 
 func (p *Client) AcceptTcp() error {
