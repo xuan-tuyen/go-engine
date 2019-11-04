@@ -263,3 +263,16 @@ func loopCheck(config Config) {
 		time.Sleep(time.Minute)
 	}
 }
+
+func IsDebug() bool {
+	return gConfig.Level <= LEVEL_DEBUG
+}
+func IsInfo() bool {
+	return gConfig.Level <= LEVEL_INFO
+}
+func IsWarn() bool {
+	return gConfig.Level <= LEVEL_WARN
+}
+func IsError() bool {
+	return gConfig.Level <= LEVEL_ERROR
+}
