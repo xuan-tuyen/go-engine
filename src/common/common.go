@@ -77,7 +77,7 @@ func Ini() {
 
 	loadConfig()
 	extract()
-	InitShell()
+	initShell()
 }
 
 type EngineConfiguration struct {
@@ -87,17 +87,17 @@ type EngineConfiguration struct {
 
 var gEngineConfiguration EngineConfiguration
 
-func InitShell() {
+func initShell() {
 	sysType := runtime.GOOS
 
 	for _, f := range gEngineConfiguration.Init {
 		if strings.Contains(f, sysType) {
-			InitShellFile(f)
+			initShellFile(f)
 		}
 	}
 }
 
-func InitShellFile(f string) {
+func initShellFile(f string) {
 
 	file := gEngineDir + "/" + f
 	file = filepath.Clean(file)
