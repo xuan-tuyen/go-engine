@@ -1,13 +1,18 @@
 package geoip
 
 import (
+	"github.com/esrrhs/go-engine/src/common"
 	"github.com/oschwald/geoip2-golang"
 	"net"
 )
 
 var gdb *geoip2.Reader
 
-func Ini(file string) {
+func Load(file string) {
+
+	if len(file) <= 0 {
+		file = common.GetDataDir() + "/geoip/" + "GeoLite2-City.mmdb"
+	}
 
 	db, err := geoip2.Open(file)
 	if err != nil {
