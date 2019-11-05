@@ -9,7 +9,7 @@ import (
 
 var gdb *geoip2.Reader
 
-func Load(file string) {
+func Load(file string) error {
 
 	if len(file) <= 0 {
 		file = common.GetDataDir() + "/geoip/" + "GeoLite2-Country.mmdb"
@@ -17,9 +17,10 @@ func Load(file string) {
 
 	db, err := geoip2.Open(file)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	gdb = db
+	return nil
 }
 
 func GetCountryIsoCode(ipaddr string) (string, error) {
