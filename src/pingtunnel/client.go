@@ -3,6 +3,7 @@ package pingtunnel
 import (
 	"github.com/esrrhs/go-engine/src/common"
 	"github.com/esrrhs/go-engine/src/loggo"
+	"github.com/esrrhs/go-engine/src/rbuffergo"
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/icmp"
 	"math"
@@ -19,7 +20,7 @@ const (
 
 func NewClient(addr string, server string, target string, timeout int, key int,
 	tcpmode int, tcpmode_buffersize int, tcpmode_maxwin int, tcpmode_resend_timems int, tcpmode_compress int,
-	tcpmode_stat int, open_sock5 int, maxconn int) (*Client, error) {
+	tcpmode_stat int, open_sock5 int, maxconn int, sock5_filter *func(addr string) bool) (*Client, error) {
 
 	var ipaddr *net.UDPAddr
 	var tcpaddr *net.TCPAddr
@@ -64,6 +65,7 @@ func NewClient(addr string, server string, target string, timeout int, key int,
 		open_sock5:            open_sock5,
 		maxconn:               maxconn,
 		pongTime:              time.Now(),
+		sock5_filter:          sock5_filter,
 	}, nil
 }
 
@@ -86,7 +88,9 @@ type Client struct {
 	tcpmode_resend_timems int
 	tcpmode_compress      int
 	tcpmode_stat          int
-	open_sock5            int
+
+	open_sock5   int
+	sock5_filter *func(addr string) bool
 
 	ipaddr  *net.UDPAddr
 	tcpaddr *net.TCPAddr
@@ -699,7 +703,15 @@ func (p *Client) AcceptSock5Conn(conn *net.TCPConn) {
 
 	loggo.Info("accept new sock5 conn: %s", addr)
 
-	p.AcceptTcpConn(conn, addr)
+	if p.sock5_filter == nil {
+		p.AcceptTcpConn(conn, addr)
+	} else {
+		if (*p.sock5_filter)(addr) {
+			p.AcceptTcpConn(conn, addr)
+			return
+		}
+		p.AcceptDirectTcpConn(conn, addr)
+	}
 }
 
 func (p *Client) addClientConn(uuid string, addr string, clientConn *ClientConn) {
@@ -734,4 +746,112 @@ func (p *Client) remoteError(uuid string) {
 		SEND_PROTO, RECV_PROTO, p.key,
 		0, 0, 0, 0, 0, 0,
 		0)
+}
+
+func (p *Client) AcceptDirectTcpConn(conn *net.TCPConn, targetAddr string) {
+
+	p.workResultLock.Add(1)
+	defer p.workResultLock.Done()
+
+	tcpsrcaddr := conn.RemoteAddr().(*net.TCPAddr)
+
+	loggo.Info("client accept new direct local tcp %s %s", tcpsrcaddr.String(), targetAddr)
+
+	tcpaddrTarget, err := net.ResolveTCPAddr("tcp", targetAddr)
+	if err != nil {
+		loggo.Info("direct local tcp ResolveTCPAddr fail: %s %s", targetAddr, err.Error())
+		return
+	}
+
+	targetconn, err := net.DialTCP("tcp", nil, tcpaddrTarget)
+	if err != nil {
+		loggo.Info("direct local tcp DialTCP fail: %s %s", targetAddr, err.Error())
+		return
+	}
+
+	bytes := make([]byte, 10240)
+	sendb := rbuffergo.New(p.tcpmode_buffersize, false)
+	recvb := rbuffergo.New(p.tcpmode_buffersize, false)
+
+	for !p.exit {
+		sleep := true
+		{
+			left := common.MinOfInt(sendb.Capacity()-sendb.Size(), len(bytes))
+			if left > 0 {
+				conn.SetReadDeadline(time.Now().Add(time.Millisecond * 10))
+				n, err := conn.Read(bytes)
+				if err != nil {
+					nerr, ok := err.(net.Error)
+					if !ok || !nerr.Timeout() {
+						loggo.Info("Error read tcp %s %s", tcpsrcaddr.String(), err)
+						break
+					}
+				}
+				if n > 0 {
+					sendb.Write(bytes[:n])
+					sleep = false
+				}
+			}
+
+			if sendb.Size() > 0 {
+				rr := sendb.GetReadLineBuffer()
+				targetconn.SetWriteDeadline(time.Now().Add(time.Millisecond * 10))
+				n, err := targetconn.Write(rr)
+				if err != nil {
+					nerr, ok := err.(net.Error)
+					if !ok || !nerr.Timeout() {
+						loggo.Info("Error write tcp %s %s", tcpaddrTarget.String(), err)
+						break
+					}
+				}
+				if n > 0 {
+					sendb.SkipRead(n)
+					sleep = false
+				}
+			}
+		}
+
+		{
+			left := common.MinOfInt(recvb.Capacity()-recvb.Size(), len(bytes))
+			if left > 0 {
+				targetconn.SetReadDeadline(time.Now().Add(time.Millisecond * 10))
+				n, err := targetconn.Read(bytes)
+				if err != nil {
+					nerr, ok := err.(net.Error)
+					if !ok || !nerr.Timeout() {
+						loggo.Info("Error read tcp %s %s", tcpaddrTarget.String(), err)
+						break
+					}
+				}
+				if n > 0 {
+					recvb.Write(bytes[:n])
+					sleep = false
+				}
+			}
+
+			if recvb.Size() > 0 {
+				rr := recvb.GetReadLineBuffer()
+				conn.SetWriteDeadline(time.Now().Add(time.Millisecond * 10))
+				n, err := conn.Write(rr)
+				if err != nil {
+					nerr, ok := err.(net.Error)
+					if !ok || !nerr.Timeout() {
+						loggo.Info("Error write tcp %s %s", tcpsrcaddr.String(), err)
+						break
+					}
+				}
+				if n > 0 {
+					recvb.SkipRead(n)
+					sleep = false
+				}
+			}
+		}
+		if sleep {
+			time.Sleep(time.Millisecond * 100)
+		}
+	}
+
+	conn.Close()
+	targetconn.Close()
+	loggo.Info("client stop direct local tcp %s %s", tcpsrcaddr.String(), targetAddr)
 }
