@@ -1,4 +1,4 @@
-package pingtunnel
+package frame
 
 import (
 	"bytes"
@@ -34,8 +34,10 @@ type FrameStat struct {
 }
 
 type FrameMgr struct {
-	sendb *rbuffergo.RBuffergo
-	recvb *rbuffergo.RBuffergo
+	frame_max_size int
+	frame_max_id   int
+	sendb          *rbuffergo.RBuffergo
+	recvb          *rbuffergo.RBuffergo
 
 	recvlock      sync.Locker
 	windowsize    int
@@ -66,12 +68,13 @@ type FrameMgr struct {
 	lastPrintStat int64
 }
 
-func NewFrameMgr(buffersize int, windowsize int, resend_timems int, compress int, openstat int) *FrameMgr {
+func NewFrameMgr(frame_max_size int, frame_max_id int, buffersize int, windowsize int, resend_timems int, compress int, openstat int) *FrameMgr {
 
 	sendb := rbuffergo.New(buffersize, false)
 	recvb := rbuffergo.New(buffersize, false)
 
-	fm := &FrameMgr{sendb: sendb, recvb: recvb,
+	fm := &FrameMgr{frame_max_size: frame_max_size, frame_max_id: frame_max_id,
+		sendb: sendb, recvb: recvb,
 		recvlock:   &sync.Mutex{},
 		windowsize: windowsize, resend_timems: resend_timems, compress: compress,
 		sendwin: list.New(), sendlist: list.New(), sendid: 0,
@@ -119,13 +122,13 @@ func (fm *FrameMgr) cutSendBufferToWindow(cur int64) {
 
 	sendall := false
 
-	if fm.sendb.Size() < FRAME_MAX_SIZE {
+	if fm.sendb.Size() < fm.frame_max_size {
 		sendall = true
 	}
 
-	for fm.sendb.Size() >= FRAME_MAX_SIZE && fm.sendwin.Len() < fm.windowsize {
+	for fm.sendb.Size() >= fm.frame_max_size && fm.sendwin.Len() < fm.windowsize {
 		fd := &FrameData{Type: (int32)(FrameData_USER_DATA),
-			Data: make([]byte, FRAME_MAX_SIZE)}
+			Data: make([]byte, fm.frame_max_size)}
 		fm.sendb.Read(fd.Data)
 
 		if fm.compress > 0 && len(fd.Data) > fm.compress {
@@ -141,12 +144,12 @@ func (fm *FrameMgr) cutSendBufferToWindow(cur int64) {
 			Data: fd}
 
 		fm.sendid++
-		if fm.sendid >= FRAME_MAX_ID {
+		if fm.sendid >= fm.frame_max_id {
 			fm.sendid = 0
 		}
 
 		fm.sendwin.PushBack(f)
-		loggo.Debug("cut frame push to send win %d %d %d", f.Id, FRAME_MAX_SIZE, fm.sendwin.Len())
+		loggo.Debug("cut frame push to send win %d %d %d", f.Id, fm.frame_max_size, fm.sendwin.Len())
 	}
 
 	if sendall && fm.sendb.Size() > 0 && fm.sendwin.Len() < fm.windowsize {
@@ -167,7 +170,7 @@ func (fm *FrameMgr) cutSendBufferToWindow(cur int64) {
 			Data: fd}
 
 		fm.sendid++
-		if fm.sendid >= FRAME_MAX_ID {
+		if fm.sendid >= fm.frame_max_id {
 			fm.sendid = 0
 		}
 
@@ -183,7 +186,7 @@ func (fm *FrameMgr) cutSendBufferToWindow(cur int64) {
 			Data: fd}
 
 		fm.sendid++
-		if fm.sendid >= FRAME_MAX_ID {
+		if fm.sendid >= fm.frame_max_id {
 			fm.sendid = 0
 		}
 
@@ -211,7 +214,7 @@ func (fm *FrameMgr) calSendList(cur int64) {
 	}
 }
 
-func (fm *FrameMgr) getSendList() *list.List {
+func (fm *FrameMgr) GetSendList() *list.List {
 	return fm.sendlist
 }
 
@@ -323,9 +326,9 @@ func (fm *FrameMgr) processRecvList(tmpreq map[int32]int, tmpack map[int32]int, 
 
 func (fm *FrameMgr) addToRecvWin(rf *Frame) bool {
 
-	if !fm.isIdInRange((int)(rf.Id), FRAME_MAX_ID) {
+	if !fm.isIdInRange((int)(rf.Id), fm.frame_max_id) {
 		loggo.Debug("recv frame not in range %d %d", rf.Id, fm.recvid)
-		if fm.isIdOld((int)(rf.Id), FRAME_MAX_ID) {
+		if fm.isIdOld((int)(rf.Id), fm.frame_max_id) {
 			return true
 		}
 		return false
@@ -419,7 +422,7 @@ func (fm *FrameMgr) combineWindowToRecvBuffer(cur int64) {
 			break
 		} else {
 			fm.recvid++
-			if fm.recvid >= FRAME_MAX_ID {
+			if fm.recvid >= fm.frame_max_id {
 				fm.recvid = 0
 			}
 			loggo.Debug("combined ok add recvid %d ", fm.recvid)
@@ -429,7 +432,7 @@ func (fm *FrameMgr) combineWindowToRecvBuffer(cur int64) {
 	reqtmp := make(map[int]int)
 	e := fm.recvwin.Front()
 	id := fm.recvid
-	for len(reqtmp) < fm.windowsize && len(reqtmp)*4 < FRAME_MAX_SIZE/2 && e != nil {
+	for len(reqtmp) < fm.windowsize && len(reqtmp)*4 < fm.frame_max_size/2 && e != nil {
 		f := e.Value.(*Frame)
 		loggo.Debug("start add req id %d %d %d", fm.recvid, f.Id, id)
 		if f.Id != (int32)(id) {
@@ -444,7 +447,7 @@ func (fm *FrameMgr) combineWindowToRecvBuffer(cur int64) {
 		}
 
 		id++
-		if id >= FRAME_MAX_ID {
+		if id >= fm.frame_max_id {
 			id = 0
 		}
 	}
@@ -550,10 +553,10 @@ func (fm *FrameMgr) isIdInRange(id int, maxid int) bool {
 func (fm *FrameMgr) compareId(l int, r int) int {
 
 	if l < fm.recvid {
-		l += FRAME_MAX_ID
+		l += fm.frame_max_id
 	}
 	if r < fm.recvid {
-		r += FRAME_MAX_ID
+		r += fm.frame_max_id
 	}
 
 	return l - r
@@ -590,7 +593,7 @@ func (fm *FrameMgr) Connect() {
 		Data: fd}
 
 	fm.sendid++
-	if fm.sendid >= FRAME_MAX_ID {
+	if fm.sendid >= fm.frame_max_id {
 		fm.sendid = 0
 	}
 
@@ -606,7 +609,7 @@ func (fm *FrameMgr) sendConnectRsp() {
 		Data: fd}
 
 	fm.sendid++
-	if fm.sendid >= FRAME_MAX_ID {
+	if fm.sendid >= fm.frame_max_id {
 		fm.sendid = 0
 	}
 

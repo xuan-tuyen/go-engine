@@ -2,6 +2,7 @@ package pingtunnel
 
 import (
 	"github.com/esrrhs/go-engine/src/common"
+	"github.com/esrrhs/go-engine/src/frame"
 	"github.com/esrrhs/go-engine/src/loggo"
 	"github.com/esrrhs/go-engine/src/threadpool"
 	"github.com/golang/protobuf/proto"
@@ -70,7 +71,7 @@ type ServerConn struct {
 	activeSendTime time.Time
 	close          bool
 	rproto         int
-	fm             *FrameMgr
+	fm             *frame.FrameMgr
 	tcpmode        int
 }
 
@@ -191,7 +192,7 @@ func (p *Server) processDataPacketNewConn(id string, packet *Packet) *ServerConn
 		targetConn := c.(*net.TCPConn)
 		ipaddrTarget := targetConn.RemoteAddr().(*net.TCPAddr)
 
-		fm := NewFrameMgr((int)(packet.my.TcpmodeBuffersize), (int)(packet.my.TcpmodeMaxwin), (int)(packet.my.TcpmodeResendTimems), (int)(packet.my.TcpmodeCompress),
+		fm := frame.NewFrameMgr(FRAME_MAX_SIZE, FRAME_MAX_ID, (int)(packet.my.TcpmodeBuffersize), (int)(packet.my.TcpmodeMaxwin), (int)(packet.my.TcpmodeResendTimems), (int)(packet.my.TcpmodeCompress),
 			(int)(packet.my.TcpmodeStat))
 
 		localConn := &ServerConn{exit: false, timeout: (int)(packet.my.Timeout), tcpconn: targetConn, tcpaddrTarget: ipaddrTarget, id: id, activeRecvTime: now, activeSendTime: now, close: false,
@@ -248,7 +249,7 @@ func (p *Server) processDataPacket(packet *Packet) {
 	if packet.my.Type == (int32)(MyMsg_DATA) {
 
 		if packet.my.Tcpmode > 0 {
-			f := &Frame{}
+			f := &frame.Frame{}
 			err := proto.Unmarshal(packet.my.Data, f)
 			if err != nil {
 				loggo.Error("Unmarshal tcp Error %s", err)
@@ -285,9 +286,9 @@ func (p *Server) RecvTCP(conn *ServerConn, id string, src *net.IPAddr) {
 			break
 		}
 		conn.fm.Update()
-		sendlist := conn.fm.getSendList()
+		sendlist := conn.fm.GetSendList()
 		for e := sendlist.Front(); e != nil; e = e.Next() {
-			f := e.Value.(*Frame)
+			f := e.Value.(*frame.Frame)
 			mb, _ := conn.fm.MarshalFrame(f)
 			sendICMP(p.echoId, p.echoSeq, *p.conn, src, "", id, (uint32)(MyMsg_DATA), mb,
 				conn.rproto, -1, p.key,
@@ -341,12 +342,12 @@ func (p *Server) RecvTCP(conn *ServerConn, id string, src *net.IPAddr) {
 
 		conn.fm.Update()
 
-		sendlist := conn.fm.getSendList()
+		sendlist := conn.fm.GetSendList()
 		if sendlist.Len() > 0 {
 			sleep = false
 			conn.activeSendTime = now
 			for e := sendlist.Front(); e != nil; e = e.Next() {
-				f := e.Value.(*Frame)
+				f := e.Value.(*frame.Frame)
 				mb, err := conn.fm.MarshalFrame(f)
 				if err != nil {
 					loggo.Error("Error tcp Marshal %s %s %s", conn.id, conn.tcpaddrTarget.String(), err)
@@ -408,9 +409,9 @@ func (p *Server) RecvTCP(conn *ServerConn, id string, src *net.IPAddr) {
 
 		conn.fm.Update()
 
-		sendlist := conn.fm.getSendList()
+		sendlist := conn.fm.GetSendList()
 		for e := sendlist.Front(); e != nil; e = e.Next() {
-			f := e.Value.(*Frame)
+			f := e.Value.(*frame.Frame)
 			mb, _ := conn.fm.MarshalFrame(f)
 			sendICMP(p.echoId, p.echoSeq, *p.conn, src, "", id, (uint32)(MyMsg_DATA), mb,
 				conn.rproto, -1, p.key,
