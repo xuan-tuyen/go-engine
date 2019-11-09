@@ -208,7 +208,7 @@ func (p *Server) processDataPacketNewConn(id string, packet *Packet) *ServerConn
 
 		c, err := net.DialTimeout("udp", addr, time.Millisecond*time.Duration(p.connecttmeout))
 		if err != nil {
-			loggo.Error("Error listening for tcp packets: %s %s", id, err.Error())
+			loggo.Error("Error listening for udp packets: %s %s", id, err.Error())
 			p.remoteError(id, (int)(packet.my.Rproto), packet.src)
 			p.addConnError(addr)
 			return nil
@@ -403,6 +403,8 @@ func (p *Server) RecvTCP(conn *ServerConn, id string, src *net.IPAddr) {
 		}
 	}
 
+	conn.fm.Close()
+
 	startCloseTime := common.GetNowUpdateInSecond()
 	for !p.exit && !conn.exit {
 		now := common.GetNowUpdateInSecond()
@@ -460,8 +462,9 @@ func (p *Server) Recv(conn *ServerConn, id string, src *net.IPAddr) {
 
 	loggo.Info("server waiting target response %s -> %s %s", conn.ipaddrTarget.String(), conn.id, conn.conn.LocalAddr().String())
 
+	bytes := make([]byte, 2000)
+
 	for !p.exit {
-		bytes := make([]byte, 2000)
 
 		conn.conn.SetReadDeadline(time.Now().Add(time.Millisecond * 100))
 		n, _, err := conn.conn.ReadFromUDP(bytes)
