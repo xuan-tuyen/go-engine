@@ -2,14 +2,25 @@
 go语言开发通用代码库
 
 ## 内容
+### 基本
 * 日志
 * 循环数组
 * 有锁链表
-* tcp网络(TODO)
-* DHT爬虫
+* 线程池
+* 内存池
+### 环境
+* nodejs
+* SHELL
+### 算法
 * 德州扑克算法
-* nodejs执行环境
+* 可靠帧控制
+### 模块
+* DHT爬虫
 * 网页爬虫
+* ICMP隧道
+* 可靠UDP
+### 第三方
+* IP查询
 
 ## 依赖
 * 设置GOPATH ``export GOPATH=$HOME/go``
