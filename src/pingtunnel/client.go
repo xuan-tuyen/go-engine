@@ -436,6 +436,8 @@ func (p *Client) AcceptTcpConn(conn *net.TCPConn, targetAddr string) {
 		}
 	}
 
+	clientConn.fm.Close()
+
 	startCloseTime := common.GetNowUpdateInSecond()
 	for !p.exit && !clientConn.exit {
 		now := common.GetNowUpdateInSecond()
