@@ -14,7 +14,7 @@ func Dail(targetAddr string, cc *ConnConfig) (*Conn, error) {
 	if cc == nil {
 		cc = &ConnConfig{}
 	}
-	cc.check()
+	cc.Check()
 
 	conn := &Conn{}
 
@@ -71,6 +71,7 @@ func Dail(targetAddr string, cc *ConnConfig) (*Conn, error) {
 	}
 
 	conn.localAddr = conn.conn.LocalAddr().String()
+	conn.inited = true
 
 	go conn.updateClient()
 

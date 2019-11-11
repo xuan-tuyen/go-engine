@@ -1,6 +1,18 @@
 package common
 
-import "hash/fnv"
+import (
+	"crypto/rand"
+	"encoding/base64"
+	"hash/fnv"
+	"io"
+	mrand "math/rand"
+	"sync"
+	"time"
+)
+
+var mathinited bool
+var gmathlock sync.Mutex
+var gseededRand *mrand.Rand
 
 func MinOfInt(vars ...int) int {
 	min := vars[0]
@@ -75,4 +87,34 @@ func HashString(s string) uint32 {
 	h := fnv.New32a()
 	h.Write([]byte(s))
 	return h.Sum32()
+}
+
+func UniqueId() string {
+	b := make([]byte, 48)
+
+	if _, err := io.ReadFull(rand.Reader, b); err != nil {
+		return ""
+	}
+	return GetMd5String(base64.URLEncoding.EncodeToString(b))
+}
+
+func Int31n(n int) int32 {
+	checkMathInit()
+	ret := gseededRand.Int31n((int32)(n))
+	return int32(ret)
+}
+
+func checkMathInit() {
+	if !mathinited {
+		defer gmathlock.Unlock()
+		gmathlock.Lock()
+		if !mathinited {
+			mathinited = true
+			mathInit()
+		}
+	}
+}
+
+func mathInit() {
+	gseededRand = mrand.New(mrand.NewSource(time.Now().UnixNano()))
 }

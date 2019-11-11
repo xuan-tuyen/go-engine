@@ -1,16 +1,11 @@
 package pingtunnel
 
 import (
-	"crypto/md5"
-	"crypto/rand"
-	"encoding/base64"
 	"encoding/binary"
-	"encoding/hex"
 	"github.com/esrrhs/go-engine/src/loggo"
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
-	"io"
 	"net"
 	"sync"
 	"time"
@@ -113,21 +108,6 @@ type Packet struct {
 	src     *net.IPAddr
 	echoId  int
 	echoSeq int
-}
-
-func UniqueId() string {
-	b := make([]byte, 48)
-
-	if _, err := io.ReadFull(rand.Reader, b); err != nil {
-		return ""
-	}
-	return GetMd5String(base64.URLEncoding.EncodeToString(b))
-}
-
-func GetMd5String(s string) string {
-	h := md5.New()
-	h.Write([]byte(s))
-	return hex.EncodeToString(h.Sum(nil))
 }
 
 const (

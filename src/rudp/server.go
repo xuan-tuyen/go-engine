@@ -13,7 +13,7 @@ func Listen(addr string, cc *ConnConfig) (*Conn, error) {
 	if cc == nil {
 		cc = &ConnConfig{}
 	}
-	cc.check()
+	cc.Check()
 
 	ipaddr, err := net.ResolveUDPAddr("udp", addr)
 	if err != nil {
@@ -32,6 +32,7 @@ func Listen(addr string, cc *ConnConfig) (*Conn, error) {
 	conn.config = *cc
 	conn.conn = listener
 	conn.localAddr = addr
+	conn.inited = true
 	conn.waitAccept = make(chan *Conn, cc.Backlog)
 
 	go conn.updateListener(cc)
@@ -69,6 +70,7 @@ func (conn *Conn) updateListener(cc *ConnConfig) {
 			clientConn.localAddr = conn.localAddr
 			clientConn.remoteAddr = srcaddr.String()
 			clientConn.conn = conn.conn
+			clientConn.inited = true
 
 			fm := frame.NewFrameMgr(RUDP_MAX_SIZE, RUDP_MAX_ID, conn.config.BufferSize, conn.config.MaxWin, conn.config.ResendTimems, conn.config.Compress, conn.config.Stat)
 			clientConn.fm = fm

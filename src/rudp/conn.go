@@ -25,7 +25,7 @@ type ConnConfig struct {
 	ConnectTimeoutMs int
 }
 
-func (cc *ConnConfig) check() {
+func (cc *ConnConfig) Check() {
 	if cc.BufferSize == 0 {
 		cc.BufferSize = 1024 * 1024
 	}
@@ -49,6 +49,7 @@ func (cc *ConnConfig) check() {
 type Conn struct {
 	isListener bool
 	config     ConnConfig
+	inited     bool
 	exit       bool
 	localAddr  string
 	remoteAddr string
@@ -71,6 +72,10 @@ func (conn *Conn) Close() {
 	conn.exit = true
 	conn.workResultLock.Wait()
 	conn.conn.Close()
+}
+
+func (conn *Conn) IsConnected() bool {
+	return !conn.exit && conn.inited
 }
 
 func (conn *Conn) Write(bytes []byte) (bool, error) {
