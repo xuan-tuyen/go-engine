@@ -1,0 +1,50 @@
+syntax = "proto3";
+option go_package = "evilnet";
+
+message EvilNetReqRegMsg {
+  string key = 1;
+  string name = 2;
+  string localaddr = 3;
+}
+
+message EvilNetRspRegMsg {
+  string key = 1;
+  string fathername = 2;
+  string newname = 3;
+  string localaddr = 4;
+  string globaladdr = 5;
+}
+
+message EvilNetRouterMsg {
+  string src = 1;
+  string dst = 2;
+  bytes newname = 3;
+}
+
+message EvilNetReqConnMsg {
+  string key = 1;
+  string proto = 2;
+}
+
+message EvilNetRspConnMsg {
+  string key = 1;
+  string proto = 2;
+  string result = 3;
+}
+
+message EvilNetMsg {
+  enum TYPE {
+    REQREG = 0;
+    RSPREG = 1;
+    ROUTER = 2;
+    REQCONN = 3;
+    RSPCONN = 4;
+  }
+
+  int32 type = 1;
+  EvilNetReqRegMsg reqRegMsg = 2;
+  EvilNetRspRegMsg rspRegMsg = 3;
+  EvilNetRouterMsg routerMsg = 4;
+  EvilNetReqConnMsg reqConnMsg = 5;
+  EvilNetRspConnMsg rspConnMsg = 6;
+}

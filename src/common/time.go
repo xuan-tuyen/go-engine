@@ -5,18 +5,28 @@ import (
 	"time"
 )
 
-var inited bool
+var timeinited bool
 var gnowsecond time.Time
-var gnowlock sync.Mutex
+var gtimelock sync.Mutex
 
 func GetNowUpdateInSecond() time.Time {
-	if !inited {
-		defer gnowlock.Unlock()
-		gnowlock.Lock()
-		inited = true
-		go updateNowInSecond()
-	}
+	checkTimeInit()
 	return gnowsecond
+}
+
+func checkTimeInit() {
+	if !timeinited {
+		defer gtimelock.Unlock()
+		gtimelock.Lock()
+		if !timeinited {
+			timeinited = true
+			timeInit()
+		}
+	}
+}
+
+func timeInit() {
+	go updateNowInSecond()
 }
 
 func updateNowInSecond() {
