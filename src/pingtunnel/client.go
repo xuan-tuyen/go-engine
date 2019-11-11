@@ -518,7 +518,7 @@ func (p *Client) Accept() error {
 				loggo.Info("too many connections %d, client accept new local udp fail %s", p.localIdToConnMapSize, srcaddr.String())
 				continue
 			}
-			uuid := UniqueId()
+			uuid := common.UniqueId()
 			clientConn = &ClientConn{exit: false, ipaddr: srcaddr, id: uuid, activeRecvTime: now, activeSendTime: now, close: false}
 			p.addClientConn(uuid, srcaddr.String(), clientConn)
 			loggo.Info("client accept new local udp %s %s", uuid, srcaddr.String())
