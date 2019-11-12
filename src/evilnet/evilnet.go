@@ -33,9 +33,6 @@ func (evc *EvilNetConfig) Check() {
 	if len(evc.Name) <= 0 {
 		evc.Name = common.RandStr(6)
 	}
-	if evc.Listenport <= 0 {
-		evc.Listenport = 5566
-	}
 	if evc.RegFatherInterSec <= 0 {
 		evc.RegFatherInterSec = 60
 	}
