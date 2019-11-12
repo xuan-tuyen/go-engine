@@ -66,6 +66,16 @@ type Conn struct {
 
 	localAddrToConnMap sync.Map
 	waitAccept         chan *Conn
+
+	userdata interface{}
+}
+
+func (conn *Conn) RemoteAddr() string {
+	return conn.remoteAddr
+}
+
+func (conn *Conn) LocalAddr() string {
+	return conn.localAddr
 }
 
 func (conn *Conn) Close() {
@@ -78,33 +88,48 @@ func (conn *Conn) IsConnected() bool {
 	return !conn.exit && conn.inited
 }
 
-func (conn *Conn) Write(bytes []byte) (bool, error) {
+func (conn *Conn) SetUserData(userdata interface{}) {
+	conn.userdata = userdata
+}
+
+func (conn *Conn) UserData() interface{} {
+	return conn.userdata
+}
+
+func (conn *Conn) Write(bytes []byte) (int, error) {
 
 	if conn.exit {
-		return false, errors.New("write on closed conn " + conn.localAddr + "->" + conn.remoteAddr)
+		return 0, errors.New("write on closed conn " + conn.localAddr + "->" + conn.remoteAddr)
 	}
 
-	if len(bytes) > conn.fm.GetSendBufferLeft() {
-		return false, nil
+	size := len(bytes)
+	if size > conn.fm.GetSendBufferLeft() {
+		size = conn.fm.GetSendBufferLeft()
+	}
+
+	if size <= 0 {
+		return 0, nil
 	}
 
 	conn.rudpActiveSendTime = common.GetNowUpdateInSecond()
-	conn.fm.WriteSendBuffer(bytes)
-	return true, nil
+	conn.fm.WriteSendBuffer(bytes[0:size])
+	return size, nil
 }
 
-func (conn *Conn) Read() ([]byte, error) {
+func (conn *Conn) Read(bytes []byte) (int, error) {
 
 	if conn.exit {
-		return nil, errors.New("read on closed conn " + conn.localAddr + "->" + conn.remoteAddr)
+		return 0, errors.New("read on closed conn " + conn.localAddr + "->" + conn.remoteAddr)
 	}
 
 	if conn.fm.GetRecvBufferSize() <= 0 {
-		return nil, nil
+		return 0, nil
 	}
 
 	conn.rudpActiveRecvTime = common.GetNowUpdateInSecond()
-	return conn.fm.GetRecvReadLineBuffer(), nil
+	size := copy(bytes, conn.fm.GetRecvReadLineBuffer())
+	conn.fm.SkipRecvBuffer(size)
+	return size, nil
 }
 
 func (conn *Conn) addClientConn(addr string, c *Conn) {
