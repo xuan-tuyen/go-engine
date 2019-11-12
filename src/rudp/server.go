@@ -81,8 +81,10 @@ func (conn *Conn) updateListener(cc *ConnConfig) {
 		} else {
 			conn.activeRecvTime = common.GetNowUpdateInSecond()
 			f := &frame.Frame{}
-			proto.Unmarshal(bytes[0:n], f)
-			clientConn.fm.OnRecvFrame(f)
+			err := proto.Unmarshal(bytes[0:n], f)
+			if err == nil {
+				clientConn.fm.OnRecvFrame(f)
+			}
 		}
 	}
 }

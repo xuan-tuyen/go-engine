@@ -55,8 +55,10 @@ func Dail(targetAddr string, cc *ConnConfig) (*Conn, error) {
 		n, _ := conn.conn.Read(bytes)
 		if n > 0 {
 			f := &frame.Frame{}
-			proto.Unmarshal(bytes[0:n], f)
-			fm.OnRecvFrame(f)
+			err := proto.Unmarshal(bytes[0:n], f)
+			if err == nil {
+				fm.OnRecvFrame(f)
+			}
 		}
 
 		// timeout
@@ -117,8 +119,10 @@ func (conn *Conn) updateClient() {
 		if n > 0 {
 			conn.activeRecvTime = now
 			f := &frame.Frame{}
-			proto.Unmarshal(bytes[0:n], f)
-			conn.fm.OnRecvFrame(f)
+			err := proto.Unmarshal(bytes[0:n], f)
+			if err == nil {
+				conn.fm.OnRecvFrame(f)
+			}
 		}
 
 		// timeout
@@ -166,8 +170,10 @@ func (conn *Conn) updateClient() {
 		n, _ := conn.conn.Read(bytes)
 		if n > 0 {
 			f := &frame.Frame{}
-			proto.Unmarshal(bytes[0:n], f)
-			conn.fm.OnRecvFrame(f)
+			err := proto.Unmarshal(bytes[0:n], f)
+			if err == nil {
+				conn.fm.OnRecvFrame(f)
+			}
 		}
 
 		diffclose := now.Sub(startCloseTime)

@@ -25,8 +25,11 @@ func Test0001(t *testing.T) {
 
 	c.Write([]byte("123123123123"))
 	time.Sleep(time.Second)
-	str, err := conn.Read()
-	fmt.Println(string(str))
+
+	tmp := make([]byte, 19)
+	n, err := conn.Read(tmp)
+	fmt.Println(n)
+	fmt.Println(string(tmp))
 
 	lis.Close()
 	conn.Close()
