@@ -5,7 +5,6 @@ import (
 	"github.com/esrrhs/go-engine/src/msgmgr"
 	"github.com/esrrhs/go-engine/src/rudp"
 	"github.com/golang/protobuf/proto"
-	"strconv"
 )
 
 func (ev *EvilNet) processFather(enm *EvilNetMsg) {
@@ -33,9 +32,9 @@ func (ev *EvilNet) regFather() {
 	evm.ReqRegMsg = &EvilNetReqRegMsg{}
 	evm.ReqRegMsg.Name = ev.config.Name
 	evm.ReqRegMsg.Key = ev.regkey
-	evm.ReqRegMsg.Localaddr = ev.localip + ":" + strconv.Itoa(ev.config.Listenport)
+	evm.ReqRegMsg.Localaddr = ev.father.LocalAddr()
 
-	loggo.Info("reg to father %s %s", evm.ReqRegMsg.Localaddr, ev.father)
+	loggo.Info("reg to father %s %s", evm.ReqRegMsg.Localaddr, ev.config.Fatheraddr)
 
 	mb, _ := proto.Marshal(&evm)
 

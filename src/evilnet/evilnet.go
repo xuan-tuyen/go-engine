@@ -134,7 +134,7 @@ func (ev *EvilNet) updateFather() {
 			ev.father.SetUserData(msgmgr.NewMsgMgr(MSG_MAX_SIZE, CONN_MSG_BUFFER_SIZE, CONN_MSG_LIST_SIZE))
 			needReg = true
 
-			loggo.Info("connect father ok %s", ev.father)
+			loggo.Info("connect father ok %s", ev.config.Fatheraddr)
 		}
 
 		// reg inter
