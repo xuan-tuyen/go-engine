@@ -31,8 +31,8 @@ func Test0001(t *testing.T) {
 	fmt.Println(n)
 	fmt.Println(string(tmp))
 
-	lis.Close()
-	conn.Close()
+	conn.Close(false)
+	lis.Close(false)
 	fmt.Println("done ")
 
 }
