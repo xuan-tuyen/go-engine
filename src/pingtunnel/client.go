@@ -217,6 +217,8 @@ func (p *Client) Run() error {
 	go recvICMP(&p.workResultLock, &p.exit, *p.conn, recv)
 
 	go func() {
+		defer common.CrashLog()
+
 		p.workResultLock.Add(1)
 		defer p.workResultLock.Done()
 
@@ -229,6 +231,8 @@ func (p *Client) Run() error {
 	}()
 
 	go func() {
+		defer common.CrashLog()
+
 		p.workResultLock.Add(1)
 		defer p.workResultLock.Done()
 
@@ -260,6 +264,8 @@ func (p *Client) Stop() {
 
 func (p *Client) AcceptTcp() error {
 
+	defer common.CrashLog()
+
 	p.workResultLock.Add(1)
 	defer p.workResultLock.Done()
 
@@ -289,6 +295,8 @@ func (p *Client) AcceptTcp() error {
 }
 
 func (p *Client) AcceptTcpConn(conn *net.TCPConn, targetAddr string) {
+
+	defer common.CrashLog()
 
 	p.workResultLock.Add(1)
 	defer p.workResultLock.Done()
@@ -490,6 +498,8 @@ func (p *Client) AcceptTcpConn(conn *net.TCPConn, targetAddr string) {
 
 func (p *Client) Accept() error {
 
+	defer common.CrashLog()
+
 	p.workResultLock.Add(1)
 	defer p.workResultLock.Done()
 
@@ -679,6 +689,8 @@ func (p *Client) showNet() {
 
 func (p *Client) AcceptSock5Conn(conn *net.TCPConn) {
 
+	defer common.CrashLog()
+
 	p.workResultLock.Add(1)
 	defer p.workResultLock.Done()
 
@@ -752,6 +764,8 @@ func (p *Client) remoteError(uuid string) {
 }
 
 func (p *Client) AcceptDirectTcpConn(conn *net.TCPConn, targetAddr string) {
+
+	defer common.CrashLog()
 
 	p.workResultLock.Add(1)
 	defer p.workResultLock.Done()

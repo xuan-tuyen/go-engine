@@ -82,6 +82,8 @@ func Dail(targetAddr string, cc *ConnConfig) (*Conn, error) {
 
 func (conn *Conn) updateClient() {
 
+	defer common.CrashLog()
+
 	conn.workResultLock.Add(1)
 	defer conn.workResultLock.Done()
 

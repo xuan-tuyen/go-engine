@@ -41,6 +41,8 @@ func (tp *ThreadPool) Stop() {
 }
 
 func (tp *ThreadPool) run(index int) {
+	defer common.CrashLog()
+
 	tp.workResultLock.Add(1)
 	defer tp.workResultLock.Done()
 

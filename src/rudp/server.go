@@ -42,6 +42,8 @@ func Listen(addr string, cc *ConnConfig) (*Conn, error) {
 
 func (conn *Conn) updateListener(cc *ConnConfig) {
 
+	defer common.CrashLog()
+
 	conn.workResultLock.Add(1)
 	defer conn.workResultLock.Done()
 
@@ -90,6 +92,8 @@ func (conn *Conn) updateListener(cc *ConnConfig) {
 }
 
 func (conn *Conn) accept(c *Conn, addr *net.UDPAddr, cc *ConnConfig) {
+	defer common.CrashLog()
+
 	conn.workResultLock.Add(1)
 	defer conn.workResultLock.Done()
 
@@ -155,6 +159,8 @@ func (conn *Conn) Accept(timeoutms int) *Conn {
 }
 
 func (conn *Conn) updateServer(fconn *Conn, addr *net.UDPAddr) {
+	defer common.CrashLog()
+
 	fconn.workResultLock.Add(1)
 	defer fconn.workResultLock.Done()
 

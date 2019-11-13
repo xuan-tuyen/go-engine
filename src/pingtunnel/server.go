@@ -89,6 +89,8 @@ func (p *Server) Run() error {
 	go recvICMP(&p.workResultLock, &p.exit, *p.conn, recv)
 
 	go func() {
+		defer common.CrashLog()
+
 		p.workResultLock.Add(1)
 		defer p.workResultLock.Done()
 
@@ -101,6 +103,8 @@ func (p *Server) Run() error {
 	}()
 
 	go func() {
+		defer common.CrashLog()
+
 		p.workResultLock.Add(1)
 		defer p.workResultLock.Done()
 
@@ -273,6 +277,8 @@ func (p *Server) processDataPacket(packet *Packet) {
 }
 
 func (p *Server) RecvTCP(conn *ServerConn, id string, src *net.IPAddr) {
+
+	defer common.CrashLog()
 
 	p.workResultLock.Add(1)
 	defer p.workResultLock.Done()
@@ -456,6 +462,8 @@ func (p *Server) RecvTCP(conn *ServerConn, id string, src *net.IPAddr) {
 }
 
 func (p *Server) Recv(conn *ServerConn, id string, src *net.IPAddr) {
+
+	defer common.CrashLog()
 
 	p.workResultLock.Add(1)
 	defer p.workResultLock.Done()
