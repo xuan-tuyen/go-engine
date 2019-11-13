@@ -19,8 +19,9 @@ type EvilNetConfig struct {
 
 	RegFatherInterSec int
 
-	Key       string
-	FatherKey string
+	Key        string
+	FatherKey  string
+	ConnectKey string
 
 	Rudpconfig rudp.ConnConfig
 }
@@ -29,8 +30,11 @@ func (evc *EvilNetConfig) Check() {
 	if len(evc.Name) <= 0 {
 		evc.Name = common.RandStr(6)
 	}
+	if len(evc.ConnectKey) <= 0 {
+		evc.ConnectKey = common.RandStr(16)
+	}
 	if evc.RegFatherInterSec <= 0 {
-		evc.RegFatherInterSec = 60
+		evc.RegFatherInterSec = 10
 	}
 	evc.Rudpconfig.Check()
 }
@@ -91,6 +95,8 @@ func (ev *EvilNet) Stop() {
 func (ev *EvilNet) Run() error {
 	addr := ev.localip + ":" + strconv.Itoa(ev.config.Listenport)
 	loggo.Info("start run at %s", addr)
+
+	ev.globalname = ev.config.Name
 
 	if ev.config.Listenport > 0 {
 		conn, err := rudp.Listen(addr, &ev.config.Rudpconfig)
