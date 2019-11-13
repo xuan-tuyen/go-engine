@@ -105,6 +105,8 @@ func (ev *EvilNet) Run() error {
 
 func (ev *EvilNet) updateFather() {
 
+	defer common.CrashLog()
+
 	ev.workResultLock.Add(1)
 	defer ev.workResultLock.Done()
 
@@ -179,6 +181,8 @@ func (ev *EvilNet) updateFather() {
 
 func (ev *EvilNet) updateSon() {
 
+	defer common.CrashLog()
+
 	ev.workResultLock.Add(1)
 	defer ev.workResultLock.Done()
 
@@ -191,6 +195,8 @@ func (ev *EvilNet) updateSon() {
 }
 
 func (ev *EvilNet) updateSonConn(conn *rudp.Conn) {
+
+	defer common.CrashLog()
 
 	ev.workResultLock.Add(1)
 	defer ev.workResultLock.Done()

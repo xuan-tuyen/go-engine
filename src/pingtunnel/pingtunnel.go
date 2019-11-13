@@ -2,6 +2,7 @@ package pingtunnel
 
 import (
 	"encoding/binary"
+	"github.com/esrrhs/go-engine/src/common"
 	"github.com/esrrhs/go-engine/src/loggo"
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/icmp"
@@ -61,6 +62,8 @@ func sendICMP(id int, sequence int, conn icmp.PacketConn, server *net.IPAddr, ta
 }
 
 func recvICMP(workResultLock *sync.WaitGroup, exit *bool, conn icmp.PacketConn, recv chan<- *Packet) {
+
+	defer common.CrashLog()
 
 	(*workResultLock).Add(1)
 	defer (*workResultLock).Done()
