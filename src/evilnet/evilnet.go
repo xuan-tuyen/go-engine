@@ -86,18 +86,18 @@ func (ev *EvilNet) Run() error {
 	addr := ev.localip + ":" + strconv.Itoa(ev.config.Listenport)
 	loggo.Info("start run at %s", addr)
 
-	conn, err := rudp.Listen(addr, &ev.config.Rudpconfig)
-	if err != nil {
-		return err
+	if ev.config.Listenport > 0 {
+		conn, err := rudp.Listen(addr, &ev.config.Rudpconfig)
+		if err != nil {
+			return err
+		}
+		ev.son = conn
+
+		go ev.updateSon()
 	}
-	ev.son = conn
 
 	if len(ev.config.Fatheraddr) > 0 {
 		go ev.updateFather()
-	}
-
-	if ev.config.Listenport > 0 {
-		go ev.updateSon()
 	}
 
 	return nil
@@ -120,7 +120,7 @@ func (ev *EvilNet) updateFather() {
 		// connect
 		if ev.father == nil || !ev.father.IsConnected() {
 
-			loggo.Info("start connect father %s", ev.father)
+			loggo.Info("start connect father %s", ev.config.Fatheraddr)
 
 			conn, err := rudp.Dail(ev.config.Fatheraddr, &ev.config.Rudpconfig)
 			if err != nil {
