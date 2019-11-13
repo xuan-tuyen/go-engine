@@ -18,6 +18,14 @@ func (ev *EvilNet) processFather(enm *EvilNetMsg) {
 func (ev *EvilNet) processFatherRspReg(enm *EvilNetMsg) {
 	loggo.Info("process father rsp reg msg %s", enm.RspRegMsg.String())
 
+	if enm.RspRegMsg.Result == "ok" {
+		if enm.RspRegMsg.Sonkey == ev.config.Key {
+			ev.globalname = enm.RspRegMsg.Newname
+			ev.globaladdr = enm.RspRegMsg.Globaladdr
+		}
+	} else {
+		ev.father.Close()
+	}
 }
 
 func (ev *EvilNet) process(enm *EvilNetMsg) {
@@ -31,7 +39,8 @@ func (ev *EvilNet) regFather() {
 	evm.Type = int32(EvilNetMsg_REQREG)
 	evm.ReqRegMsg = &EvilNetReqRegMsg{}
 	evm.ReqRegMsg.Name = ev.config.Name
-	evm.ReqRegMsg.Key = ev.regkey
+	evm.ReqRegMsg.Key = ev.config.FatherKey
+	evm.ReqRegMsg.Sonkey = ev.config.Key
 	evm.ReqRegMsg.Localaddr = ev.father.LocalAddr()
 
 	loggo.Info("reg to father %s %s", evm.ReqRegMsg.Localaddr, ev.config.Fatheraddr)
@@ -53,4 +62,41 @@ func (ev *EvilNet) processSon(conn *rudp.Conn, enm *EvilNetMsg) {
 func (ev *EvilNet) processFatherReqReg(conn *rudp.Conn, enm *EvilNetMsg) {
 	loggo.Info("process father req reg msg %s %s", conn.RemoteAddr(), enm.ReqRegMsg.String())
 
+	evm := EvilNetMsg{}
+	evm.Type = int32(EvilNetMsg_RSPREG)
+	evm.RspRegMsg = &EvilNetRspRegMsg{}
+
+	if enm.ReqRegMsg.Key != ev.config.Key {
+		evm.RspRegMsg.Result = "key error"
+	} else {
+		son := ev.getSonConn(enm.ReqRegMsg.Name)
+		if son != nil {
+			if son.sonkey != enm.ReqRegMsg.Sonkey {
+				evm.RspRegMsg.Result = "son key error"
+			} else {
+				if son.conn != conn {
+					son.conn.Close()
+					son.conn = conn
+				}
+				evm.RspRegMsg.Result = "ok"
+			}
+		} else {
+			evm.RspRegMsg.Result = "ok"
+		}
+	}
+
+	if evm.RspRegMsg.Result == "ok" {
+		evm.RspRegMsg.Fathername = ev.config.Name
+		evm.RspRegMsg.Localaddr = enm.ReqRegMsg.Localaddr
+		evm.RspRegMsg.Sonkey = enm.ReqRegMsg.Sonkey
+		evm.RspRegMsg.Globaladdr = conn.RemoteAddr()
+		evm.RspRegMsg.Newname = ev.config.Name + "." + enm.ReqRegMsg.Name
+	}
+
+	loggo.Info("rsp to son %s %s %s", ev.config.Fatheraddr, evm.RspRegMsg.Globaladdr, enm.ReqRegMsg.String())
+
+	mb, _ := proto.Marshal(&evm)
+
+	mm := conn.UserData().(*msgmgr.MsgMgr)
+	mm.Send(mb)
 }

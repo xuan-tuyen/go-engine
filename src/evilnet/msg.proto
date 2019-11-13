@@ -3,16 +3,18 @@ option go_package = "evilnet";
 
 message EvilNetReqRegMsg {
   string key = 1;
-  string name = 2;
-  string localaddr = 3;
+  string sonkey = 2;
+  string name = 3;
+  string localaddr = 4;
 }
 
 message EvilNetRspRegMsg {
-  string key = 1;
+  string sonkey = 1;
   string fathername = 2;
   string newname = 3;
   string localaddr = 4;
   string globaladdr = 5;
+  string result = 6;
 }
 
 message EvilNetRouterMsg {
