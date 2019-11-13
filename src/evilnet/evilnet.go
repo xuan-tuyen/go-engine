@@ -6,7 +6,6 @@ import (
 	"github.com/esrrhs/go-engine/src/msgmgr"
 	"github.com/esrrhs/go-engine/src/rudp"
 	"github.com/golang/protobuf/proto"
-	"math"
 	"strconv"
 	"sync"
 	"time"
@@ -20,14 +19,11 @@ type EvilNetConfig struct {
 
 	RegFatherInterSec int
 
+	Key       string
+	FatherKey string
+
 	Rudpconfig rudp.ConnConfig
 }
-
-const (
-	MSG_MAX_SIZE         int = math.MaxInt16
-	CONN_MSG_BUFFER_SIZE int = 100 * 1024
-	CONN_MSG_LIST_SIZE   int = 100
-)
 
 func (evc *EvilNetConfig) Check() {
 	if len(evc.Name) <= 0 {
@@ -48,9 +44,19 @@ type EvilNet struct {
 	localip string
 
 	father *rudp.Conn
-	regkey string
 
-	son *rudp.Conn
+	globalname string
+	globaladdr string
+
+	son        *rudp.Conn
+	sonConnMap sync.Map
+}
+
+type EvilNetSon struct {
+	conn      *rudp.Conn
+	localaddr string
+	sonkey    string
+	name      string
 }
 
 func NewEvilNet(config *EvilNetConfig) *EvilNet {
@@ -71,7 +77,6 @@ func NewEvilNet(config *EvilNetConfig) *EvilNet {
 		config:  config,
 		uuid:    uuid,
 		localip: ip.String(),
-		regkey:  common.RandStr(16),
 	}
 
 	return ret
@@ -131,7 +136,9 @@ func (ev *EvilNet) updateFather() {
 				continue
 			}
 			ev.father = conn
-			ev.father.SetUserData(msgmgr.NewMsgMgr(MSG_MAX_SIZE, CONN_MSG_BUFFER_SIZE, CONN_MSG_LIST_SIZE))
+			ef := encrypt
+			df := decrypt
+			ev.father.SetUserData(msgmgr.NewMsgMgr(MSG_MAX_SIZE, CONN_MSG_BUFFER_SIZE, CONN_MSG_LIST_SIZE, &ef, &df))
 			needReg = true
 
 			loggo.Info("connect father ok %s", ev.config.Fatheraddr)
@@ -203,7 +210,9 @@ func (ev *EvilNet) updateSonConn(conn *rudp.Conn) {
 	ev.workResultLock.Add(1)
 	defer ev.workResultLock.Done()
 
-	conn.SetUserData(msgmgr.NewMsgMgr(MSG_MAX_SIZE, CONN_MSG_BUFFER_SIZE, CONN_MSG_LIST_SIZE))
+	ef := encrypt
+	df := decrypt
+	conn.SetUserData(msgmgr.NewMsgMgr(MSG_MAX_SIZE, CONN_MSG_BUFFER_SIZE, CONN_MSG_LIST_SIZE, &ef, &df))
 
 	bytes := make([]byte, 2000)
 
@@ -250,4 +259,20 @@ func (ev *EvilNet) updateSonConn(conn *rudp.Conn) {
 	}
 
 	conn.Close()
+}
+
+func (ev *EvilNet) addSonConn(name string, conn *EvilNetSon) {
+	ev.sonConnMap.Store(name, conn)
+}
+
+func (ev *EvilNet) getSonConn(name string) *EvilNetSon {
+	ret, ok := ev.sonConnMap.Load(name)
+	if !ok {
+		return nil
+	}
+	return ret.(*EvilNetSon)
+}
+
+func (ev *EvilNet) deleteSonConn(name string) {
+	ev.sonConnMap.Delete(name)
 }

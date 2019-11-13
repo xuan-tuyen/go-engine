@@ -1,14 +1,11 @@
 package frame
 
 import (
-	"bytes"
-	"compress/zlib"
 	"container/list"
 	"github.com/esrrhs/go-engine/src/common"
 	"github.com/esrrhs/go-engine/src/loggo"
 	"github.com/esrrhs/go-engine/src/rbuffergo"
 	"github.com/golang/protobuf/proto"
-	"io"
 	"strconv"
 	"sync"
 	"time"
@@ -143,7 +140,7 @@ func (fm *FrameMgr) cutSendBufferToWindow(cur int64) {
 		fm.sendb.Read(fd.Data)
 
 		if fm.compress > 0 && len(fd.Data) > fm.compress {
-			newb := fm.compressData(fd.Data)
+			newb := common.CompressData(fd.Data)
 			if len(newb) < len(fd.Data) {
 				fd.Data = newb
 				fd.Compress = true
@@ -169,7 +166,7 @@ func (fm *FrameMgr) cutSendBufferToWindow(cur int64) {
 		fm.sendb.Read(fd.Data)
 
 		if fm.compress > 0 && len(fd.Data) > fm.compress {
-			newb := fm.compressData(fd.Data)
+			newb := common.CompressData(fd.Data)
 			if len(newb) < len(fd.Data) {
 				fd.Data = newb
 				fd.Compress = true
@@ -377,7 +374,7 @@ func (fm *FrameMgr) processRecvFrame(f *Frame) bool {
 		if left >= len(f.Data.Data) {
 			src := f.Data.Data
 			if f.Data.Compress {
-				err, old := fm.deCompressData(src)
+				old, err := common.DeCompressData(src)
 				if err != nil {
 					loggo.Error("recv frame deCompressData error %d", f.Id)
 					return false
@@ -635,26 +632,6 @@ func (fm *FrameMgr) sendConnectRsp() {
 
 	fm.sendwin.PushBack(f)
 	loggo.Debug("send connect rsp")
-}
-
-func (fm *FrameMgr) compressData(src []byte) []byte {
-	var b bytes.Buffer
-	w := zlib.NewWriter(&b)
-	w.Write(src)
-	w.Close()
-	return b.Bytes()
-}
-
-func (fm *FrameMgr) deCompressData(src []byte) (error, []byte) {
-	b := bytes.NewReader(src)
-	r, err := zlib.NewReader(b)
-	if err != nil {
-		return err, nil
-	}
-	var out bytes.Buffer
-	io.Copy(&out, r)
-	r.Close()
-	return nil, out.Bytes()
 }
 
 func (fm *FrameMgr) resetStat() {

@@ -22,9 +22,12 @@ type MsgMgr struct {
 	cachemsgnum int
 	sendl       *list.List
 	recvl       *list.List
+
+	presend  *func([]byte) (bool, []byte)
+	postrecv *func([]byte) (bool, []byte)
 }
 
-func NewMsgMgr(maxmsgsize int, buffersize int, cachemsgnum int) *MsgMgr {
+func NewMsgMgr(maxmsgsize int, buffersize int, cachemsgnum int, presend *func([]byte) (bool, []byte), postrecv *func([]byte) (bool, []byte)) *MsgMgr {
 	var headersize int
 	if maxmsgsize > math.MaxInt16 {
 		headersize = 4
@@ -48,6 +51,8 @@ func NewMsgMgr(maxmsgsize int, buffersize int, cachemsgnum int) *MsgMgr {
 		upbuffer:    rbuffergo.New(buffersize, false),
 		sendl:       list.New(),
 		recvl:       list.New(),
+		presend:     presend,
+		postrecv:    postrecv,
 	}
 }
 
@@ -60,14 +65,34 @@ func (mp *MsgMgr) Send(data []byte) error {
 		return errors.New("data size too big " + strconv.Itoa(len(data)))
 	}
 
+	if mp.presend != nil {
+		ok, newdata := (*mp.presend)(data)
+		if !ok {
+			return errors.New("presend fail " + strconv.Itoa(len(data)))
+		}
+		data = newdata
+	}
+
 	mp.sendl.PushBack(data)
 	return nil
 }
 
 func (mp *MsgMgr) RecvList() *list.List {
+
 	if mp.recvl.Len() > 0 {
-		ret := mp.recvl
-		mp.recvl = list.New()
+		ret := list.New()
+		for e := mp.recvl.Front(); e != nil; e = e.Next() {
+			data := e.Value.([]byte)
+			if mp.postrecv != nil {
+				ok, newdata := (*mp.postrecv)(data)
+				if !ok {
+					continue
+				}
+				data = newdata
+			}
+			ret.PushBack(data)
+		}
+		mp.recvl.Init()
 		return ret
 	}
 	return nil

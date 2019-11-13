@@ -14,4 +14,10 @@ func Test0001(t *testing.T) {
 	fmt.Println(GetOutboundIP())
 
 	fmt.Println(GetNowUpdateInSecond())
+
+	d, _ := Rc4("123456", []byte("asdgdsagdsag435t43321dsgesg"))
+	fmt.Println(string(d))
+
+	d, _ = Rc4("123456", d)
+	fmt.Println(string(d))
 }
