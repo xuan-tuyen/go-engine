@@ -12,4 +12,6 @@ func Test0001(t *testing.T) {
 	fmt.Println(a1)
 
 	fmt.Println(GetOutboundIP())
+
+	fmt.Println(GetNowUpdateInSecond())
 }
