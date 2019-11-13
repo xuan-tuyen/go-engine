@@ -20,6 +20,7 @@ func checkTimeInit() {
 		gtimelock.Lock()
 		if !timeinited {
 			timeinited = true
+			gnowsecond = time.Now()
 			timeInit()
 		}
 	}
