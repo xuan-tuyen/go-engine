@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/zlib"
 	"crypto/rc4"
+	"github.com/google/uuid"
 	"io"
 )
 
@@ -35,4 +36,8 @@ func Rc4(key string, src []byte) ([]byte, error) {
 	dst := make([]byte, len(src))
 	c.XORKeyStream(dst, src)
 	return dst, nil
+}
+
+func Guid() string {
+	return uuid.New().String()
 }

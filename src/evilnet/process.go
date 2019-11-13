@@ -74,7 +74,7 @@ func (ev *EvilNet) processFatherReqReg(conn *rudp.Conn, enm *EvilNetMsg) {
 			if son.sonkey != enm.ReqRegMsg.Sonkey {
 				evm.RspRegMsg.Result = "son key error"
 			} else {
-				if son.conn != conn {
+				if son.conn.Id() != conn.Id() {
 					go son.conn.Close(false)
 					son.conn = conn
 				}

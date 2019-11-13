@@ -34,6 +34,7 @@ func Listen(addr string, cc *ConnConfig) (*Conn, error) {
 	conn.localAddr = addr
 	conn.inited = true
 	conn.waitAccept = make(chan *Conn, cc.Backlog)
+	conn.id = common.Guid()
 
 	go conn.updateListener(cc)
 
@@ -73,6 +74,7 @@ func (conn *Conn) updateListener(cc *ConnConfig) {
 			clientConn.remoteAddr = srcaddr.String()
 			clientConn.conn = conn.conn
 			clientConn.inited = true
+			clientConn.id = common.Guid()
 
 			fm := frame.NewFrameMgr(RUDP_MAX_SIZE, RUDP_MAX_ID, conn.config.BufferSize, conn.config.MaxWin, conn.config.ResendTimems, conn.config.Compress, conn.config.Stat)
 			clientConn.fm = fm
