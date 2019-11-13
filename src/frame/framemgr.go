@@ -57,7 +57,11 @@ type FrameMgr struct {
 	closesend    bool
 
 	lastPingTime int64
+	lastPongTime int64
 	rttns        int64
+
+	lastSendHBTime int64
+	lastRecvHBTime int64
 
 	reqmap map[int32]int64
 
@@ -81,7 +85,9 @@ func NewFrameMgr(frame_max_size int, frame_max_id int, buffersize int, windowsiz
 		sendwin: list.New(), sendlist: list.New(), sendid: 0,
 		recvwin: list.New(), recvlist: list.New(), recvid: 0,
 		close: false, remoteclosed: false, closesend: false,
-		lastPingTime: time.Now().UnixNano(), rttns: (int64)(resend_timems * 1000),
+		lastPingTime: time.Now().UnixNano(), lastPongTime: time.Now().UnixNano(),
+		lastSendHBTime: time.Now().UnixNano(), lastRecvHBTime: time.Now().UnixNano(),
+		rttns:     (int64)(resend_timems * 1000),
 		reqmap:    make(map[int32]int64),
 		connected: false, openstat: openstat, lastPrintStat: time.Now().UnixNano()}
 	if openstat > 0 {
@@ -119,6 +125,7 @@ func (fm *FrameMgr) Update() {
 	fm.calSendList(cur)
 
 	fm.ping()
+	fm.hb()
 
 	fm.printStat(cur)
 }
@@ -406,6 +413,10 @@ func (fm *FrameMgr) processRecvFrame(f *Frame) bool {
 		fm.connected = true
 		loggo.Debug("recv remote conn rsp frame %d", f.Id)
 		return true
+	} else if f.Data.Type == (int32)(FrameData_HB) {
+		fm.lastRecvHBTime = time.Now().UnixNano()
+		loggo.Debug("recv remote hb frame %d", f.Id)
+		return true
 	} else {
 		loggo.Error("recv frame type error %d", f.Data.Type)
 		return false
@@ -529,6 +540,26 @@ func (fm *FrameMgr) ping() {
 	}
 }
 
+func (fm *FrameMgr) hb() {
+	cur := time.Now().UnixNano()
+	if cur-fm.lastSendHBTime > (int64)(time.Second) {
+		fm.lastSendHBTime = cur
+
+		fd := &FrameData{Type: (int32)(FrameData_HB)}
+
+		f := &Frame{Type: (int32)(Frame_DATA),
+			Id:   (int32)(fm.sendid),
+			Data: fd}
+
+		fm.sendid++
+		if fm.sendid >= fm.frame_max_id {
+			fm.sendid = 0
+		}
+
+		fm.sendwin.PushBack(f)
+	}
+}
+
 func (fm *FrameMgr) processPing(f *Frame) {
 	rf := &Frame{Type: (int32)(Frame_PONG), Resend: false, Sendtime: f.Sendtime,
 		Id: 0}
@@ -548,6 +579,7 @@ func (fm *FrameMgr) processPong(f *Frame) {
 		if fm.openstat > 0 {
 			fm.fs.recvpong++
 		}
+		fm.lastPongTime = cur
 		loggo.Debug("recv pong %d %dms", rtt, fm.rttns/1000/1000)
 	}
 }
@@ -695,4 +727,12 @@ func (fm *FrameMgr) MarshalFrame(f *Frame) ([]byte, error) {
 	f.Resend = resend
 	f.Sendtime = sendtime
 	return mb, err
+}
+
+func (fm *FrameMgr) IsHBTimeout(timeoutms int) bool {
+	now := time.Now().UnixNano()
+	if now-fm.lastRecvHBTime > int64(time.Millisecond)*int64(timeoutms) {
+		return true
+	}
+	return false
 }

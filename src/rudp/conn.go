@@ -2,11 +2,9 @@ package rudp
 
 import (
 	"errors"
-	"github.com/esrrhs/go-engine/src/common"
 	"github.com/esrrhs/go-engine/src/frame"
 	"net"
 	"sync"
-	"time"
 )
 
 const (
@@ -20,7 +18,7 @@ type ConnConfig struct {
 	ResendTimems     int
 	Compress         int
 	Stat             int
-	Timeout          int
+	HBTimeoutms      int
 	Backlog          int
 	ConnectTimeoutMs int
 	CloseTimeoutMs   int
@@ -36,8 +34,8 @@ func (cc *ConnConfig) Check() {
 	if cc.ResendTimems == 0 {
 		cc.ResendTimems = 400
 	}
-	if cc.Timeout == 0 {
-		cc.Timeout = 60
+	if cc.HBTimeoutms == 0 {
+		cc.HBTimeoutms = 3000
 	}
 	if cc.Backlog == 0 {
 		cc.Backlog = 100
@@ -58,11 +56,6 @@ type Conn struct {
 	closed     bool
 	localAddr  string
 	remoteAddr string
-
-	activeRecvTime     time.Time
-	activeSendTime     time.Time
-	rudpActiveRecvTime time.Time
-	rudpActiveSendTime time.Time
 
 	conn *net.UDPConn
 	fm   *frame.FrameMgr
@@ -131,7 +124,6 @@ func (conn *Conn) Write(bytes []byte) (int, error) {
 		return 0, nil
 	}
 
-	conn.rudpActiveSendTime = common.GetNowUpdateInSecond()
 	conn.fm.WriteSendBuffer(bytes[0:size])
 	return size, nil
 }
@@ -146,7 +138,6 @@ func (conn *Conn) Read(bytes []byte) (int, error) {
 		return 0, nil
 	}
 
-	conn.rudpActiveRecvTime = common.GetNowUpdateInSecond()
 	size := copy(bytes, conn.fm.GetRecvReadLineBuffer())
 	conn.fm.SkipRecvBuffer(size)
 	return size, nil
