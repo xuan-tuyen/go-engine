@@ -90,15 +90,9 @@ func (conn *Conn) updateClient() {
 
 	loggo.Info("start rudp conn %s->%s", conn.localAddr, conn.remoteAddr)
 
-	conn.activeRecvTime = common.GetNowUpdateInSecond()
-	conn.activeSendTime = common.GetNowUpdateInSecond()
-	conn.rudpActiveRecvTime = common.GetNowUpdateInSecond()
-	conn.rudpActiveSendTime = common.GetNowUpdateInSecond()
-
 	bytes := make([]byte, 2000)
 
 	for !conn.exit && !conn.closed {
-		now := common.GetNowUpdateInSecond()
 		sleep := true
 
 		conn.fm.Update()
@@ -107,7 +101,6 @@ func (conn *Conn) updateClient() {
 		sendlist := conn.fm.GetSendList()
 		if sendlist.Len() > 0 {
 			sleep = false
-			conn.activeSendTime = now
 			for e := sendlist.Front(); e != nil; e = e.Next() {
 				f := e.Value.(*frame.Frame)
 				mb, _ := conn.fm.MarshalFrame(f)
@@ -120,7 +113,6 @@ func (conn *Conn) updateClient() {
 		conn.conn.SetReadDeadline(time.Now().Add(time.Millisecond * 100))
 		n, _ := conn.conn.Read(bytes)
 		if n > 0 {
-			conn.activeRecvTime = now
 			f := &frame.Frame{}
 			err := proto.Unmarshal(bytes[0:n], f)
 			if err == nil {
@@ -129,12 +121,7 @@ func (conn *Conn) updateClient() {
 		}
 
 		// timeout
-		diffrecv := now.Sub(conn.activeRecvTime)
-		diffsend := now.Sub(conn.activeSendTime)
-		tcpdiffrecv := now.Sub(conn.rudpActiveRecvTime)
-		tcpdiffsend := now.Sub(conn.rudpActiveSendTime)
-		if diffrecv > time.Second*(time.Duration(conn.config.Timeout)) || diffsend > time.Second*(time.Duration(conn.config.Timeout)) ||
-			tcpdiffrecv > time.Second*(time.Duration(conn.config.Timeout)) || tcpdiffsend > time.Second*(time.Duration(conn.config.Timeout)) {
+		if conn.fm.IsHBTimeout(conn.config.HBTimeoutms) {
 			loggo.Debug("close inactive conn %s->%s", conn.localAddr, conn.remoteAddr)
 			conn.fm.Close()
 			break
