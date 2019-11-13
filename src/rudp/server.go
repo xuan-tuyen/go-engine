@@ -51,7 +51,7 @@ func (conn *Conn) updateListener(cc *ConnConfig) {
 
 	bytes := make([]byte, 2000)
 
-	for !conn.exit {
+	for !conn.exit && !conn.closed {
 		conn.conn.SetReadDeadline(time.Now().Add(time.Millisecond * 100))
 		n, srcaddr, err := conn.conn.ReadFromUDP(bytes)
 		if err != nil {
@@ -101,7 +101,7 @@ func (conn *Conn) accept(c *Conn, addr *net.UDPAddr, cc *ConnConfig) {
 
 	startConnectTime := time.Now()
 	done := false
-	for !conn.exit {
+	for !conn.exit && !conn.closed {
 		if c.fm.IsConnected() {
 			done = true
 			break
@@ -174,7 +174,7 @@ func (conn *Conn) updateServer(fconn *Conn, addr *net.UDPAddr) {
 	conn.rudpActiveRecvTime = common.GetNowUpdateInSecond()
 	conn.rudpActiveSendTime = common.GetNowUpdateInSecond()
 
-	for !conn.exit && !fconn.exit {
+	for !conn.exit && !fconn.exit && !conn.closed && !fconn.closed {
 		now := common.GetNowUpdateInSecond()
 		sleep := true
 
@@ -217,10 +217,11 @@ func (conn *Conn) updateServer(fconn *Conn, addr *net.UDPAddr) {
 	}
 
 	conn.fm.Close()
+	conn.closed = true
 
-	startCloseTime := common.GetNowUpdateInSecond()
+	startCloseTime := time.Now()
 	for !conn.exit && !fconn.exit {
-		now := common.GetNowUpdateInSecond()
+		now := time.Now()
 
 		conn.fm.Update()
 
@@ -229,12 +230,12 @@ func (conn *Conn) updateServer(fconn *Conn, addr *net.UDPAddr) {
 		for e := sendlist.Front(); e != nil; e = e.Next() {
 			f := e.Value.(*frame.Frame)
 			mb, _ := conn.fm.MarshalFrame(f)
-			conn.conn.SetReadDeadline(time.Now().Add(time.Millisecond * 100))
+			conn.conn.SetReadDeadline(time.Now().Add(time.Millisecond * 10))
 			conn.conn.WriteToUDP(mb, addr)
 		}
 
 		diffclose := now.Sub(startCloseTime)
-		if diffclose > time.Second*5 {
+		if diffclose > time.Millisecond*time.Duration(conn.config.ConnectTimeoutMs) {
 			loggo.Info("close conn had timeout %s->%s", conn.remoteAddr, conn.localAddr)
 			break
 		}
@@ -245,7 +246,7 @@ func (conn *Conn) updateServer(fconn *Conn, addr *net.UDPAddr) {
 			break
 		}
 
-		time.Sleep(time.Millisecond * 100)
+		time.Sleep(time.Millisecond * 10)
 	}
 
 	conn.exit = true

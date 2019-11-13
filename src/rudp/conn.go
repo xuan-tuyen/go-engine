@@ -23,6 +23,7 @@ type ConnConfig struct {
 	Timeout          int
 	Backlog          int
 	ConnectTimeoutMs int
+	CloseTimeoutMs   int
 }
 
 func (cc *ConnConfig) Check() {
@@ -44,6 +45,9 @@ func (cc *ConnConfig) Check() {
 	if cc.ConnectTimeoutMs == 0 {
 		cc.ConnectTimeoutMs = 1000
 	}
+	if cc.CloseTimeoutMs == 0 {
+		cc.CloseTimeoutMs = 1000
+	}
 }
 
 type Conn struct {
@@ -51,6 +55,7 @@ type Conn struct {
 	config     ConnConfig
 	inited     bool
 	exit       bool
+	closed     bool
 	localAddr  string
 	remoteAddr string
 
@@ -78,10 +83,20 @@ func (conn *Conn) LocalAddr() string {
 	return conn.localAddr
 }
 
-func (conn *Conn) Close() {
-	conn.exit = true
-	conn.workResultLock.Wait()
-	conn.conn.Close()
+func (conn *Conn) Close(force bool) {
+	if conn.exit {
+		return
+	}
+	if force {
+		conn.closed = true
+		conn.exit = true
+		conn.workResultLock.Wait()
+		conn.conn.Close()
+	} else {
+		conn.closed = true
+		conn.workResultLock.Wait()
+		conn.conn.Close()
+	}
 }
 
 func (conn *Conn) IsConnected() bool {

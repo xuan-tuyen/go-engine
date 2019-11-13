@@ -24,7 +24,7 @@ func (ev *EvilNet) processFatherRspReg(enm *EvilNetMsg) {
 			ev.globaladdr = enm.RspRegMsg.Globaladdr
 		}
 	} else {
-		ev.father.Close()
+		ev.father.Close(false)
 	}
 }
 
@@ -75,7 +75,7 @@ func (ev *EvilNet) processFatherReqReg(conn *rudp.Conn, enm *EvilNetMsg) {
 				evm.RspRegMsg.Result = "son key error"
 			} else {
 				if son.conn != conn {
-					son.conn.Close()
+					go son.conn.Close(false)
 					son.conn = conn
 				}
 				evm.RspRegMsg.Result = "ok"

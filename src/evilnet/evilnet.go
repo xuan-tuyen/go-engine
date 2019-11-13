@@ -258,7 +258,7 @@ func (ev *EvilNet) updateSonConn(conn *rudp.Conn) {
 		}
 	}
 
-	conn.Close()
+	conn.Close(false)
 }
 
 func (ev *EvilNet) addSonConn(name string, conn *EvilNetSon) {

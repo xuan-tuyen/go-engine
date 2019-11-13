@@ -96,7 +96,7 @@ func (conn *Conn) updateClient() {
 
 	bytes := make([]byte, 2000)
 
-	for !conn.exit {
+	for !conn.exit && !conn.closed {
 		now := common.GetNowUpdateInSecond()
 		sleep := true
 
@@ -151,10 +151,11 @@ func (conn *Conn) updateClient() {
 	}
 
 	conn.fm.Close()
+	conn.closed = true
 
-	startCloseTime := common.GetNowUpdateInSecond()
+	startCloseTime := time.Now()
 	for !conn.exit {
-		now := common.GetNowUpdateInSecond()
+		now := time.Now()
 
 		conn.fm.Update()
 
@@ -163,12 +164,12 @@ func (conn *Conn) updateClient() {
 		for e := sendlist.Front(); e != nil; e = e.Next() {
 			f := e.Value.(*frame.Frame)
 			mb, _ := conn.fm.MarshalFrame(f)
-			conn.conn.SetReadDeadline(time.Now().Add(time.Millisecond * 100))
+			conn.conn.SetReadDeadline(time.Now().Add(time.Millisecond * 10))
 			conn.conn.Write(mb)
 		}
 
 		// recv udp
-		conn.conn.SetReadDeadline(time.Now().Add(time.Millisecond * 100))
+		conn.conn.SetReadDeadline(time.Now().Add(time.Millisecond * 10))
 		n, _ := conn.conn.Read(bytes)
 		if n > 0 {
 			f := &frame.Frame{}
@@ -179,7 +180,7 @@ func (conn *Conn) updateClient() {
 		}
 
 		diffclose := now.Sub(startCloseTime)
-		if diffclose > time.Second*5 {
+		if diffclose > time.Millisecond*time.Duration(conn.config.ConnectTimeoutMs) {
 			loggo.Info("close conn had timeout %s->%s", conn.localAddr, conn.remoteAddr)
 			break
 		}
@@ -190,7 +191,7 @@ func (conn *Conn) updateClient() {
 			break
 		}
 
-		time.Sleep(time.Millisecond * 100)
+		time.Sleep(time.Millisecond * 10)
 	}
 
 	conn.exit = true
