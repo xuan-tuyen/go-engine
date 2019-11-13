@@ -74,6 +74,7 @@ func Dail(targetAddr string, cc *ConnConfig) (*Conn, error) {
 
 	conn.localAddr = conn.conn.LocalAddr().String()
 	conn.inited = true
+	conn.id = common.Guid()
 
 	go conn.updateClient()
 

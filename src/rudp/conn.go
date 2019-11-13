@@ -73,6 +73,11 @@ type Conn struct {
 	waitAccept         chan *Conn
 
 	userdata interface{}
+	id       string
+}
+
+func (conn *Conn) Id() string {
+	return conn.id
 }
 
 func (conn *Conn) RemoteAddr() string {

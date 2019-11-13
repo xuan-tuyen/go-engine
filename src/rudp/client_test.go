@@ -13,14 +13,17 @@ func Test0001(t *testing.T) {
 		fmt.Println(err)
 		return
 	}
+	fmt.Println(lis.Id())
 
 	conn, err := Dail("127.0.0.1:9999", nil)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+	fmt.Println(conn.Id())
 
 	c := lis.Accept(100)
+	fmt.Println(c.Id())
 	fmt.Println(c)
 
 	c.Write([]byte("123123123123"))

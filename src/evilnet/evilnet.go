@@ -50,6 +50,7 @@ type EvilNet struct {
 
 	son        *rudp.Conn
 	sonConnMap sync.Map
+	sonid      int
 }
 
 type EvilNetSon struct {
