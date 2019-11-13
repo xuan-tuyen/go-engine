@@ -167,12 +167,14 @@ func (ev *EvilNet) updateFather() {
 
 		// process
 		rl := mm.RecvList()
-		for e := rl.Front(); e != nil; e = e.Next() {
-			rb := e.Value.([]byte)
-			enm := &EvilNetMsg{}
-			err := proto.Unmarshal(rb, enm)
-			if err == nil {
-				ev.processFather(enm)
+		if rl != nil {
+			for e := rl.Front(); e != nil; e = e.Next() {
+				rb := e.Value.([]byte)
+				enm := &EvilNetMsg{}
+				err := proto.Unmarshal(rb, enm)
+				if err == nil {
+					ev.processFather(enm)
+				}
 			}
 		}
 	}
@@ -235,12 +237,14 @@ func (ev *EvilNet) updateSonConn(conn *rudp.Conn) {
 
 		// process
 		rl := mm.RecvList()
-		for e := rl.Front(); e != nil; e = e.Next() {
-			rb := e.Value.([]byte)
-			enm := &EvilNetMsg{}
-			err := proto.Unmarshal(rb, enm)
-			if err == nil {
-				ev.processSon(conn, enm)
+		if rl != nil {
+			for e := rl.Front(); e != nil; e = e.Next() {
+				rb := e.Value.([]byte)
+				enm := &EvilNetMsg{}
+				err := proto.Unmarshal(rb, enm)
+				if err == nil {
+					ev.processSon(conn, enm)
+				}
 			}
 		}
 	}
