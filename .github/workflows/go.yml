@@ -26,6 +26,7 @@ jobs:
 
     - name: Build
       run: |
+        cd src
         for d in */ ; do
          cd "$d"
          go build -v .
