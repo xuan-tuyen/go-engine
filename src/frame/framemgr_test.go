@@ -3,6 +3,7 @@ package frame
 import (
 	"container/list"
 	"fmt"
+	"github.com/esrrhs/go-engine/src/common"
 	"testing"
 	"time"
 )
@@ -83,11 +84,11 @@ func Test0001(t *testing.T) {
 	fm.windowsize = 10000
 	fmt.Println("fm.isIdOld  = ", fm.isIdOld(9, fm.frame_max_id))
 
-	dd := fm.compressData(([]byte)("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"))
+	dd := common.CompressData(([]byte)("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"))
 	fmt.Println("fm.compressData  = ", len(dd))
 
-	_, ddd := fm.deCompressData(dd)
-	fmt.Println("fm.deCompressData  = ", (string)(ddd))
+	_, ddd := common.DeCompressData(dd)
+	fmt.Println("fm.deCompressData  = ", ddd)
 
 	mm := make(map[int32]int)
 	mm[1] = 1
