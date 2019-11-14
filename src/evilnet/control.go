@@ -26,7 +26,7 @@ func (ev *EvilNet) regFather() {
 
 func (ev *EvilNet) PreConnect(dst string, eproto string) {
 
-	if !ev.father.IsConnected() {
+	if ev.father == nil || !ev.father.IsConnected() {
 		return
 	}
 

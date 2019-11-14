@@ -49,6 +49,7 @@ type EvilNet struct {
 
 	father *rudp.Conn
 
+	fathername string
 	globalname string
 	globaladdr string
 

@@ -21,6 +21,7 @@ func (ev *EvilNet) processFatherRspReg(enm *EvilNetMsg) {
 
 	if enm.RspRegMsg.Result == "ok" {
 		if enm.RspRegMsg.Sonkey == ev.config.Key {
+			ev.fathername = enm.RspRegMsg.Fathername
 			ev.globalname = enm.RspRegMsg.Newname
 			ev.globaladdr = enm.RspRegMsg.Globaladdr
 		}
@@ -138,7 +139,28 @@ func (ev *EvilNet) sonRouterMsg(conn *rudp.Conn, src string, dst string, enm *Ev
 
 			loggo.Info("%s router son %s->%s msg to son %s", src, dst, son.name, ev.globalname)
 			return
+		} else {
+			loggo.Error("%s router son %s->%s msg no son %s", src, dst, son.name, ev.globalname)
+			return
 		}
 	}
 
+	// dst A.D.E.F, cur A.B
+	// dst A.B.E.F, cur A.B.C
+	// dst A.D.E.F, cur A.B.C
+	if strings.Contains(dst, ev.globalname) {
+		if ev.father != nil && ev.father.IsConnected() {
+			mb, _ := proto.Marshal(enm)
+			mm := ev.father.UserData().(*msgmgr.MsgMgr)
+			mm.Send(mb)
+
+			loggo.Info("%s router son %s->%s msg to father %s %s", src, dst, ev.fathername, ev.globalname)
+			return
+		} else {
+			loggo.Error("%s router son %s->%s msg no father %s %s", src, dst, ev.fathername, ev.globalname)
+			return
+		}
+	}
+
+	loggo.Error("%s router son %s->%s msg ignore %s", src, dst, ev.globalname)
 }
