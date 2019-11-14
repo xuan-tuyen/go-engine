@@ -154,13 +154,13 @@ func (ev *EvilNet) sonRouterMsg(conn *rudp.Conn, src string, dst string, enm *Ev
 			mm := ev.father.UserData().(*msgmgr.MsgMgr)
 			mm.Send(mb)
 
-			loggo.Info("%s router son %s->%s msg to father %s %s", src, dst, ev.fathername, ev.globalname)
+			loggo.Info("router son %s->%s msg to father %s %s", src, dst, ev.fathername, ev.globalname)
 			return
 		} else {
-			loggo.Error("%s router son %s->%s msg no father %s %s", src, dst, ev.fathername, ev.globalname)
+			loggo.Error("router son %s->%s msg no father %s %s", src, dst, ev.fathername, ev.globalname)
 			return
 		}
 	}
 
-	loggo.Error("%s router son %s->%s msg ignore %s", src, dst, ev.globalname)
+	loggo.Error("router son %s->%s msg ignore %s", src, dst, ev.globalname)
 }
