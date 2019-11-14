@@ -26,7 +26,7 @@ func (ev *EvilNet) regFather() {
 	mm.Send(mb)
 }
 
-func (ev *EvilNet) PreConnect(dst string, eproto string, param []string) {
+func (ev *EvilNet) Connect(dst string, eproto string, param []string) {
 
 	evm := EvilNetMsg{}
 	evm.Type = int32(EvilNetMsg_REQCONN)
@@ -41,7 +41,7 @@ func (ev *EvilNet) PreConnect(dst string, eproto string, param []string) {
 
 	ev.routerMsg(ev.globalname, dst, evmr)
 
-	loggo.Info("pre connect to %s by father %s", dst, ev.config.Fatheraddr)
+	loggo.Info("try connect to %s by father %s", dst, ev.config.Fatheraddr)
 }
 
 func (ev *EvilNet) packRouterMsg(src string, dst string, enm *EvilNetMsg) *EvilNetMsg {

@@ -103,6 +103,11 @@ func (conn *Conn) accept(c *Conn, addr *net.UDPAddr, cc *ConnConfig) {
 	startConnectTime := time.Now()
 	done := false
 	for !conn.exit && !conn.closed {
+		oc := conn.getClientConnByAddr(addr.String())
+		if oc == nil || oc.Id() != c.Id() {
+			return
+		}
+
 		if c.fm.IsConnected() {
 			done = true
 			break

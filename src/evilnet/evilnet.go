@@ -37,6 +37,9 @@ func (evc *EvilNetConfig) Check() {
 	if evc.RegFatherInterSec <= 0 {
 		evc.RegFatherInterSec = 10
 	}
+	if evc.ListenFatherPort <= 0 {
+		evc.ListenFatherPort = 5566
+	}
 	evc.Rudpconfig.Check()
 }
 
@@ -119,17 +122,16 @@ func (ev *EvilNet) Run() error {
 		go ev.updateSon()
 	}
 
-	if len(ev.config.Fatheraddr) > 0 && ev.config.ListenFatherPort > 0 {
+	addr := ev.localip + ":" + strconv.Itoa(ev.config.ListenFatherPort)
+	loggo.Info("start run at %s", addr)
 
-		addr := ev.localip + ":" + strconv.Itoa(ev.config.ListenFatherPort)
-		loggo.Info("start run at %s", addr)
+	conn, err := rudp.Listen(addr, &ev.config.Rudpconfig)
+	if err != nil {
+		return err
+	}
+	ev.fa = conn
 
-		conn, err := rudp.Listen(addr, &ev.config.Rudpconfig)
-		if err != nil {
-			return err
-		}
-		ev.fa = conn
-
+	if len(ev.config.Fatheraddr) > 0 {
 		go ev.updateFather()
 	}
 
@@ -242,6 +244,8 @@ func (ev *EvilNet) updateSonConn(conn *rudp.Conn) {
 	ev.workResultLock.Add(1)
 	defer ev.workResultLock.Done()
 
+	loggo.Info("accept new son %s", conn.RemoteAddr())
+
 	ef := encrypt
 	df := decrypt
 	conn.SetUserData(msgmgr.NewMsgMgr(MSG_MAX_SIZE, CONN_MSG_BUFFER_SIZE, CONN_MSG_LIST_SIZE, &ef, &df))
@@ -290,7 +294,11 @@ func (ev *EvilNet) updateSonConn(conn *rudp.Conn) {
 		}
 	}
 
+	loggo.Info("close son %s", conn.RemoteAddr())
+
 	conn.Close(false)
+
+	loggo.Info("close son ok %s", conn.RemoteAddr())
 }
 
 func (ev *EvilNet) addSonConn(name string, conn *EvilNetSon) {
@@ -318,6 +326,15 @@ func (ev *EvilNet) GetSonConnNum() int {
 	return n
 }
 
-func (ev *EvilNet) updatePeerServer(plugin Plugin) {
+func (ev *EvilNet) updatePeerServer(plugin Plugin, localaddr string, globaladdr string, proto string, params []string) {
 
+	loggo.Info("start connect peer %s -> %s %s", ev.fa.LocalAddr(), localaddr, globaladdr)
+
+	dstconn, err := ev.fa.Dail(globaladdr)
+	if err != nil {
+		loggo.Error("connect peer fail %s -> %s %s", ev.fa.LocalAddr(), localaddr, globaladdr)
+		return
+	}
+
+	loggo.Info("connect peer ok %s %s -> %s %s", dstconn.Id(), ev.fa.LocalAddr(), localaddr, globaladdr)
 }
