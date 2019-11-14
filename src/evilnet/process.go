@@ -5,6 +5,7 @@ import (
 	"github.com/esrrhs/go-engine/src/msgmgr"
 	"github.com/esrrhs/go-engine/src/rudp"
 	"github.com/golang/protobuf/proto"
+	"time"
 )
 
 func (ev *EvilNet) processFather(enm *EvilNetMsg) {
@@ -102,7 +103,7 @@ func (ev *EvilNet) processRouterReg(conn *rudp.Conn, enm *EvilNetMsg) {
 
 		enmr := &EvilNetMsg{}
 		err := proto.Unmarshal(enm.RouterMsg.Data, enmr)
-		if err == nil {
+		if err != nil {
 			loggo.Error("process son router msg %s %s %s %s", conn.RemoteAddr(), enm.RouterMsg.Src, enm.RouterMsg.Dst, err)
 			return
 		}
@@ -110,16 +111,22 @@ func (ev *EvilNet) processRouterReg(conn *rudp.Conn, enm *EvilNetMsg) {
 		loggo.Info("process son router msg %s %s %s %s", conn.RemoteAddr(), enm.RouterMsg.Src, enm.RouterMsg.Dst, EvilNetMsg_TYPE_name[enmr.Type])
 
 		if enmr.Type == int32(EvilNetMsg_REQCONN) {
-			ev.processRouterReqConnReg(conn, enm.RouterMsg.Src, enm.RouterMsg.Dst, enmr)
+			ev.processRouterReqConn(conn, enm.RouterMsg.Src, enm.RouterMsg.Dst, enmr)
+		} else if enmr.Type == int32(EvilNetMsg_RSPCONN) {
+			ev.processRouterRspConn(conn, enm.RouterMsg.Src, enm.RouterMsg.Dst, enmr)
+		} else if enmr.Type == int32(EvilNetMsg_PING) {
+			ev.processRouterPing(conn, enm.RouterMsg.Src, enm.RouterMsg.Dst, enmr)
+		} else if enmr.Type == int32(EvilNetMsg_PONG) {
+			ev.processRouterPong(conn, enm.RouterMsg.Src, enm.RouterMsg.Dst, enmr)
 		}
 
 	} else {
-		ev.routerMsg(conn, enm.RouterMsg.Src, enm.RouterMsg.Dst, enm)
+		ev.routerMsg(enm.RouterMsg.Src, enm.RouterMsg.Dst, enm)
 	}
 
 }
 
-func (ev *EvilNet) processRouterReqConnReg(conn *rudp.Conn, src string, dst string, enm *EvilNetMsg) {
+func (ev *EvilNet) processRouterReqConn(conn *rudp.Conn, src string, dst string, enm *EvilNetMsg) {
 	loggo.Info("process son router msg req conn %s", enm.ReqConnMsg.String())
 
 	evm := EvilNetMsg{}
@@ -140,6 +147,7 @@ func (ev *EvilNet) processRouterReqConnReg(conn *rudp.Conn, src string, dst stri
 		evm.RspConnMsg.Key = enm.ReqConnMsg.Key
 		evm.RspConnMsg.Param = enm.ReqConnMsg.Param
 
+		// start connect peer
 		go ev.updatePeerServer(val)
 	}
 
@@ -149,4 +157,53 @@ func (ev *EvilNet) processRouterReqConnReg(conn *rudp.Conn, src string, dst stri
 
 	mm := conn.UserData().(*msgmgr.MsgMgr)
 	mm.Send(mbr)
+}
+
+func (ev *EvilNet) processRouterRspConn(conn *rudp.Conn, src string, dst string, enm *EvilNetMsg) {
+	loggo.Info("process son router msg rsp conn %s", enm.RspConnMsg.String())
+
+	if enm.RspConnMsg.Result == "ok" {
+
+		val, ok := ev.plugin[enm.RspConnMsg.Proto]
+		if !ok {
+			return
+		}
+
+		if enm.RspConnMsg.Key != ev.config.ConnectKey {
+			return
+		}
+
+		// start connect peer
+		go ev.updatePeerServer(val)
+	}
+}
+
+func (ev *EvilNet) processRouterPing(conn *rudp.Conn, src string, dst string, enm *EvilNetMsg) {
+	loggo.Info("process son router msg ping %s", enm.PingMsg.String())
+
+	evm := EvilNetMsg{}
+	evm.Type = int32(EvilNetMsg_PONG)
+	evm.PongMsg = &EvilNetPongMsg{}
+	evm.PongMsg.Time = enm.PingMsg.Time
+	var pp []string
+	for n, _ := range ev.plugin {
+		pp = append(pp, n)
+	}
+	evm.PongMsg.Proto = pp
+
+	evmr := ev.packRouterMsg(dst, src, &evm)
+
+	mbr, _ := proto.Marshal(evmr)
+
+	mm := conn.UserData().(*msgmgr.MsgMgr)
+	mm.Send(mbr)
+}
+
+func (ev *EvilNet) processRouterPong(conn *rudp.Conn, src string, dst string, enm *EvilNetMsg) {
+	loggo.Info("process son router msg pong %s", enm.PongMsg.String())
+
+	now := time.Now().UnixNano()
+	d := time.Duration(now - enm.PongMsg.Time)
+
+	loggo.Info("pong from %s %s", src, d.String())
 }

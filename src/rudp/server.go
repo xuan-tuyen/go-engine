@@ -268,10 +268,10 @@ func (conn *Conn) Dail(targetAddr string) (*Conn, error) {
 	clientConn.conn = conn.conn
 	clientConn.id = common.Guid()
 
-	conn.addClientConn(targetAddr, clientConn)
-
 	fm := frame.NewFrameMgr(RUDP_MAX_SIZE, RUDP_MAX_ID, conn.config.BufferSize, conn.config.MaxWin, conn.config.ResendTimems, conn.config.Compress, conn.config.Stat)
 	clientConn.fm = fm
+
+	conn.addClientConn(targetAddr, clientConn)
 
 	fm.Connect()
 	done := false

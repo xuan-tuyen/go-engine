@@ -40,6 +40,15 @@ message EvilNetRspConnMsg {
     repeated string param = 6;
 }
 
+message EvilNetPingMsg {
+    int64 time = 1;
+}
+
+message EvilNetPongMsg {
+    int64 time = 1;
+    repeated string proto = 2;
+}
+
 message EvilNetMsg {
     enum TYPE {
         REQREG = 0;
@@ -47,6 +56,8 @@ message EvilNetMsg {
         ROUTER = 2;
         REQCONN = 3;
         RSPCONN = 4;
+        PING = 5;
+        PONG = 6;
     }
 
     int32 type = 1;
@@ -55,4 +66,6 @@ message EvilNetMsg {
     EvilNetRouterMsg routerMsg = 4;
     EvilNetReqConnMsg reqConnMsg = 5;
     EvilNetRspConnMsg rspConnMsg = 6;
+    EvilNetPingMsg pingMsg = 7;
+    EvilNetPongMsg pongMsg = 8;
 }

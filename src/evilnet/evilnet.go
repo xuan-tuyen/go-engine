@@ -216,6 +216,10 @@ func (ev *EvilNet) updateFather() {
 
 }
 
+func (ev *EvilNet) IsFatherConnected() bool {
+	return ev.father != nil && ev.father.IsConnected()
+}
+
 func (ev *EvilNet) updateSon() {
 
 	defer common.CrashLog()
@@ -303,6 +307,15 @@ func (ev *EvilNet) getSonConn(name string) *EvilNetSon {
 
 func (ev *EvilNet) deleteSonConn(name string) {
 	ev.sonConnMap.Delete(name)
+}
+
+func (ev *EvilNet) GetSonConnNum() int {
+	n := 0
+	ev.sonConnMap.Range(func(key, value interface{}) bool {
+		n++
+		return true
+	})
+	return n
 }
 
 func (ev *EvilNet) updatePeerServer(plugin Plugin) {
