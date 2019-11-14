@@ -2,13 +2,11 @@ package geoip
 
 import (
 	"fmt"
-	"github.com/esrrhs/go-engine/src/common"
 	"testing"
 )
 
 func TestNew(t *testing.T) {
-	common.Ini()
-	Load("")
+	Load("../../data/geoip/GeoLite2-Country.mmdb")
 
 	fmt.Println(GetCountryIsoCode("39.106.101.133"))
 	fmt.Println(GetCountryIsoCode(""))
