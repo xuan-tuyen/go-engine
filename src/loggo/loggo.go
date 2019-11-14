@@ -21,6 +21,7 @@ type Config struct {
 	Prefix    string
 	MaxDay    int
 	NoLogFile bool
+	NoPrint   bool
 }
 
 var gConfig Config
@@ -56,7 +57,9 @@ func Debug(format string, a ...interface{}) {
 			defer file.Close()
 			file.WriteString(str)
 		}
-		fmt.Print(str)
+		if !gConfig.NoPrint {
+			fmt.Print(str)
+		}
 	}
 }
 
@@ -75,7 +78,9 @@ func Info(format string, a ...interface{}) {
 				file1.WriteString(str)
 			}
 		}
-		fmt.Print(str)
+		if !gConfig.NoPrint {
+			fmt.Print(str)
+		}
 	}
 }
 
@@ -101,7 +106,9 @@ func Warn(format string, a ...interface{}) {
 				file2.WriteString(str)
 			}
 		}
-		fmt.Print(str)
+		if !gConfig.NoPrint {
+			fmt.Print(str)
+		}
 	}
 }
 
@@ -134,7 +141,9 @@ func Error(format string, a ...interface{}) {
 				file2.WriteString(str)
 			}
 		}
-		fmt.Print(str)
+		if !gConfig.NoPrint {
+			fmt.Print(str)
+		}
 	}
 }
 

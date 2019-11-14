@@ -3,9 +3,9 @@ package evilnet
 import (
 	"github.com/esrrhs/go-engine/src/loggo"
 	"github.com/esrrhs/go-engine/src/msgmgr"
-	"github.com/esrrhs/go-engine/src/rudp"
 	"github.com/golang/protobuf/proto"
 	"strings"
+	"time"
 )
 
 func (ev *EvilNet) regFather() {
@@ -28,10 +28,6 @@ func (ev *EvilNet) regFather() {
 
 func (ev *EvilNet) PreConnect(dst string, eproto string, param []string) {
 
-	if ev.father == nil || !ev.father.IsConnected() {
-		return
-	}
-
 	evm := EvilNetMsg{}
 	evm.Type = int32(EvilNetMsg_REQCONN)
 	evm.ReqConnMsg = &EvilNetReqConnMsg{}
@@ -43,10 +39,7 @@ func (ev *EvilNet) PreConnect(dst string, eproto string, param []string) {
 
 	evmr := ev.packRouterMsg(ev.globalname, dst, &evm)
 
-	mbr, _ := proto.Marshal(evmr)
-
-	mm := ev.father.UserData().(*msgmgr.MsgMgr)
-	mm.Send(mbr)
+	ev.routerMsg(ev.globalname, dst, evmr)
 
 	loggo.Info("pre connect to %s by father %s", dst, ev.config.Fatheraddr)
 }
@@ -65,7 +58,7 @@ func (ev *EvilNet) packRouterMsg(src string, dst string, enm *EvilNetMsg) *EvilN
 	return &evmr
 }
 
-func (ev *EvilNet) routerMsg(conn *rudp.Conn, src string, dst string, enm *EvilNetMsg) {
+func (ev *EvilNet) routerMsg(src string, dst string, enm *EvilNetMsg) {
 
 	dsts := strings.Split(dst, ".")
 	curs := strings.Split(ev.globalname, ".")
@@ -105,4 +98,18 @@ func (ev *EvilNet) routerMsg(conn *rudp.Conn, src string, dst string, enm *EvilN
 	}
 
 	loggo.Error("router son %s->%s msg ignore %s", src, dst, ev.globalname)
+}
+
+func (ev *EvilNet) Ping(dst string) {
+
+	evm := EvilNetMsg{}
+	evm.Type = int32(EvilNetMsg_PING)
+	evm.PingMsg = &EvilNetPingMsg{}
+	evm.PingMsg.Time = time.Now().UnixNano()
+
+	evmr := ev.packRouterMsg(ev.globalname, dst, &evm)
+
+	ev.routerMsg(ev.globalname, dst, evmr)
+
+	loggo.Info("send ping %s", dst)
 }
