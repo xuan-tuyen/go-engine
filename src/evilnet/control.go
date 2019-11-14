@@ -26,7 +26,7 @@ func (ev *EvilNet) regFather() {
 	mm.Send(mb)
 }
 
-func (ev *EvilNet) PreConnect(dst string, eproto string) {
+func (ev *EvilNet) PreConnect(dst string, eproto string, param []string) {
 
 	if ev.father == nil || !ev.father.IsConnected() {
 		return
@@ -39,6 +39,7 @@ func (ev *EvilNet) PreConnect(dst string, eproto string) {
 	evm.ReqConnMsg.Proto = eproto
 	evm.ReqConnMsg.Localaddr = ev.father.LocalAddr()
 	evm.ReqConnMsg.Globaladdr = ev.globaladdr
+	evm.ReqConnMsg.Param = param
 
 	evmr := ev.packRouterMsg(ev.globalname, dst, &evm)
 

@@ -1,6 +1,7 @@
 package rudp
 
 import (
+	"errors"
 	"github.com/esrrhs/go-engine/src/common"
 	"github.com/esrrhs/go-engine/src/frame"
 	"github.com/esrrhs/go-engine/src/loggo"
@@ -73,7 +74,6 @@ func (conn *Conn) updateListener(cc *ConnConfig) {
 			clientConn.localAddr = conn.localAddr
 			clientConn.remoteAddr = srcaddr.String()
 			clientConn.conn = conn.conn
-			clientConn.inited = true
 			clientConn.id = common.Guid()
 
 			fm := frame.NewFrameMgr(RUDP_MAX_SIZE, RUDP_MAX_ID, conn.config.BufferSize, conn.config.MaxWin, conn.config.ResendTimems, conn.config.Compress, conn.config.Stat)
@@ -133,6 +133,8 @@ func (conn *Conn) accept(c *Conn, addr *net.UDPAddr, cc *ConnConfig) {
 		conn.deleteClientConn(addr.String())
 		return
 	}
+
+	c.inited = true
 
 	loggo.Info("server accept ok remote rudp %s->%s", c.remoteAddr, c.localAddr)
 
@@ -238,11 +240,81 @@ func (conn *Conn) updateServer(fconn *Conn, addr *net.UDPAddr) {
 		time.Sleep(time.Millisecond * 10)
 	}
 
-	conn.exit = true
-
-	time.Sleep(time.Second)
-
 	fconn.deleteClientConn(addr.String())
 
+	conn.exit = true
+
 	loggo.Info("close rudp conn %s->%s", conn.remoteAddr, conn.localAddr)
+}
+
+func (conn *Conn) Dail(targetAddr string) (*Conn, error) {
+
+	addr, err := net.ResolveUDPAddr("udp", targetAddr)
+	if err != nil {
+		loggo.Debug("Error Resolve addr for udp packets: %s %s", addr, err.Error())
+		return nil, err
+	}
+
+	clientConn := conn.getClientConnByAddr(targetAddr)
+	if clientConn != nil && clientConn.IsConnected() {
+		return clientConn, nil
+	}
+	startConnectTime := time.Now()
+
+	clientConn = &Conn{}
+	clientConn.config = conn.config
+	clientConn.localAddr = conn.localAddr
+	clientConn.remoteAddr = targetAddr
+	clientConn.conn = conn.conn
+	clientConn.id = common.Guid()
+
+	conn.addClientConn(targetAddr, clientConn)
+
+	fm := frame.NewFrameMgr(RUDP_MAX_SIZE, RUDP_MAX_ID, conn.config.BufferSize, conn.config.MaxWin, conn.config.ResendTimems, conn.config.Compress, conn.config.Stat)
+	clientConn.fm = fm
+
+	fm.Connect()
+	done := false
+	for !conn.exit && !conn.closed {
+		if fm.IsConnected() {
+			done = true
+			break
+		}
+
+		fm.Update()
+
+		// send udp
+		sendlist := clientConn.fm.GetSendList()
+		if sendlist.Len() > 0 {
+			for e := sendlist.Front(); e != nil; e = e.Next() {
+				f := e.Value.(*frame.Frame)
+				mb, _ := clientConn.fm.MarshalFrame(f)
+				clientConn.conn.SetReadDeadline(time.Now().Add(time.Millisecond * 100))
+				clientConn.conn.WriteToUDP(mb, addr)
+			}
+		}
+
+		// timeout
+		now := time.Now()
+		diffclose := now.Sub(startConnectTime)
+		if diffclose > time.Millisecond*time.Duration(conn.config.ConnectTimeoutMs) {
+			loggo.Debug("can not connect remote rudp %s", targetAddr)
+			break
+		}
+
+		time.Sleep(time.Millisecond * 10)
+	}
+
+	if !done {
+		conn.deleteClientConn(targetAddr)
+		return nil, errors.New("can not connect remote rudp " + targetAddr)
+	}
+
+	clientConn.inited = true
+
+	loggo.Info("server connect ok remote rudp %s->%s", clientConn.localAddr, clientConn.remoteAddr)
+
+	go clientConn.updateServer(conn, addr)
+
+	return clientConn, nil
 }

@@ -28,6 +28,7 @@ message EvilNetReqConnMsg {
     string proto = 2;
     string localaddr = 3;
     string globaladdr = 4;
+    repeated string param = 5;
 }
 
 message EvilNetRspConnMsg {
@@ -36,6 +37,7 @@ message EvilNetRspConnMsg {
     string result = 3;
     string localaddr = 4;
     string globaladdr = 5;
+    repeated string param = 6;
 }
 
 message EvilNetMsg {

@@ -49,6 +49,7 @@ func (cc *ConnConfig) Check() {
 }
 
 type Conn struct {
+	isClient   bool
 	isListener bool
 	config     ConnConfig
 	inited     bool
@@ -85,15 +86,26 @@ func (conn *Conn) Close(force bool) {
 	if conn.exit {
 		return
 	}
-	if force {
-		conn.closed = true
-		conn.exit = true
-		conn.workResultLock.Wait()
-		conn.conn.Close()
+	if conn.isClient || conn.isListener {
+		if force {
+			conn.closed = true
+			conn.exit = true
+			conn.workResultLock.Wait()
+			conn.conn.Close()
+		} else {
+			conn.closed = true
+			conn.workResultLock.Wait()
+			conn.conn.Close()
+		}
 	} else {
-		conn.closed = true
-		conn.workResultLock.Wait()
-		conn.conn.Close()
+		if force {
+			conn.closed = true
+			conn.exit = true
+			conn.workResultLock.Wait()
+		} else {
+			conn.closed = true
+			conn.workResultLock.Wait()
+		}
 	}
 }
 
