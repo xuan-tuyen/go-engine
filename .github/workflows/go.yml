@@ -30,5 +30,6 @@ jobs:
         for d in */ ; do
          cd "$d"
          go build -v .
+         go test . -v
          cd ..
         done
