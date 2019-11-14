@@ -56,6 +56,8 @@ type EvilNet struct {
 	son        *rudp.Conn
 	sonConnMap sync.Map
 	sonid      int
+
+	plugin map[string]Plugin
 }
 
 type EvilNetSon struct {
@@ -65,7 +67,7 @@ type EvilNetSon struct {
 	name      string
 }
 
-func NewEvilNet(config *EvilNetConfig) *EvilNet {
+func NewEvilNet(plugins []Plugin, config *EvilNetConfig) *EvilNet {
 	if config == nil {
 		config = &EvilNetConfig{}
 	}
@@ -83,6 +85,11 @@ func NewEvilNet(config *EvilNetConfig) *EvilNet {
 		config:  config,
 		uuid:    uuid,
 		localip: ip.String(),
+	}
+
+	ret.plugin = make(map[string]Plugin)
+	for _, p := range plugins {
+		ret.plugin[p.Name()] = p
 	}
 
 	return ret
@@ -283,4 +290,8 @@ func (ev *EvilNet) getSonConn(name string) *EvilNetSon {
 
 func (ev *EvilNet) deleteSonConn(name string) {
 	ev.sonConnMap.Delete(name)
+}
+
+func (ev *EvilNet) updatePeerServer(plugin Plugin) {
+
 }

@@ -5,7 +5,6 @@ import (
 	"github.com/esrrhs/go-engine/src/msgmgr"
 	"github.com/esrrhs/go-engine/src/rudp"
 	"github.com/golang/protobuf/proto"
-	"strings"
 )
 
 func (ev *EvilNet) processFather(enm *EvilNetMsg) {
@@ -13,6 +12,8 @@ func (ev *EvilNet) processFather(enm *EvilNetMsg) {
 
 	if enm.Type == int32(EvilNetMsg_RSPREG) && enm.RspRegMsg != nil {
 		ev.processFatherRspReg(enm)
+	} else if enm.Type == int32(EvilNetMsg_ROUTER) && ev.father != nil && enm.RouterMsg != nil {
+		ev.processRouterReg(ev.father, enm)
 	}
 }
 
@@ -40,8 +41,8 @@ func (ev *EvilNet) processSon(conn *rudp.Conn, enm *EvilNetMsg) {
 
 	if enm.Type == int32(EvilNetMsg_REQREG) && enm.ReqRegMsg != nil {
 		ev.processSonReqReg(conn, enm)
-	} else if enm.Type == int32(EvilNetMsg_ROUTER) && enm.ReqRegMsg != nil {
-		ev.processSonRouterReg(conn, enm)
+	} else if enm.Type == int32(EvilNetMsg_ROUTER) && enm.RouterMsg != nil {
+		ev.processRouterReg(conn, enm)
 	}
 }
 
@@ -94,7 +95,7 @@ func (ev *EvilNet) processSonReqReg(conn *rudp.Conn, enm *EvilNetMsg) {
 	mm.Send(mb)
 }
 
-func (ev *EvilNet) processSonRouterReg(conn *rudp.Conn, enm *EvilNetMsg) {
+func (ev *EvilNet) processRouterReg(conn *rudp.Conn, enm *EvilNetMsg) {
 	loggo.Info("process son router msg %s %s %s", conn.RemoteAddr(), enm.RouterMsg.Src, enm.RouterMsg.Dst)
 
 	if ev.globalname == enm.RouterMsg.Dst {
@@ -109,58 +110,42 @@ func (ev *EvilNet) processSonRouterReg(conn *rudp.Conn, enm *EvilNetMsg) {
 		loggo.Info("process son router msg %s %s %s %s", conn.RemoteAddr(), enm.RouterMsg.Src, enm.RouterMsg.Dst, EvilNetMsg_TYPE_name[enmr.Type])
 
 		if enmr.Type == int32(EvilNetMsg_REQCONN) {
-			ev.processSonRouterReqConnReg(conn, enm.RouterMsg.Src, enm.RouterMsg.Dst, enmr)
+			ev.processRouterReqConnReg(conn, enm.RouterMsg.Src, enm.RouterMsg.Dst, enmr)
 		}
 
 	} else {
-		ev.sonRouterMsg(conn, enm.RouterMsg.Src, enm.RouterMsg.Dst, enm)
+		ev.routerMsg(conn, enm.RouterMsg.Src, enm.RouterMsg.Dst, enm)
 	}
 
 }
 
-func (ev *EvilNet) processSonRouterReqConnReg(conn *rudp.Conn, src string, dst string, enm *EvilNetMsg) {
-	loggo.Info("process son router msg req conn %s", enm.ReqRegMsg.String())
+func (ev *EvilNet) processRouterReqConnReg(conn *rudp.Conn, src string, dst string, enm *EvilNetMsg) {
+	loggo.Info("process son router msg req conn %s", enm.ReqConnMsg.String())
 
-}
+	evm := EvilNetMsg{}
+	evm.Type = int32(EvilNetMsg_RSPCONN)
+	evm.RspConnMsg = &EvilNetRspConnMsg{}
 
-func (ev *EvilNet) sonRouterMsg(conn *rudp.Conn, src string, dst string, enm *EvilNetMsg) {
-
-	dsts := strings.Split(dst, ".")
-	curs := strings.Split(ev.globalname, ".")
-
-	// dst A.B.C.D.E.F, cur A.B
-	if strings.Contains(dst, ev.globalname) {
-		sonname := dsts[len(curs)]
-		son := ev.getSonConn(sonname)
-		if son != nil {
-			mb, _ := proto.Marshal(enm)
-			mm := son.conn.UserData().(*msgmgr.MsgMgr)
-			mm.Send(mb)
-
-			loggo.Info("%s router son %s->%s msg to son %s", src, dst, son.name, ev.globalname)
-			return
-		} else {
-			loggo.Error("%s router son %s->%s msg no son %s", src, dst, son.name, ev.globalname)
-			return
-		}
+	val, ok := ev.plugin[enm.ReqConnMsg.Proto]
+	if !ok {
+		evm.RspConnMsg.Result = "no proto"
+	} else {
+		evm.RspConnMsg.Result = "ok"
 	}
 
-	// dst A.D.E.F, cur A.B
-	// dst A.B.E.F, cur A.B.C
-	// dst A.D.E.F, cur A.B.C
-	if strings.Contains(dst, ev.globalname) {
-		if ev.father != nil && ev.father.IsConnected() {
-			mb, _ := proto.Marshal(enm)
-			mm := ev.father.UserData().(*msgmgr.MsgMgr)
-			mm.Send(mb)
+	if evm.RspConnMsg.Result == "ok" {
+		evm.RspConnMsg.Localaddr = enm.ReqRegMsg.Localaddr
+		evm.RspConnMsg.Globaladdr = conn.RemoteAddr()
+		evm.RspConnMsg.Proto = enm.ReqConnMsg.Proto
+		evm.RspConnMsg.Key = enm.ReqConnMsg.Key
 
-			loggo.Info("router son %s->%s msg to father %s %s", src, dst, ev.fathername, ev.globalname)
-			return
-		} else {
-			loggo.Error("router son %s->%s msg no father %s %s", src, dst, ev.fathername, ev.globalname)
-			return
-		}
+		go ev.updatePeerServer(val)
 	}
 
-	loggo.Error("router son %s->%s msg ignore %s", src, dst, ev.globalname)
+	evmr := ev.packRouterMsg(dst, src, &evm)
+
+	mbr, _ := proto.Marshal(evmr)
+
+	mm := conn.UserData().(*msgmgr.MsgMgr)
+	mm.Send(mbr)
 }
