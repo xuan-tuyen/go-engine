@@ -148,7 +148,7 @@ func (ev *EvilNet) processRouterReqConn(conn *rudp.Conn, src string, dst string,
 		evm.RspConnMsg.Param = enm.ReqConnMsg.Param
 
 		// start connect peer
-		go ev.updatePeerServer(val)
+		go ev.updatePeerServer(val, enm.ReqConnMsg.Localaddr, enm.ReqConnMsg.Globaladdr, enm.ReqConnMsg.Proto, enm.ReqConnMsg.Param)
 	}
 
 	evmr := ev.packRouterMsg(dst, src, &evm)
@@ -174,7 +174,7 @@ func (ev *EvilNet) processRouterRspConn(conn *rudp.Conn, src string, dst string,
 		}
 
 		// start connect peer
-		go ev.updatePeerServer(val)
+		go ev.updatePeerServer(val, enm.RspConnMsg.Localaddr, enm.RspConnMsg.Globaladdr, enm.RspConnMsg.Proto, enm.RspConnMsg.Param)
 	}
 }
 
