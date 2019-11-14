@@ -123,7 +123,7 @@ func loadProbility(i int, file string) error {
 
 	f, err := os.Open(file)
 	if err != nil {
-		loggo.Error("loadProbility %v", file, err)
+		loggo.Error("loadProbility %v %s", file, err)
 		return err
 	}
 	defer f.Close()
@@ -170,7 +170,7 @@ func LoadNormal(file string) error {
 
 	f, err := os.Open(file)
 	if err != nil {
-		loggo.Error("LoadNormal %v", file, err)
+		loggo.Error("LoadNormal %v %s", file, err)
 		return err
 	}
 	defer f.Close()
@@ -214,7 +214,7 @@ func LoadColor(file string) error {
 
 	f, err := os.Open(file)
 	if err != nil {
-		loggo.Error("LoadColor %v", file, err)
+		loggo.Error("LoadColor %v %s", file, err)
 		return err
 	}
 	defer f.Close()
