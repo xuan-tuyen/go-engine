@@ -138,6 +138,7 @@ func (ev *EvilNet) processRouterReqConnReg(conn *rudp.Conn, src string, dst stri
 		evm.RspConnMsg.Globaladdr = conn.RemoteAddr()
 		evm.RspConnMsg.Proto = enm.ReqConnMsg.Proto
 		evm.RspConnMsg.Key = enm.ReqConnMsg.Key
+		evm.RspConnMsg.Param = enm.ReqConnMsg.Param
 
 		go ev.updatePeerServer(val)
 	}

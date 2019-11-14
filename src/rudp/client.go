@@ -28,6 +28,8 @@ func Dail(targetAddr string, cc *ConnConfig) (*Conn, error) {
 	conn.config = *cc
 	conn.conn = targetConn
 	conn.remoteAddr = targetAddr
+	conn.isClient = true
+	conn.id = common.Guid()
 
 	fm := frame.NewFrameMgr(RUDP_MAX_SIZE, RUDP_MAX_ID, cc.BufferSize, cc.MaxWin, cc.ResendTimems, cc.Compress, cc.Stat)
 	conn.fm = fm
@@ -74,7 +76,6 @@ func Dail(targetAddr string, cc *ConnConfig) (*Conn, error) {
 
 	conn.localAddr = conn.conn.LocalAddr().String()
 	conn.inited = true
-	conn.id = common.Guid()
 
 	go conn.updateClient()
 
@@ -183,8 +184,6 @@ func (conn *Conn) updateClient() {
 	}
 
 	conn.exit = true
-
-	time.Sleep(time.Second)
 
 	loggo.Info("close rudp conn %s->%s", conn.localAddr, conn.remoteAddr)
 }

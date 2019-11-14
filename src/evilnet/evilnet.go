@@ -14,8 +14,9 @@ import (
 type EvilNetConfig struct {
 	Name string
 
-	Listenport int
-	Fatheraddr string
+	ListenSonPort    int
+	ListenFatherPort int
+	Fatheraddr       string
 
 	RegFatherInterSec int
 
@@ -47,6 +48,7 @@ type EvilNet struct {
 	uuid    string
 	localip string
 
+	fa     *rudp.Conn
 	father *rudp.Conn
 
 	fathername string
@@ -101,12 +103,13 @@ func (ev *EvilNet) Stop() {
 }
 
 func (ev *EvilNet) Run() error {
-	addr := ev.localip + ":" + strconv.Itoa(ev.config.Listenport)
-	loggo.Info("start run at %s", addr)
 
 	ev.globalname = ev.config.Name
 
-	if ev.config.Listenport > 0 {
+	if ev.config.ListenSonPort > 0 {
+		addr := ev.localip + ":" + strconv.Itoa(ev.config.ListenSonPort)
+		loggo.Info("start run at %s", addr)
+
 		conn, err := rudp.Listen(addr, &ev.config.Rudpconfig)
 		if err != nil {
 			return err
@@ -116,7 +119,17 @@ func (ev *EvilNet) Run() error {
 		go ev.updateSon()
 	}
 
-	if len(ev.config.Fatheraddr) > 0 {
+	if len(ev.config.Fatheraddr) > 0 && ev.config.ListenFatherPort > 0 {
+
+		addr := ev.localip + ":" + strconv.Itoa(ev.config.ListenFatherPort)
+		loggo.Info("start run at %s", addr)
+
+		conn, err := rudp.Listen(addr, &ev.config.Rudpconfig)
+		if err != nil {
+			return err
+		}
+		ev.fa = conn
+
 		go ev.updateFather()
 	}
 
@@ -144,7 +157,7 @@ func (ev *EvilNet) updateFather() {
 
 			loggo.Info("start connect father %s", ev.config.Fatheraddr)
 
-			conn, err := rudp.Dail(ev.config.Fatheraddr, &ev.config.Rudpconfig)
+			conn, err := ev.fa.Dail(ev.config.Fatheraddr)
 			if err != nil {
 				loggo.Error("connect father fail %s", err)
 				time.Sleep(time.Second)
