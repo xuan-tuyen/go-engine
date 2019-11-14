@@ -27,3 +27,7 @@ func decrypt(data []byte) (bool, []byte) {
 	}
 	return true, newdata
 }
+
+type Plugin interface {
+	Name() string
+}
