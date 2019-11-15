@@ -2,7 +2,6 @@ package evilnet
 
 import (
 	"github.com/esrrhs/go-engine/src/loggo"
-	"github.com/esrrhs/go-engine/src/msgmgr"
 	"github.com/golang/protobuf/proto"
 	"strings"
 	"time"
@@ -22,8 +21,7 @@ func (ev *EvilNet) regFather() {
 
 	mb, _ := proto.Marshal(&evm)
 
-	mm := ev.father.UserData().(*msgmgr.MsgMgr)
-	mm.Send(mb)
+	ev.SendTo(ev.father, mb)
 }
 
 func (ev *EvilNet) Connect(rpcid string, dst string, eproto string, param []string) {
@@ -69,6 +67,11 @@ func (ev *EvilNet) packRouterMsg(rpcid string, src string, dst string, enm *Evil
 
 func (ev *EvilNet) routerMsg(src string, dst string, enm *EvilNetMsg) {
 
+	if dst == ev.globalname {
+		loggo.Error("router self ignore %s", dst)
+		return
+	}
+
 	dsts := strings.Split(dst, ".")
 	curs := strings.Split(ev.globalname, ".")
 
@@ -78,13 +81,12 @@ func (ev *EvilNet) routerMsg(src string, dst string, enm *EvilNetMsg) {
 		son := ev.getSonConn(sonname)
 		if son != nil {
 			mb, _ := proto.Marshal(enm)
-			mm := son.conn.UserData().(*msgmgr.MsgMgr)
-			mm.Send(mb)
+			ev.SendTo(son.conn, mb)
 
-			loggo.Info("%s router %s->%s msg to son %s", src, dst, son.name, ev.globalname)
+			loggo.Info("%s router %s->%s msg to son %s", ev.globalname, src, dst, son.name)
 			return
 		} else {
-			loggo.Error("%s router %s->%s msg no son %s", src, dst, son.name, ev.globalname)
+			loggo.Error("%s router %s->%s msg no son", ev.globalname, src, dst)
 			return
 		}
 	}
@@ -95,8 +97,7 @@ func (ev *EvilNet) routerMsg(src string, dst string, enm *EvilNetMsg) {
 	if dsts[0] == curs[0] {
 		if ev.father != nil && ev.father.IsConnected() {
 			mb, _ := proto.Marshal(enm)
-			mm := ev.father.UserData().(*msgmgr.MsgMgr)
-			mm.Send(mb)
+			ev.SendTo(ev.father, mb)
 
 			loggo.Info("router %s->%s msg to father %s %s", src, dst, ev.fathername, ev.globalname)
 			return

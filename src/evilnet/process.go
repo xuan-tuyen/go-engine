@@ -2,7 +2,6 @@ package evilnet
 
 import (
 	"github.com/esrrhs/go-engine/src/loggo"
-	"github.com/esrrhs/go-engine/src/msgmgr"
 	"github.com/esrrhs/go-engine/src/rpc"
 	"github.com/esrrhs/go-engine/src/rudp"
 	"github.com/golang/protobuf/proto"
@@ -93,8 +92,7 @@ func (ev *EvilNet) processSonReqReg(conn *rudp.Conn, enm *EvilNetMsg) {
 
 	mb, _ := proto.Marshal(&evm)
 
-	mm := conn.UserData().(*msgmgr.MsgMgr)
-	mm.Send(mb)
+	ev.SendTo(conn, mb)
 }
 
 func (ev *EvilNet) processRouterReg(conn *rudp.Conn, enm *EvilNetMsg) {
@@ -142,22 +140,21 @@ func (ev *EvilNet) processRouterReqConn(rpcid string, conn *rudp.Conn, src strin
 	}
 
 	if evm.RspConnMsg.Result == "ok" {
-		evm.RspConnMsg.Localaddr = enm.ReqRegMsg.Localaddr
+		evm.RspConnMsg.Localaddr = enm.ReqConnMsg.Localaddr
 		evm.RspConnMsg.Globaladdr = conn.RemoteAddr()
 		evm.RspConnMsg.Proto = enm.ReqConnMsg.Proto
 		evm.RspConnMsg.Key = enm.ReqConnMsg.Key
 		evm.RspConnMsg.Param = enm.ReqConnMsg.Param
 
 		// start connect peer
-		go ev.updatePeerServer(val, enm.ReqConnMsg.Localaddr, enm.ReqConnMsg.Globaladdr, enm.ReqConnMsg.Proto, enm.ReqConnMsg.Param)
+		go ev.updatePeerServer("", val.Create(), enm.ReqConnMsg.Localaddr, enm.ReqConnMsg.Globaladdr, enm.ReqConnMsg.Proto, enm.ReqConnMsg.Param)
 	}
 
 	evmr := ev.packRouterMsg(rpcid, dst, src, &evm)
 
 	mbr, _ := proto.Marshal(evmr)
 
-	mm := conn.UserData().(*msgmgr.MsgMgr)
-	mm.Send(mbr)
+	ev.SendTo(conn, mbr)
 }
 
 func (ev *EvilNet) processRouterRspConn(rpcid string, conn *rudp.Conn, src string, dst string, enm *EvilNetMsg) {
@@ -175,7 +172,7 @@ func (ev *EvilNet) processRouterRspConn(rpcid string, conn *rudp.Conn, src strin
 		}
 
 		// start connect peer
-		go ev.updatePeerServer(val, enm.RspConnMsg.Localaddr, enm.RspConnMsg.Globaladdr, enm.RspConnMsg.Proto, enm.RspConnMsg.Param)
+		go ev.updatePeerServer(rpcid, val.Create(), enm.RspConnMsg.Localaddr, enm.RspConnMsg.Globaladdr, enm.RspConnMsg.Proto, enm.RspConnMsg.Param)
 	}
 }
 
@@ -196,8 +193,7 @@ func (ev *EvilNet) processRouterPing(rpcid string, conn *rudp.Conn, src string, 
 
 	mbr, _ := proto.Marshal(evmr)
 
-	mm := conn.UserData().(*msgmgr.MsgMgr)
-	mm.Send(mbr)
+	ev.SendTo(conn, mbr)
 }
 
 func (ev *EvilNet) processRouterPong(rpcid string, conn *rudp.Conn, src string, dst string, enm *EvilNetMsg) {
