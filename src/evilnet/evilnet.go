@@ -107,8 +107,6 @@ func (ev *EvilNet) Stop() {
 
 func (ev *EvilNet) Run() error {
 
-	ev.globalname = ev.config.Name
-
 	if ev.config.ListenSonPort > 0 {
 		addr := ev.localip + ":" + strconv.Itoa(ev.config.ListenSonPort)
 		loggo.Info("start run at %s", addr)
@@ -133,6 +131,9 @@ func (ev *EvilNet) Run() error {
 
 	if len(ev.config.Fatheraddr) > 0 {
 		go ev.updateFather()
+	} else {
+		ev.globalname = ev.config.Name
+		ev.globaladdr = addr
 	}
 
 	return nil
