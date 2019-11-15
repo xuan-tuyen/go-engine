@@ -7,28 +7,20 @@ import (
 	"time"
 )
 
-type Rpc struct {
-	callMap sync.Map
-}
+var grpccallMap sync.Map
 
-func NewRpc() *Rpc {
-	r := &Rpc{}
-	return r
-}
-
-func (r *Rpc) NewCall(timeoutms int) *RpcCall {
+func NewCall(timeoutms int) *RpcCall {
 	c := &RpcCall{
-		fr:        r,
 		timeoutms: timeoutms,
 		id:        common.Guid(),
 		retc:      make(chan int, 1),
 	}
-	r.callMap.Store(c.id, c)
+	grpccallMap.Store(c.id, c)
 	return c
 }
 
-func (r *Rpc) PutRet(id string, ret ...interface{}) {
-	v, ok := r.callMap.Load(id)
+func PutRet(id string, ret ...interface{}) {
+	v, ok := grpccallMap.Load(id)
 	if !ok {
 		return
 	}
@@ -38,7 +30,6 @@ func (r *Rpc) PutRet(id string, ret ...interface{}) {
 }
 
 type RpcCall struct {
-	fr        *Rpc
 	timeoutms int
 	id        string
 	result    []interface{}
@@ -54,10 +45,10 @@ func (r *RpcCall) Call(f func()) ([]interface{}, error) {
 
 	select {
 	case _ = <-r.retc:
-		r.fr.callMap.Delete(r.id)
+		grpccallMap.Delete(r.id)
 		return r.result, nil
 	case <-time.After(time.Duration(r.timeoutms) * time.Millisecond):
-		r.fr.callMap.Delete(r.id)
+		grpccallMap.Delete(r.id)
 		return nil, errors.New("time out")
 	}
 }

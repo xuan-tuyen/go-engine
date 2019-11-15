@@ -26,7 +26,7 @@ func (ev *EvilNet) regFather() {
 	mm.Send(mb)
 }
 
-func (ev *EvilNet) Connect(dst string, eproto string, param []string) {
+func (ev *EvilNet) Connect(rpcid string, dst string, eproto string, param []string) {
 
 	if len(ev.config.Fatheraddr) > 0 && ev.father == nil {
 		return
@@ -45,14 +45,14 @@ func (ev *EvilNet) Connect(dst string, eproto string, param []string) {
 	evm.ReqConnMsg.Globaladdr = ev.globaladdr
 	evm.ReqConnMsg.Param = param
 
-	evmr := ev.packRouterMsg(ev.globalname, dst, &evm)
+	evmr := ev.packRouterMsg(rpcid, ev.globalname, dst, &evm)
 
 	ev.routerMsg(ev.globalname, dst, evmr)
 
 	loggo.Info("try connect to %s by father %s", dst, ev.config.Fatheraddr)
 }
 
-func (ev *EvilNet) packRouterMsg(src string, dst string, enm *EvilNetMsg) *EvilNetMsg {
+func (ev *EvilNet) packRouterMsg(rpcid string, src string, dst string, enm *EvilNetMsg) *EvilNetMsg {
 
 	mb, _ := proto.Marshal(enm)
 
@@ -62,6 +62,7 @@ func (ev *EvilNet) packRouterMsg(src string, dst string, enm *EvilNetMsg) *EvilN
 	evmr.RouterMsg.Src = src
 	evmr.RouterMsg.Dst = dst
 	evmr.RouterMsg.Data = mb
+	evmr.RouterMsg.Id = rpcid
 
 	return &evmr
 }
@@ -80,10 +81,10 @@ func (ev *EvilNet) routerMsg(src string, dst string, enm *EvilNetMsg) {
 			mm := son.conn.UserData().(*msgmgr.MsgMgr)
 			mm.Send(mb)
 
-			loggo.Info("%s router son %s->%s msg to son %s", src, dst, son.name, ev.globalname)
+			loggo.Info("%s router %s->%s msg to son %s", src, dst, son.name, ev.globalname)
 			return
 		} else {
-			loggo.Error("%s router son %s->%s msg no son %s", src, dst, son.name, ev.globalname)
+			loggo.Error("%s router %s->%s msg no son %s", src, dst, son.name, ev.globalname)
 			return
 		}
 	}
@@ -91,31 +92,31 @@ func (ev *EvilNet) routerMsg(src string, dst string, enm *EvilNetMsg) {
 	// dst A.D.E.F, cur A.B
 	// dst A.B.E.F, cur A.B.C
 	// dst A.D.E.F, cur A.B.C
-	if strings.Contains(dst, ev.globalname) {
+	if dsts[0] == curs[0] {
 		if ev.father != nil && ev.father.IsConnected() {
 			mb, _ := proto.Marshal(enm)
 			mm := ev.father.UserData().(*msgmgr.MsgMgr)
 			mm.Send(mb)
 
-			loggo.Info("router son %s->%s msg to father %s %s", src, dst, ev.fathername, ev.globalname)
+			loggo.Info("router %s->%s msg to father %s %s", src, dst, ev.fathername, ev.globalname)
 			return
 		} else {
-			loggo.Error("router son %s->%s msg no father %s %s", src, dst, ev.fathername, ev.globalname)
+			loggo.Error("router %s->%s msg no father %s %s", src, dst, ev.fathername, ev.globalname)
 			return
 		}
 	}
 
-	loggo.Error("router son %s->%s msg ignore %s", src, dst, ev.globalname)
+	loggo.Error("router %s->%s msg ignore %s", src, dst, ev.globalname)
 }
 
-func (ev *EvilNet) Ping(dst string) {
+func (ev *EvilNet) Ping(rpcid string, dst string) {
 
 	evm := EvilNetMsg{}
 	evm.Type = int32(EvilNetMsg_PING)
 	evm.PingMsg = &EvilNetPingMsg{}
 	evm.PingMsg.Time = time.Now().UnixNano()
 
-	evmr := ev.packRouterMsg(ev.globalname, dst, &evm)
+	evmr := ev.packRouterMsg(rpcid, ev.globalname, dst, &evm)
 
 	ev.routerMsg(ev.globalname, dst, evmr)
 

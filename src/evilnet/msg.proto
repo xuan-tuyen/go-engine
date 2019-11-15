@@ -21,6 +21,7 @@ message EvilNetRouterMsg {
     string src = 1;
     string dst = 2;
     bytes data = 3;
+    string id = 4;
 }
 
 message EvilNetReqConnMsg {
