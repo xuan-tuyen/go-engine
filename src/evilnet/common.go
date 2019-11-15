@@ -2,6 +2,7 @@ package evilnet
 
 import (
 	"github.com/esrrhs/go-engine/src/common"
+	"github.com/esrrhs/go-engine/src/rudp"
 	"math"
 )
 
@@ -28,6 +29,16 @@ func decrypt(data []byte) (bool, []byte) {
 	return true, newdata
 }
 
-type Plugin interface {
+type PluginCreator interface {
 	Name() string
+	Create() Plugin
+}
+
+type Plugin interface {
+	Close(ev *EvilNet, conn *rudp.Conn)
+	IsClose(ev *EvilNet, conn *rudp.Conn) bool
+
+	OnConnected(ev *EvilNet, conn *rudp.Conn)
+	OnRecv(ev *EvilNet, conn *rudp.Conn, data []byte)
+	OnClose(ev *EvilNet, conn *rudp.Conn)
 }

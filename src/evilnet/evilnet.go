@@ -4,6 +4,7 @@ import (
 	"github.com/esrrhs/go-engine/src/common"
 	"github.com/esrrhs/go-engine/src/loggo"
 	"github.com/esrrhs/go-engine/src/msgmgr"
+	"github.com/esrrhs/go-engine/src/rpc"
 	"github.com/esrrhs/go-engine/src/rudp"
 	"github.com/golang/protobuf/proto"
 	"strconv"
@@ -62,7 +63,11 @@ type EvilNet struct {
 	sonConnMap sync.Map
 	sonid      int
 
-	plugin map[string]Plugin
+	plugin map[string]PluginCreator
+}
+
+func (ev *EvilNet) Globalname() string {
+	return ev.globalname
 }
 
 type EvilNetSon struct {
@@ -72,7 +77,7 @@ type EvilNetSon struct {
 	name      string
 }
 
-func NewEvilNet(plugins []Plugin, config *EvilNetConfig) *EvilNet {
+func NewEvilNet(plugins []PluginCreator, config *EvilNetConfig) *EvilNet {
 	if config == nil {
 		config = &EvilNetConfig{}
 	}
@@ -92,7 +97,7 @@ func NewEvilNet(plugins []Plugin, config *EvilNetConfig) *EvilNet {
 		localip: ip.String(),
 	}
 
-	ret.plugin = make(map[string]Plugin)
+	ret.plugin = make(map[string]PluginCreator)
 	for _, p := range plugins {
 		ret.plugin[p.Name()] = p
 	}
@@ -327,15 +332,78 @@ func (ev *EvilNet) GetSonConnNum() int {
 	return n
 }
 
-func (ev *EvilNet) updatePeerServer(plugin Plugin, localaddr string, globaladdr string, proto string, params []string) {
+func (ev *EvilNet) updatePeerServer(rpcid string, plugin Plugin, localaddr string, globaladdr string, eproto string, params []string) {
 
 	loggo.Info("start connect peer %s -> %s %s", ev.fa.LocalAddr(), localaddr, globaladdr)
 
-	dstconn, err := ev.fa.Dail(globaladdr)
+	conn, err := ev.fa.Dail(globaladdr)
 	if err != nil {
 		loggo.Error("connect peer fail %s -> %s %s", ev.fa.LocalAddr(), localaddr, globaladdr)
 		return
 	}
 
-	loggo.Info("connect peer ok %s %s -> %s %s", dstconn.Id(), ev.fa.LocalAddr(), localaddr, globaladdr)
+	ef := encrypt
+	df := decrypt
+	conn.SetUserData(msgmgr.NewMsgMgr(MSG_MAX_SIZE, CONN_MSG_BUFFER_SIZE, CONN_MSG_LIST_SIZE, &ef, &df))
+
+	loggo.Info("connect peer ok %s %s -> %s %s", conn.Id(), ev.fa.LocalAddr(), localaddr, globaladdr)
+
+	if len(rpcid) > 0 {
+		rpc.PutRet(rpcid, true)
+	}
+
+	plugin.OnConnected(ev, conn)
+
+	bytes := make([]byte, 2000)
+
+	for !ev.exit && !plugin.IsClose(ev, conn) {
+		if !conn.IsConnected() {
+			break
+		}
+
+		mm := conn.UserData().(*msgmgr.MsgMgr)
+
+		// send msg
+		packbuffer := mm.GetPackBuffer()
+		n, err := conn.Write(packbuffer)
+		if err != nil {
+			break
+		}
+		if n > 0 {
+			mm.SkipPackBuffer(n)
+		}
+
+		// recv msg
+		n, err = conn.Read(bytes)
+		if err != nil {
+			break
+		}
+		if n > 0 {
+			mm.WriteUnPackBuffer(bytes[0:n])
+		}
+
+		mm.Update()
+
+		// process
+		rl := mm.RecvList()
+		if rl != nil {
+			for e := rl.Front(); e != nil; e = e.Next() {
+				rb := e.Value.([]byte)
+				plugin.OnRecv(ev, conn, rb)
+			}
+		}
+	}
+
+	loggo.Info("close son %s", conn.RemoteAddr())
+
+	conn.Close(false)
+
+	plugin.Close(ev, conn)
+	plugin.OnClose(ev, conn)
+	loggo.Info("close son ok %s", conn.RemoteAddr())
+}
+
+func (ev *EvilNet) SendTo(conn *rudp.Conn, data []byte) {
+	mm := conn.UserData().(*msgmgr.MsgMgr)
+	mm.Send(data)
 }
