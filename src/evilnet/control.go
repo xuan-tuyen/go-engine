@@ -26,7 +26,7 @@ func (ev *EvilNet) regFather() {
 
 func (ev *EvilNet) Connect(rpcid string, dst string, eproto string, param []string) {
 
-	if len(ev.config.Fatheraddr) > 0 && ev.father == nil {
+	if ev.father == nil {
 		return
 	}
 
@@ -35,11 +35,7 @@ func (ev *EvilNet) Connect(rpcid string, dst string, eproto string, param []stri
 	evm.ReqConnMsg = &EvilNetReqConnMsg{}
 	evm.ReqConnMsg.Key = ev.config.ConnectKey
 	evm.ReqConnMsg.Proto = eproto
-	if len(ev.config.Fatheraddr) > 0 {
-		evm.ReqConnMsg.Localaddr = ev.father.LocalAddr()
-	} else {
-		evm.ReqConnMsg.Localaddr = ev.globaladdr
-	}
+	evm.ReqConnMsg.Localaddr = ev.father.LocalAddr()
 	evm.ReqConnMsg.Globaladdr = ev.globaladdr
 	evm.ReqConnMsg.Param = param
 

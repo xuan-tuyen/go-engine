@@ -7,7 +7,6 @@ import (
 	"github.com/esrrhs/go-engine/src/rpc"
 	"github.com/esrrhs/go-engine/src/rudp"
 	"github.com/golang/protobuf/proto"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -15,10 +14,9 @@ import (
 type EvilNetConfig struct {
 	Name string
 
-	ListenSonaddr    string
-	ListenSonPort    int
-	ListenFatherPort int
-	Fatheraddr       string
+	ListenSonaddr string
+	ListenOutaddr string
+	Fatheraddr    string
 
 	RegFatherInterSec int
 
@@ -39,9 +37,6 @@ func (evc *EvilNetConfig) Check() {
 	if evc.RegFatherInterSec <= 0 {
 		evc.RegFatherInterSec = 10
 	}
-	if evc.ListenFatherPort <= 0 {
-		evc.ListenFatherPort = 5566
-	}
 	evc.Rudpconfig.Check()
 }
 
@@ -50,8 +45,7 @@ type EvilNet struct {
 	config         *EvilNetConfig
 	workResultLock sync.WaitGroup
 
-	uuid    string
-	localip string
+	uuid string
 
 	fa     *rudp.Conn
 	father *rudp.Conn
@@ -86,21 +80,9 @@ func NewEvilNet(plugins []PluginCreator, config *EvilNetConfig) *EvilNet {
 
 	uuid := common.UniqueId()
 
-	localip := config.ListenSonaddr
-	if len(config.ListenSonaddr) <= 0 {
-		ip, err := common.GetOutboundIP()
-		if err != nil {
-			loggo.Error("get local ip fail")
-			return nil
-		}
-
-		localip = ip.String()
-	}
-
 	ret := &EvilNet{
-		config:  config,
-		uuid:    uuid,
-		localip: localip,
+		config: config,
+		uuid:   uuid,
 	}
 
 	ret.plugin = make(map[string]PluginCreator)
@@ -118,11 +100,10 @@ func (ev *EvilNet) Stop() {
 
 func (ev *EvilNet) Run() error {
 
-	if ev.config.ListenSonPort > 0 {
-		addr := ev.localip + ":" + strconv.Itoa(ev.config.ListenSonPort)
-		loggo.Info("start run at %s", addr)
+	if len(ev.config.ListenSonaddr) > 0 {
+		loggo.Info("start run son at %s", ev.config.ListenSonaddr)
 
-		conn, err := rudp.Listen(addr, &ev.config.Rudpconfig)
+		conn, err := rudp.Listen(ev.config.ListenSonaddr, &ev.config.Rudpconfig)
 		if err != nil {
 			return err
 		}
@@ -131,10 +112,9 @@ func (ev *EvilNet) Run() error {
 		go ev.updateSon()
 	}
 
-	addr := ev.localip + ":" + strconv.Itoa(ev.config.ListenFatherPort)
-	loggo.Info("start run at %s", addr)
+	loggo.Info("start run at %s", ev.config.ListenOutaddr)
 
-	conn, err := rudp.Listen(addr, &ev.config.Rudpconfig)
+	conn, err := rudp.Listen(ev.config.ListenOutaddr, &ev.config.Rudpconfig)
 	if err != nil {
 		return err
 	}
@@ -144,7 +124,6 @@ func (ev *EvilNet) Run() error {
 		go ev.updateFather()
 	} else {
 		ev.globalname = ev.config.Name
-		ev.globaladdr = addr
 	}
 
 	return nil
