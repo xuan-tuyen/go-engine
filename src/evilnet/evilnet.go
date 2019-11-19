@@ -15,6 +15,7 @@ import (
 type EvilNetConfig struct {
 	Name string
 
+	ListenSonaddr    string
 	ListenSonPort    int
 	ListenFatherPort int
 	Fatheraddr       string
@@ -85,16 +86,21 @@ func NewEvilNet(plugins []PluginCreator, config *EvilNetConfig) *EvilNet {
 
 	uuid := common.UniqueId()
 
-	ip, err := common.GetOutboundIP()
-	if err != nil {
-		loggo.Error("get local ip fail")
-		return nil
+	localip := config.ListenSonaddr
+	if len(config.ListenSonaddr) <= 0 {
+		ip, err := common.GetOutboundIP()
+		if err != nil {
+			loggo.Error("get local ip fail")
+			return nil
+		}
+
+		localip = ip.String()
 	}
 
 	ret := &EvilNet{
 		config:  config,
 		uuid:    uuid,
-		localip: ip.String(),
+		localip: localip,
 	}
 
 	ret.plugin = make(map[string]PluginCreator)
