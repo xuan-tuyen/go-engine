@@ -260,6 +260,8 @@ func (conn *Conn) Dail(targetAddr string) (*Conn, error) {
 		return nil, err
 	}
 
+	targetAddr = addr.String()
+
 	clientConn := conn.getClientConnByAddr(targetAddr)
 	if clientConn != nil && clientConn.IsConnected() {
 		return clientConn, nil
