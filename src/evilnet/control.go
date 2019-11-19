@@ -72,7 +72,7 @@ func (ev *EvilNet) routerMsg(src string, dst string, enm *EvilNetMsg) {
 	curs := strings.Split(ev.globalname, ".")
 
 	// dst A.B.C.D.E.F, cur A.B
-	if strings.Contains(dst, ev.globalname) {
+	if strings.Contains(dst+".", ev.globalname+".") {
 		sonname := dsts[len(curs)]
 		son := ev.getSonConn(sonname)
 		if son != nil {

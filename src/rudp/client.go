@@ -27,7 +27,7 @@ func Dail(targetAddr string, cc *ConnConfig) (*Conn, error) {
 	targetConn := c.(*net.UDPConn)
 	conn.config = *cc
 	conn.conn = targetConn
-	conn.remoteAddr = targetAddr
+	conn.remoteAddr = targetConn.RemoteAddr().String()
 	conn.isClient = true
 	conn.id = common.Guid()
 

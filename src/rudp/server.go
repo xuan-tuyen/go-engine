@@ -32,7 +32,7 @@ func Listen(addr string, cc *ConnConfig) (*Conn, error) {
 	conn.isListener = true
 	conn.config = *cc
 	conn.conn = listener
-	conn.localAddr = addr
+	conn.localAddr = listener.LocalAddr().String()
 	conn.inited = true
 	conn.waitAccept = make(chan *Conn, cc.Backlog)
 	conn.id = common.Guid()
