@@ -345,7 +345,7 @@ func (ev *EvilNet) updatePeerServer(rpcid string, plugin Plugin, localaddr strin
 	loggo.Info("connect peer ok %s %s -> %s %s", conn.Id(), ev.fa.LocalAddr(), localaddr, globaladdr)
 
 	if len(rpcid) > 0 {
-		rpc.PutRet(rpcid, true)
+		rpc.PutRet(rpcid, ev, plugin, conn)
 	}
 
 	plugin.OnConnected(ev, conn)
