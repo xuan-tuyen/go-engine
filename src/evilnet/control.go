@@ -27,6 +27,7 @@ func (ev *EvilNet) regFather() {
 func (ev *EvilNet) Connect(rpcid string, dst string, eproto string, param []string) {
 
 	if ev.father == nil {
+		loggo.Info("Connect fail no father %s %s", dst, ev.config.Fatheraddr)
 		return
 	}
 
