@@ -178,6 +178,11 @@ func (conn *Conn) updateServer(fconn *Conn, addr *net.UDPAddr) {
 	loggo.Info("start rudp conn %s->%s", conn.remoteAddr, conn.localAddr)
 
 	for !conn.exit && !fconn.exit && !conn.closed && !fconn.closed {
+		oc := fconn.getClientConnByAddr(addr.String())
+		if oc == nil || oc.Id() != conn.Id() {
+			return
+		}
+
 		sleep := true
 
 		conn.fm.Update()
@@ -261,6 +266,9 @@ func (conn *Conn) Dail(targetAddr string) (*Conn, error) {
 	}
 
 	targetAddr = addr.String()
+	if targetAddr == conn.localAddr {
+		return nil, errors.New("can not connect self rudp " + targetAddr)
+	}
 
 	clientConn := conn.getClientConnByAddr(targetAddr)
 	if clientConn != nil && clientConn.IsConnected() {

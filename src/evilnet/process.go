@@ -139,9 +139,13 @@ func (ev *EvilNet) processRouterReqConn(rpcid string, conn *rudp.Conn, src strin
 		evm.RspConnMsg.Result = "ok"
 	}
 
+	if ev.father == nil {
+		evm.RspConnMsg.Result = "no father"
+	}
+
 	if evm.RspConnMsg.Result == "ok" {
-		evm.RspConnMsg.Localaddr = enm.ReqConnMsg.Localaddr
-		evm.RspConnMsg.Globaladdr = conn.RemoteAddr()
+		evm.RspConnMsg.Localaddr = ev.father.LocalAddr()
+		evm.RspConnMsg.Globaladdr = ev.globaladdr
 		evm.RspConnMsg.Proto = enm.ReqConnMsg.Proto
 		evm.RspConnMsg.Key = enm.ReqConnMsg.Key
 		evm.RspConnMsg.Param = enm.ReqConnMsg.Param
