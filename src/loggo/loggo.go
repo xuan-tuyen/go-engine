@@ -2,6 +2,7 @@ package loggo
 
 import (
 	"fmt"
+	"github.com/esrrhs/go-engine/src/termcolor"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -58,7 +59,7 @@ func Debug(format string, a ...interface{}) {
 			file.WriteString(str)
 		}
 		if !gConfig.NoPrint {
-			fmt.Print(str)
+			fmt.Print(termcolor.FgString(str, 0, 0, 255))
 		}
 	}
 }
@@ -79,7 +80,7 @@ func Info(format string, a ...interface{}) {
 			}
 		}
 		if !gConfig.NoPrint {
-			fmt.Print(str)
+			fmt.Print(termcolor.FgString(str, 0, 255, 0))
 		}
 	}
 }
@@ -107,7 +108,7 @@ func Warn(format string, a ...interface{}) {
 			}
 		}
 		if !gConfig.NoPrint {
-			fmt.Print(str)
+			fmt.Print(termcolor.FgString(str, 255, 255, 0))
 		}
 	}
 }
@@ -142,7 +143,7 @@ func Error(format string, a ...interface{}) {
 			}
 		}
 		if !gConfig.NoPrint {
-			fmt.Print(str)
+			fmt.Print(termcolor.FgString(str, 255, 0, 0))
 		}
 	}
 }
