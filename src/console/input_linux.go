@@ -63,7 +63,6 @@ func (ci *ConsoleInput) Init() error {
 	}
 	raw.Iflag &^= (unix.IGNBRK | unix.BRKINT | unix.PARMRK | unix.ISTRIP |
 		unix.INLCR | unix.IGNCR | unix.ICRNL | unix.IXON)
-	raw.Oflag &^= unix.OPOST
 	raw.Lflag &^= (unix.ECHO | unix.ECHONL | unix.ICANON | unix.ISIG |
 		unix.IEXTEN)
 	raw.Cflag &^= (unix.CSIZE | unix.PARENB)
