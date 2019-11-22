@@ -11,7 +11,7 @@ func Test0001(t *testing.T) {
 	c.Put("aaa")
 	c.Put("aaa124")
 	c.Put("aaa12312")
-	time.Sleep(time.Second * 10)
+	time.Sleep(time.Second * 2)
 }
 
 func Test0002(t *testing.T) {
@@ -24,11 +24,13 @@ func Test0002(t *testing.T) {
 	go func() {
 		for {
 			e := ci.PollEvent()
-			fmt.Println(e.Name())
+			if e != nil {
+				fmt.Println(e.Name())
+			}
 		}
 	}()
 
-	time.Sleep(time.Second * 10)
+	time.Sleep(time.Second * 2)
 	ci.Close()
 }
 
