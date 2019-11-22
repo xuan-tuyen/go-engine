@@ -184,6 +184,7 @@ func (conn *Conn) updateClient() {
 	}
 
 	conn.exit = true
+	conn.conn.Close()
 
 	loggo.Info("close rudp conn %s->%s", conn.localAddr, conn.remoteAddr)
 }

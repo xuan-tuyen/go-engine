@@ -83,30 +83,14 @@ func (conn *Conn) LocalAddr() string {
 }
 
 func (conn *Conn) Close(force bool) {
-	if conn.exit {
+	if conn.exit || conn.closed {
 		return
 	}
-	if conn.isClient || conn.isListener {
-		if force {
-			conn.closed = true
-			conn.exit = true
-			conn.workResultLock.Wait()
-			conn.conn.Close()
-		} else {
-			conn.closed = true
-			conn.workResultLock.Wait()
-			conn.conn.Close()
-		}
-	} else {
-		if force {
-			conn.closed = true
-			conn.exit = true
-			conn.workResultLock.Wait()
-		} else {
-			conn.closed = true
-			conn.workResultLock.Wait()
-		}
+	if force {
+		conn.exit = true
 	}
+	conn.closed = true
+	conn.workResultLock.Wait()
 }
 
 func (conn *Conn) IsConnected() bool {

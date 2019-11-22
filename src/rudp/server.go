@@ -60,6 +60,7 @@ func (conn *Conn) updateListener(cc *ConnConfig) {
 			nerr, ok := err.(net.Error)
 			if !ok || !nerr.Timeout() {
 				loggo.Debug("Error read udp %s", err)
+				time.Sleep(time.Millisecond * 100)
 				continue
 			}
 		}
@@ -253,6 +254,7 @@ func (conn *Conn) updateServer(fconn *Conn, addr *net.UDPAddr) {
 	fconn.deleteClientConn(addr.String())
 
 	conn.exit = true
+	conn.conn.Close()
 
 	loggo.Info("close rudp conn %s->%s", conn.remoteAddr, conn.localAddr)
 }
