@@ -7,7 +7,8 @@ import (
 )
 
 func Test0001(t *testing.T) {
-	c := NewConsole("welcome:", true, 0)
+	c := NewConsole(true, 0)
+	c.SetPretext("welcome:")
 	if c != nil {
 		c.Put("aaa")
 		c.Put("aaa124")
