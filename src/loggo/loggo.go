@@ -26,10 +26,17 @@ type Config struct {
 }
 
 var gConfig Config
+var gInited bool
+
+func init() {
+	gConfig.Prefix = "default"
+	gConfig.MaxDay = 1
+	gConfig.Level = LEVEL_DEBUG
+}
 
 func Ini(config Config) {
 	initbefore := false
-	if gConfig.MaxDay != 0 {
+	if gInited {
 		fmt.Println("loggo had ini before " + gConfig.Prefix)
 		initbefore = true
 	}
@@ -45,6 +52,7 @@ func Ini(config Config) {
 
 	Warn("loggo Ini")
 
+	gInited = true
 	if !initbefore {
 		go loopCheck(gConfig)
 	}
