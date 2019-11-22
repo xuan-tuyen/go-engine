@@ -239,20 +239,21 @@ func Test00010(t *testing.T) {
 	eb.Input(&EventKey{key: KeyRune, ch: 'a'})
 	eb.Input(&EventKey{key: KeyRune, ch: 'b'})
 	eb.Input(&EventKey{key: KeyRune, ch: 'c'})
-	fmt.Println(eb.GetShowText())
+	fmt.Println(eb.GetShowText(true))
 
 	eb.Input(&EventKey{key: KeyLeft})
-	fmt.Println(eb.GetShowText())
+	fmt.Println(eb.GetShowText(true))
 
 	eb.Input(&EventKey{key: KeyLeft})
-	fmt.Println(eb.GetShowText())
+	fmt.Println(eb.GetShowText(true))
 
 	eb.Input(&EventKey{key: KeyLeft})
-	fmt.Println(eb.GetShowText())
+	fmt.Println(eb.GetShowText(true))
 
 	eb.Input(&EventKey{key: KeyLeft})
-	fmt.Println(eb.GetShowText())
+	fmt.Println(eb.GetShowText(true))
 
 	eb.Input(&EventKey{key: KeyRune, ch: 'd'})
-	fmt.Println(eb.GetShowText())
+	fmt.Println(eb.GetShowText(true))
+	fmt.Println(eb.GetShowText(false))
 }

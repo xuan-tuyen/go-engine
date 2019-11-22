@@ -116,11 +116,19 @@ func (eb *EditBox) GetText() string {
 	return eb.str
 }
 
-func (eb *EditBox) GetShowText() string {
-	if eb.cur >= len(eb.str) {
-		return termcolor.FgString(eb.str, 225, 186, 134) + termcolor.FgString("_", 225, 0, 0)
+func (eb *EditBox) GetShowText(color bool) string {
+	if color {
+		if eb.cur >= len(eb.str) {
+			return termcolor.FgString(eb.str, 225, 186, 134) + termcolor.FgString("_", 225, 0, 0)
+		} else {
+			return termcolor.FgString(eb.str[0:eb.cur], 225, 186, 134) + termcolor.FgString("|", 225, 0, 0) +
+				termcolor.FgString(eb.str[eb.cur:], 225, 186, 134)
+		}
 	} else {
-		return termcolor.FgString(eb.str[0:eb.cur], 225, 186, 134) + termcolor.FgString("|", 225, 0, 0) +
-			termcolor.FgString(eb.str[eb.cur:], 225, 186, 134)
+		if eb.cur >= len(eb.str) {
+			return eb.str + "_"
+		} else {
+			return eb.str[0:eb.cur] + "|" + eb.str[eb.cur:]
+		}
 	}
 }
