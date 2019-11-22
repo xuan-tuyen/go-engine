@@ -18,11 +18,12 @@ const (
 )
 
 type Config struct {
-	Level     int
-	Prefix    string
-	MaxDay    int
-	NoLogFile bool
-	NoPrint   bool
+	Level      int
+	Prefix     string
+	MaxDay     int
+	NoLogFile  bool
+	NoPrint    bool
+	NoLogColor bool
 }
 
 var gConfig Config
@@ -67,7 +68,11 @@ func Debug(format string, a ...interface{}) {
 			file.WriteString(str)
 		}
 		if !gConfig.NoPrint {
-			fmt.Print(termcolor.FgString(str, 0, 0, 255))
+			if !gConfig.NoLogColor {
+				fmt.Print(termcolor.FgString(str, 0, 0, 255))
+			} else {
+				fmt.Print(str)
+			}
 		}
 	}
 }
@@ -88,7 +93,11 @@ func Info(format string, a ...interface{}) {
 			}
 		}
 		if !gConfig.NoPrint {
-			fmt.Print(termcolor.FgString(str, 0, 255, 0))
+			if !gConfig.NoLogColor {
+				fmt.Print(termcolor.FgString(str, 0, 255, 0))
+			} else {
+				fmt.Print(str)
+			}
 		}
 	}
 }
@@ -116,7 +125,11 @@ func Warn(format string, a ...interface{}) {
 			}
 		}
 		if !gConfig.NoPrint {
-			fmt.Print(termcolor.FgString(str, 255, 255, 0))
+			if !gConfig.NoLogColor {
+				fmt.Print(termcolor.FgString(str, 255, 255, 0))
+			} else {
+				fmt.Print(str)
+			}
 		}
 	}
 }
@@ -151,7 +164,11 @@ func Error(format string, a ...interface{}) {
 			}
 		}
 		if !gConfig.NoPrint {
-			fmt.Print(termcolor.FgString(str, 255, 0, 0))
+			if !gConfig.NoLogColor {
+				fmt.Print(termcolor.FgString(str, 255, 0, 0))
+			} else {
+				fmt.Print(str)
+			}
 		}
 	}
 }

@@ -16,7 +16,6 @@ package console
 
 import (
 	"fmt"
-	"strings"
 	"time"
 )
 
@@ -44,7 +43,6 @@ import (
 // specific keys.
 type EventKey struct {
 	t   time.Time
-	mod ModMask
 	key Key
 	ch  rune
 }
@@ -68,14 +66,6 @@ func (ev *EventKey) Rune() rune {
 // using the Rune() function.
 func (ev *EventKey) Key() Key {
 	return ev.key
-}
-
-// Modifiers returns the modifiers that were present with the key press.  Note
-// that not all platforms and terminals support this equally well, and some
-// cases we will not not know for sure.  Hence, applications should avoid
-// using this in most circumstances.
-func (ev *EventKey) Modifiers() ModMask {
-	return ev.mod
 }
 
 // KeyNames holds the written names of special keys. Useful to echo back a key
@@ -205,19 +195,6 @@ var KeyNames = map[Key]string{
 // when printing the event, for example.
 func (ev *EventKey) Name() string {
 	s := ""
-	m := []string{}
-	if ev.mod&ModShift != 0 {
-		m = append(m, "Shift")
-	}
-	if ev.mod&ModAlt != 0 {
-		m = append(m, "Alt")
-	}
-	if ev.mod&ModMeta != 0 {
-		m = append(m, "Meta")
-	}
-	if ev.mod&ModCtrl != 0 {
-		m = append(m, "Ctrl")
-	}
 
 	ok := false
 	if s, ok = KeyNames[ev.key]; !ok {
@@ -227,12 +204,7 @@ func (ev *EventKey) Name() string {
 			s = fmt.Sprintf("Key[%d,%d]", ev.key, int(ev.ch))
 		}
 	}
-	if len(m) != 0 {
-		if ev.mod&ModCtrl != 0 && strings.HasPrefix(s, "Ctrl-") {
-			s = s[5:]
-		}
-		return fmt.Sprintf("%s+%s", strings.Join(m, "+"), s)
-	}
+
 	return s
 }
 
@@ -240,40 +212,9 @@ func (ev *EventKey) Name() string {
 // ASCII control sequences if KeyRune is passed for Key, but if the caller
 // has more precise information it should set that specifically.  Callers
 // that aren't sure about modifier state (most) should just pass ModNone.
-func NewEventKey(k Key, ch rune, mod ModMask) *EventKey {
-	if k == KeyRune && (ch < ' ' || ch == 0x7f) {
-		// Turn specials into proper key codes.  This is for
-		// control characters and the DEL.
-		k = Key(ch)
-		if mod == ModNone && ch < ' ' {
-			switch Key(ch) {
-			case KeyBackspace, KeyTab, KeyEsc, KeyEnter:
-				// these keys are directly typeable without CTRL
-			default:
-				// most likely entered with a CTRL keypress
-				mod = ModCtrl
-			}
-		}
-	}
-	return &EventKey{t: time.Now(), key: k, ch: ch, mod: mod}
+func NewEventKey(k Key, ch rune) *EventKey {
+	return &EventKey{t: time.Now(), key: k, ch: ch}
 }
-
-// ModMask is a mask of modifier keys.  Note that it will not always be
-// possible to report modifier keys.
-type ModMask int16
-
-// These are the modifiers keys that can be sent either with a key press,
-// or a mouse event.  Note that as of now, due to the confusion associated
-// with Meta, and the lack of support for it on many/most platforms, the
-// current implementations never use it.  Instead, they use ModAlt, even for
-// events that could possibly have been distinguished from ModAlt.
-const (
-	ModShift ModMask = 1 << iota
-	ModCtrl
-	ModAlt
-	ModMeta
-	ModNone ModMask = 0
-)
 
 // Key is a generic value for representing keys, and especially special
 // keys (function keys, cursor movement keys, etc.)  For normal keys, like

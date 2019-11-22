@@ -101,7 +101,6 @@ type keyRecord struct {
 	kcode  uint16
 	scode  uint16
 	ch     uint16
-	mod    uint32
 }
 
 // NB: All Windows platforms are little endian.  We assume this
@@ -118,24 +117,6 @@ func getu16(v []byte) uint16 {
 }
 func geti16(v []byte) int16 {
 	return int16(getu16(v))
-}
-
-// Convert windows dwControlKeyState to modifier mask
-func mod2mask(cks uint32) ModMask {
-	mm := ModNone
-	// Left or right control
-	if (cks & (0x0008 | 0x0004)) != 0 {
-		mm |= ModCtrl
-	}
-	// Left or right alt
-	if (cks & (0x0002 | 0x0001)) != 0 {
-		mm |= ModAlt
-	}
-	// Any shift
-	if (cks & 0x0010) != 0 {
-		mm |= ModShift
-	}
-	return mm
 }
 
 const (
@@ -284,7 +265,6 @@ func (ci *ConsoleInput) getConsoleInput() error {
 			krec.kcode = getu16(rec.data[6:])
 			krec.scode = getu16(rec.data[8:])
 			krec.ch = getu16(rec.data[10:])
-			krec.mod = getu32(rec.data[12:])
 
 			if krec.isdown == 0 || krec.repeat < 1 {
 				// its a key release event, ignore it
@@ -293,14 +273,7 @@ func (ci *ConsoleInput) getConsoleInput() error {
 			if krec.ch != 0 {
 				// synthesized key code
 				for krec.repeat > 0 {
-					// convert shift+tab to backtab
-					if mod2mask(krec.mod) == ModShift && krec.ch == vkTab {
-						ci.postEvent(NewEventKey(KeyBacktab, 0,
-							ModNone))
-					} else {
-						ci.postEvent(NewEventKey(KeyRune, rune(krec.ch),
-							mod2mask(krec.mod)))
-					}
+					ci.postEvent(NewEventKey(KeyRune, rune(krec.ch)))
 					krec.repeat--
 				}
 				return nil
@@ -311,8 +284,7 @@ func (ci *ConsoleInput) getConsoleInput() error {
 				return nil
 			}
 			for krec.repeat > 0 {
-				ci.postEvent(NewEventKey(key, rune(krec.ch),
-					mod2mask(krec.mod)))
+				ci.postEvent(NewEventKey(key, rune(krec.ch)))
 				krec.repeat--
 			}
 
