@@ -21,6 +21,10 @@ type tKeyCode struct {
 	key Key
 }
 
+func NewConsoleInput() *ConsoleInput {
+	return &ConsoleInput{}
+}
+
 type ConsoleInput struct {
 	in             *os.File
 	evch           chan *EventKey
