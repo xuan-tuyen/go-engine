@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"syscall"
 )
 
 // tKeyCode represents a combination of a key code and modifiers.
@@ -30,10 +31,19 @@ func (ci *ConsoleInput) Init() error {
 	ci.evch = make(chan *EventKey, 10)
 	ci.quit = make(chan struct{})
 
-	var e error
+	var err error
 
-	if ci.in, e = os.OpenFile("/dev/tty", os.O_RDONLY, 0); e != nil {
-		return e
+	if ci.in, err = os.OpenFile("/dev/tty", os.O_RDONLY, 0); err != nil {
+		return err
+	}
+
+	_, err = fcntl(int(ci.in.Fd()), syscall.F_SETFL, syscall.O_ASYNC|syscall.O_NONBLOCK)
+	if err != nil {
+		return err
+	}
+	_, err = fcntl(int(ci.in.Fd()), syscall.F_SETOWN, syscall.Getpid())
+	if err != nil {
+		return err
 	}
 
 	ti, e := loadDynamicTerminfo(os.Getenv("TERM"))
@@ -48,6 +58,16 @@ func (ci *ConsoleInput) Init() error {
 
 	go ci.inputLoop()
 	return nil
+}
+
+func fcntl(fd int, cmd int, arg int) (val int, err error) {
+	r, _, e := syscall.Syscall(syscall.SYS_FCNTL, uintptr(fd), uintptr(cmd),
+		uintptr(arg))
+	val = int(r)
+	if e != 0 {
+		err = e
+	}
+	return
 }
 
 func (ci *ConsoleInput) Close() {

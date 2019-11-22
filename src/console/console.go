@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/esrrhs/go-engine/src/common"
+	"github.com/esrrhs/go-engine/src/loggo"
 	"github.com/esrrhs/go-engine/src/synclist"
 	"github.com/esrrhs/go-engine/src/termcolor"
 	"os"
@@ -31,6 +32,7 @@ func NewConsole(pretext string) *Console {
 
 	err := ret.in.Init()
 	if err != nil {
+		loggo.Error("NewConsole fail %s", err)
 		return nil
 	}
 
