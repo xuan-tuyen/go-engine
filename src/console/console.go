@@ -8,6 +8,7 @@ import (
 	"github.com/esrrhs/go-engine/src/synclist"
 	"github.com/esrrhs/go-engine/src/termcolor"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -15,30 +16,45 @@ import (
 type Console struct {
 	exit           bool
 	workResultLock sync.WaitGroup
-	readbuffer     chan byte
+	readbuffer     chan string
 	read           *synclist.List
 	write          *synclist.List
 	pretext        string
-
-	in ConsoleInput
+	in             *ConsoleInput
+	eb             *EditBox
+	normalinput    bool
 }
 
-func NewConsole(pretext string) *Console {
+func NewConsole(pretext string, normalinput bool, historyMaxLen int) *Console {
 	ret := &Console{}
-	ret.readbuffer = make(chan byte, 1024)
+	ret.readbuffer = make(chan string, 16)
 	ret.read = synclist.NewList()
 	ret.write = synclist.NewList()
 	ret.pretext = pretext
 
-	err := ret.in.Init()
-	if err != nil {
-		loggo.Error("NewConsole fail %s", err)
-		return nil
+	if normalinput {
+		go ret.updateRead()
+		go ret.run_normal()
+	} else {
+		ret.in = NewConsoleInput()
+		ret.eb = NewEditBox(historyMaxLen)
+		err := ret.in.Init()
+		if err != nil {
+			loggo.Error("NewConsole fail %s", err)
+			return nil
+		}
+		go ret.run()
 	}
 
-	go ret.updateRead()
-	go ret.run()
 	return ret
+}
+
+func (cc *Console) Stop() {
+	cc.exit = true
+	cc.workResultLock.Wait()
+	if cc.in != nil {
+		cc.in.Stop()
+	}
 }
 
 func (cc *Console) Get() string {
@@ -53,12 +69,6 @@ func (cc *Console) Put(str string) {
 	cc.write.Push(str)
 }
 
-func (cc *Console) Stop() {
-	cc.exit = true
-	cc.workResultLock.Wait()
-	cc.in.Close()
-}
-
 func (cc *Console) updateRead() {
 	defer common.CrashLog()
 
@@ -68,12 +78,53 @@ func (cc *Console) updateRead() {
 	reader := bufio.NewReader(os.Stdin)
 
 	for !cc.exit {
-		b, err := reader.ReadByte()
+		s, err := reader.ReadString('\n')
 		if err != nil {
 			time.Sleep(time.Millisecond)
 			continue
 		}
-		cc.readbuffer <- b
+		s = strings.TrimRight(s, "\r")
+		s = strings.TrimRight(s, "\n")
+		cc.readbuffer <- s
+	}
+}
+
+func (cc *Console) run_normal() {
+	defer common.CrashLog()
+
+	cc.workResultLock.Add(1)
+	defer cc.workResultLock.Done()
+
+	for !cc.exit {
+		isneedprintpre := false
+
+		read := ""
+		select {
+		case c := <-cc.readbuffer:
+			read = c
+		case <-time.After(time.Duration(100) * time.Millisecond):
+
+		}
+
+		if len(read) > 0 {
+			cc.read.Push(read)
+			isneedprintpre = true
+		}
+
+		for {
+			write := cc.write.Pop()
+			if write != nil {
+				str := write.(string)
+				fmt.Println(termcolor.FgString(str, 180, 224, 135))
+				isneedprintpre = true
+			} else {
+				break
+			}
+		}
+
+		if isneedprintpre {
+			fmt.Println(termcolor.FgString(cc.pretext+read, 225, 186, 134))
+		}
 	}
 }
 
@@ -83,28 +134,19 @@ func (cc *Console) run() {
 	cc.workResultLock.Add(1)
 	defer cc.workResultLock.Done()
 
-	cur := ""
-	lastreturn := true
 	for !cc.exit {
-		read := ""
-		select {
-		case c := <-cc.readbuffer:
-			read = string(c)
-		case <-time.After(time.Duration(100) * time.Millisecond):
+		isneedprintpre := false
 
-		}
-
-		needreprintpre := false
-		curreturn := false
-
-		if len(read) > 0 {
-			if read == "\n" {
-				cc.read.Push(cur)
-				cur = ""
-				needreprintpre = true
-				curreturn = true
-			} else {
-				cur = cur + read
+		for {
+			e := cc.in.PollEvent()
+			if e == nil {
+				break
+			}
+			isneedprintpre = true
+			cc.eb.Input(e)
+			str := cc.eb.GetEnterText()
+			if len(str) > 0 {
+				cc.read.Push(str)
 			}
 		}
 
@@ -112,21 +154,15 @@ func (cc *Console) run() {
 			write := cc.write.Pop()
 			if write != nil {
 				str := write.(string)
-				if !lastreturn {
-					fmt.Println()
-				}
 				fmt.Println(termcolor.FgString(str, 180, 224, 135))
-				needreprintpre = true
-				curreturn = true
+				isneedprintpre = true
 			} else {
 				break
 			}
 		}
 
-		if needreprintpre {
-			fmt.Print(termcolor.FgString(cc.pretext+cur, 225, 186, 134))
+		if isneedprintpre {
+			fmt.Println(termcolor.FgString(cc.pretext, 225, 186, 134) + cc.eb.GetShowText(true))
 		}
-
-		lastreturn = curreturn
 	}
 }

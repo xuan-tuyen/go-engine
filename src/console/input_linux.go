@@ -99,7 +99,7 @@ func fcntl(fd int, cmd int, arg int) (val int, err error) {
 	return
 }
 
-func (ci *ConsoleInput) Close() {
+func (ci *ConsoleInput) Stop() {
 	ci.exit = true
 	ci.workResultLock.Wait()
 	ci.in.Close()

@@ -109,7 +109,9 @@ func (eb *EditBox) saveText() {
 }
 
 func (eb *EditBox) GetEnterText() string {
-	return eb.enterstr
+	str := eb.enterstr
+	eb.enterstr = ""
+	return str
 }
 
 func (eb *EditBox) GetText() string {

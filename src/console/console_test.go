@@ -7,12 +7,13 @@ import (
 )
 
 func Test0001(t *testing.T) {
-	c := NewConsole("welcome:")
+	c := NewConsole("welcome:", true, 0)
 	if c != nil {
 		c.Put("aaa")
 		c.Put("aaa124")
 		c.Put("aaa12312")
 		time.Sleep(time.Second * 2)
+		c.Stop()
 	}
 }
 
@@ -34,7 +35,7 @@ func Test0002(t *testing.T) {
 	}()
 
 	time.Sleep(time.Second * 2)
-	ci.Close()
+	ci.Stop()
 }
 
 func Test0003(t *testing.T) {
