@@ -25,12 +25,11 @@ type Console struct {
 	normalinput    bool
 }
 
-func NewConsole(pretext string, normalinput bool, historyMaxLen int) *Console {
+func NewConsole(normalinput bool, historyMaxLen int) *Console {
 	ret := &Console{}
 	ret.readbuffer = make(chan string, 16)
 	ret.read = synclist.NewList()
 	ret.write = synclist.NewList()
-	ret.pretext = pretext
 
 	if normalinput {
 		go ret.updateRead()
@@ -67,6 +66,18 @@ func (cc *Console) Get() string {
 
 func (cc *Console) Put(str string) {
 	cc.write.Push(str)
+}
+
+func (cc *Console) Putf(format string, a ...interface{}) {
+	cc.write.Push(fmt.Sprintf(format, a...))
+}
+
+func (cc *Console) SetPretext(pretext string) {
+	cc.pretext = pretext
+}
+
+func (cc *Console) Pretext() string {
+	return cc.pretext
 }
 
 func (cc *Console) updateRead() {
