@@ -48,6 +48,10 @@ type ConsoleInput struct {
 	workResultLock sync.WaitGroup
 }
 
+func NewConsoleInput() *ConsoleInput {
+	return &ConsoleInput{}
+}
+
 func (ci *ConsoleInput) Init() error {
 	ci.evch = make(chan *EventKey, 10)
 
@@ -72,7 +76,7 @@ func (ci *ConsoleInput) Init() error {
 	return nil
 }
 
-func (ci *ConsoleInput) Close() {
+func (ci *ConsoleInput) Stop() {
 	ci.exit = true
 	procSetEvent.Call(uintptr(ci.cancelflag))
 	ci.workResultLock.Wait()
