@@ -8,10 +8,12 @@ import (
 
 func Test0001(t *testing.T) {
 	c := NewConsole("welcome:")
-	c.Put("aaa")
-	c.Put("aaa124")
-	c.Put("aaa12312")
-	time.Sleep(time.Second * 2)
+	if c != nil {
+		c.Put("aaa")
+		c.Put("aaa124")
+		c.Put("aaa12312")
+		time.Sleep(time.Second * 2)
+	}
 }
 
 func Test0002(t *testing.T) {
@@ -19,6 +21,7 @@ func Test0002(t *testing.T) {
 	err := ci.Init()
 	if err != nil {
 		fmt.Println(err)
+		return
 	}
 
 	go func() {
