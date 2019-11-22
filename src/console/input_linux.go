@@ -4,13 +4,16 @@ import (
 	"bytes"
 	"errors"
 	"github.com/esrrhs/go-engine/src/common"
+	"golang.org/x/sys/unix"
 	"io"
 	"os"
 	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
+	"time"
 )
 
 // tKeyCode represents a combination of a key code and modifiers.
@@ -19,17 +22,22 @@ type tKeyCode struct {
 }
 
 type ConsoleInput struct {
-	in       *os.File
-	evch     chan *EventKey
-	quit     chan struct{}
-	keyexist map[Key]bool
-	keycodes map[string]*tKeyCode
-	ti       *Terminfo
+	in             *os.File
+	evch           chan *EventKey
+	exit           bool
+	workResultLock sync.WaitGroup
+	keyexist       map[Key]bool
+	keycodes       map[string]*tKeyCode
+	ti             *Terminfo
+	tiosp          *termiosPrivate
+}
+
+type termiosPrivate struct {
+	tio *unix.Termios
 }
 
 func (ci *ConsoleInput) Init() error {
 	ci.evch = make(chan *EventKey, 10)
-	ci.quit = make(chan struct{})
 
 	var err error
 
@@ -37,18 +45,40 @@ func (ci *ConsoleInput) Init() error {
 		return err
 	}
 
-	_, err = fcntl(int(ci.in.Fd()), syscall.F_SETFL, syscall.O_ASYNC|syscall.O_NONBLOCK)
+	tio, err := unix.IoctlGetTermios(int(ci.in.Fd()), unix.TCGETS)
 	if err != nil {
+		ci.in.Close()
 		return err
 	}
-	_, err = fcntl(int(ci.in.Fd()), syscall.F_SETOWN, syscall.Getpid())
+
+	ci.tiosp = &termiosPrivate{tio: tio}
+
+	// make a local copy, to make it raw
+	raw := &unix.Termios{
+		Cflag: tio.Cflag,
+		Oflag: tio.Oflag,
+		Iflag: tio.Iflag,
+		Lflag: tio.Lflag,
+		Cc:    tio.Cc,
+	}
+	raw.Iflag &^= (unix.IGNBRK | unix.BRKINT | unix.PARMRK | unix.ISTRIP |
+		unix.INLCR | unix.IGNCR | unix.ICRNL | unix.IXON)
+	raw.Oflag &^= unix.OPOST
+	raw.Lflag &^= (unix.ECHO | unix.ECHONL | unix.ICANON | unix.ISIG |
+		unix.IEXTEN)
+	raw.Cflag &^= (unix.CSIZE | unix.PARENB)
+	raw.Cflag |= unix.CS8
+
+	err = unix.IoctlSetTermios(int(ci.in.Fd()), unix.TCSETS, raw)
 	if err != nil {
+		ci.in.Close()
 		return err
 	}
 
 	ti, e := loadDynamicTerminfo(os.Getenv("TERM"))
 	if e != nil {
-		return e
+		ci.in.Close()
+		return err
 	}
 	ci.ti = ti
 
@@ -71,15 +101,19 @@ func fcntl(fd int, cmd int, arg int) (val int, err error) {
 }
 
 func (ci *ConsoleInput) Close() {
-	close(ci.quit)
+	ci.exit = true
+	ci.workResultLock.Wait()
 	ci.in.Close()
 }
 
 func (ci *ConsoleInput) inputLoop() {
 	defer common.CrashLog()
 
+	ci.workResultLock.Add(1)
+	defer ci.workResultLock.Done()
+
 	buf := &bytes.Buffer{}
-	for {
+	for !ci.exit {
 		chunk := make([]byte, 128)
 		n, e := ci.in.Read(chunk)
 		switch e {
@@ -212,10 +246,10 @@ func (ci *ConsoleInput) postEvent(ev *EventKey) error {
 
 func (ci *ConsoleInput) PollEvent() *EventKey {
 	select {
-	case <-ci.quit:
-		return nil
 	case ev := <-ci.evch:
 		return ev
+	case <-time.After(100 * time.Millisecond):
+		return nil
 	}
 }
 

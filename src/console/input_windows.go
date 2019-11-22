@@ -3,7 +3,9 @@ package console
 import (
 	"errors"
 	"github.com/esrrhs/go-engine/src/common"
+	"sync"
 	"syscall"
+	"time"
 	"unsafe"
 )
 
@@ -39,17 +41,15 @@ const (
 )
 
 type ConsoleInput struct {
-	in         syscall.Handle
-	cancelflag syscall.Handle
-	evch       chan *EventKey
-	scandone   chan struct{}
-	quit       chan struct{}
+	in             syscall.Handle
+	cancelflag     syscall.Handle
+	evch           chan *EventKey
+	exit           bool
+	workResultLock sync.WaitGroup
 }
 
 func (ci *ConsoleInput) Init() error {
 	ci.evch = make(chan *EventKey, 10)
-	ci.quit = make(chan struct{})
-	ci.scandone = make(chan struct{})
 
 	in, err := syscall.Open("CONIN$", syscall.O_RDWR, 0)
 	if err != nil {
@@ -73,11 +73,9 @@ func (ci *ConsoleInput) Init() error {
 }
 
 func (ci *ConsoleInput) Close() {
-	close(ci.quit)
+	ci.exit = true
 	procSetEvent.Call(uintptr(ci.cancelflag))
-	// Block until scanInput returns; this prevents a race condition on Win 8+
-	// which causes syscall.Close to block until another keypress is read.
-	<-ci.scandone
+	ci.workResultLock.Wait()
 	syscall.Close(ci.in)
 }
 
@@ -218,11 +216,11 @@ var vkKeys = map[uint16]Key{
 func (ci *ConsoleInput) scanInput() {
 	defer common.CrashLog()
 
-	for {
-		if e := ci.getConsoleInput(); e != nil {
-			close(ci.scandone)
-			return
-		}
+	ci.workResultLock.Add(1)
+	defer ci.workResultLock.Done()
+
+	for !ci.exit {
+		ci.getConsoleInput()
 	}
 }
 
@@ -308,9 +306,9 @@ func (ci *ConsoleInput) postEvent(ev *EventKey) error {
 
 func (ci *ConsoleInput) PollEvent() *EventKey {
 	select {
-	case <-ci.quit:
-		return nil
 	case ev := <-ci.evch:
 		return ev
+	case <-time.After(100 * time.Millisecond):
+		return nil
 	}
 }
