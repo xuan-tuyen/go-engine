@@ -1,6 +1,9 @@
 package console
 
-import "container/list"
+import (
+	"container/list"
+	"github.com/esrrhs/go-engine/src/termcolor"
+)
 
 type EditBox struct {
 	str           string
@@ -19,7 +22,7 @@ func NewEditBox(historyMaxLen int) *EditBox {
 	}
 }
 
-func (eb *EditBox) Input(key EventKey) {
+func (eb *EditBox) Input(key *EventKey) {
 	if key.Key() == KeyRune {
 		i := string(key.Rune())
 		eb.str = eb.str[0:eb.cur] + i + eb.str[eb.cur:]
@@ -114,6 +117,10 @@ func (eb *EditBox) GetText() string {
 }
 
 func (eb *EditBox) GetShowText() string {
-	return ""
-
+	if eb.cur >= len(eb.str) {
+		return termcolor.FgString(eb.str, 225, 186, 134) + termcolor.FgString("_", 225, 0, 0)
+	} else {
+		return termcolor.FgString(eb.str[0:eb.cur], 225, 186, 134) + termcolor.FgString("|", 225, 0, 0) +
+			termcolor.FgString(eb.str[eb.cur:], 225, 186, 134)
+	}
 }
