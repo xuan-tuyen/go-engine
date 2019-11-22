@@ -213,6 +213,11 @@ func (ev *EventKey) Name() string {
 // has more precise information it should set that specifically.  Callers
 // that aren't sure about modifier state (most) should just pass ModNone.
 func NewEventKey(k Key, ch rune) *EventKey {
+	if k == KeyRune && (ch < ' ' || ch == 0x7f) {
+		// Turn specials into proper key codes.  This is for
+		// control characters and the DEL.
+		k = Key(ch)
+	}
 	return &EventKey{t: time.Now(), key: k, ch: ch}
 }
 

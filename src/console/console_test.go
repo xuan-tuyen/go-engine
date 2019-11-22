@@ -260,3 +260,18 @@ func Test00010(t *testing.T) {
 	fmt.Println(eb.GetShowText(true))
 	fmt.Println(eb.GetShowText(false))
 }
+
+func Test00011(t *testing.T) {
+
+	eb := NewEditBox(3)
+	eb.Input(&EventKey{key: KeyRune, ch: 'a'})
+	eb.Input(&EventKey{key: KeyRune, ch: 'b'})
+	eb.Input(&EventKey{key: KeyRune, ch: 'c'})
+
+	eb.Input(&EventKey{key: KeyLeft})
+	fmt.Println(eb.GetShowText(false))
+
+	eb.Input(&EventKey{key: KeyEnter})
+	fmt.Println(eb.GetShowText(false))
+
+}
