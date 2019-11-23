@@ -239,7 +239,7 @@ func (conn *Conn) updateServer(fconn *Conn, addr *net.UDPAddr) {
 		}
 
 		diffclose := now.Sub(startCloseTime)
-		if diffclose > time.Millisecond*time.Duration(conn.config.ConnectTimeoutMs) {
+		if diffclose > time.Millisecond*time.Duration(conn.config.CloseTimeoutMs) {
 			loggo.Info("close conn had timeout %s->%s", conn.remoteAddr, conn.localAddr)
 			break
 		}
@@ -261,6 +261,10 @@ func (conn *Conn) updateServer(fconn *Conn, addr *net.UDPAddr) {
 }
 
 func (conn *Conn) Dail(targetAddr string) (*Conn, error) {
+	return conn.DailWithTimeout(targetAddr, conn.config.ConnectTimeoutMs)
+}
+
+func (conn *Conn) DailWithTimeout(targetAddr string, timeoutms int) (*Conn, error) {
 
 	addr, err := net.ResolveUDPAddr("udp", targetAddr)
 	if err != nil {
@@ -315,7 +319,7 @@ func (conn *Conn) Dail(targetAddr string) (*Conn, error) {
 		// timeout
 		now := time.Now()
 		diffclose := now.Sub(startConnectTime)
-		if diffclose > time.Millisecond*time.Duration(conn.config.ConnectTimeoutMs) {
+		if diffclose > time.Millisecond*time.Duration(timeoutms) {
 			loggo.Debug("can not connect remote rudp %s", targetAddr)
 			break
 		}
