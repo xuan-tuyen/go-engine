@@ -80,6 +80,7 @@ func (conn *Conn) updateListener(cc *ConnConfig) {
 
 				fm := frame.NewFrameMgr(RUDP_MAX_SIZE, RUDP_MAX_ID, conn.config.BufferSize, conn.config.MaxWin, conn.config.ResendTimems, conn.config.Compress, conn.config.Stat)
 				clientConn.fm = fm
+				clientConn.fm.SetDebugid(clientConn.Id())
 
 				conn.addClientConn(srcaddr.String(), clientConn)
 
@@ -298,6 +299,7 @@ func (conn *Conn) DailWithTimeout(targetAddr string, timeoutms int) (*Conn, erro
 
 	fm := frame.NewFrameMgr(RUDP_MAX_SIZE, RUDP_MAX_ID, conn.config.BufferSize, conn.config.MaxWin, conn.config.ResendTimems, conn.config.Compress, conn.config.Stat)
 	clientConn.fm = fm
+	clientConn.fm.SetDebugid(clientConn.Id())
 
 	conn.addClientConn(targetAddr, clientConn)
 
