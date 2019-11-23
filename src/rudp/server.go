@@ -253,11 +253,15 @@ func (conn *Conn) updateServer(fconn *Conn, addr *net.UDPAddr) {
 		time.Sleep(time.Millisecond * 10)
 	}
 
-	fconn.deleteClientConn(addr.String())
-
 	conn.exit = true
 
 	loggo.Info("close rudp conn %s->%s", conn.remoteAddr, conn.localAddr)
+
+	time.Sleep(time.Second)
+
+	fconn.deleteClientConn(addr.String())
+
+	loggo.Info("delete rudp conn %s->%s", conn.remoteAddr, conn.localAddr)
 }
 
 func (conn *Conn) Dail(targetAddr string) (*Conn, error) {

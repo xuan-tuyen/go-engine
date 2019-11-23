@@ -25,7 +25,7 @@ func (ev *EvilNet) regFather() {
 	ev.SendTo(ev.father, mb)
 }
 
-func (ev *EvilNet) Connect(rpcid string, dst string, eproto string, param []string) {
+func (ev *EvilNet) Connect(rpcid string, dst string, eproto string, param []string, timeoutms int) {
 
 	if ev.father == nil {
 		loggo.Info("Connect fail no father %s %s", dst, ev.config.Fatheraddr)
@@ -41,6 +41,7 @@ func (ev *EvilNet) Connect(rpcid string, dst string, eproto string, param []stri
 	evm.ReqConnMsg.Globaladdr = ev.globaladdr
 	evm.ReqConnMsg.Param = param
 	evm.ReqConnMsg.Randomkey = common.RandStr(16)
+	evm.ReqConnMsg.Timeoutms = int32(timeoutms)
 
 	evmr := ev.packRouterMsg(rpcid, ev.globalname, dst, &evm)
 
