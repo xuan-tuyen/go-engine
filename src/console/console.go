@@ -23,9 +23,10 @@ type Console struct {
 	in             *ConsoleInput
 	eb             *EditBox
 	normalinput    bool
+	color          bool
 }
 
-func NewConsole(normalinput bool, historyMaxLen int) *Console {
+func NewConsole(normalinput bool, historyMaxLen int, color bool) *Console {
 	ret := &Console{}
 	ret.readbuffer = make(chan string, 16)
 	ret.read = synclist.NewList()
@@ -126,7 +127,7 @@ func (cc *Console) run_normal() {
 			write := cc.write.Pop()
 			if write != nil {
 				str := write.(string)
-				fmt.Println(termcolor.FgString(str, 180, 224, 135))
+				fmt.Println(cc.ouputwithcolor(str))
 				isneedprintpre = true
 			} else {
 				break
@@ -134,8 +135,24 @@ func (cc *Console) run_normal() {
 		}
 
 		if isneedprintpre {
-			fmt.Println(termcolor.FgString(cc.pretext+read, 225, 186, 134))
+			fmt.Println(cc.inputwithcolor(cc.pretext + read))
 		}
+	}
+}
+
+func (cc *Console) inputwithcolor(str string) string {
+	if cc.color {
+		return termcolor.FgString(str, 225, 186, 134)
+	} else {
+		return str
+	}
+}
+
+func (cc *Console) ouputwithcolor(str string) string {
+	if cc.color {
+		return termcolor.FgString(str, 180, 224, 135)
+	} else {
+		return str
 	}
 }
 
@@ -165,7 +182,7 @@ func (cc *Console) run() {
 			write := cc.write.Pop()
 			if write != nil {
 				str := write.(string)
-				fmt.Println(termcolor.FgString(str, 180, 224, 135))
+				fmt.Println(cc.ouputwithcolor(str))
 				isneedprintpre = true
 			} else {
 				break
@@ -173,7 +190,7 @@ func (cc *Console) run() {
 		}
 
 		if isneedprintpre {
-			fmt.Println(termcolor.FgString(cc.pretext, 225, 186, 134) + cc.eb.GetShowText(true))
+			fmt.Println(cc.inputwithcolor(cc.pretext) + cc.eb.GetShowText(cc.color))
 		}
 	}
 }
