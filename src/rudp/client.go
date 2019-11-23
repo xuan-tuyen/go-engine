@@ -11,6 +11,10 @@ import (
 )
 
 func Dail(targetAddr string, cc *ConnConfig) (*Conn, error) {
+	if cc == nil {
+		cc = &ConnConfig{}
+	}
+	cc.Check()
 	return DailWithTimeout(targetAddr, cc, cc.ConnectTimeoutMs)
 }
 

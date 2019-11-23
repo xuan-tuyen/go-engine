@@ -332,9 +332,9 @@ func (ev *EvilNet) GetSonConnNum() int {
 	return n
 }
 
-func (ev *EvilNet) tryConnectPeer(addr string, mykey string, dstkey string) (*rudp.Conn, bool) {
+func (ev *EvilNet) tryConnectPeer(addr string, mykey string, dstkey string, timeoutms int) (*rudp.Conn, bool) {
 
-	conn, err := ev.fa.Dail(addr)
+	conn, err := ev.fa.DailWithTimeout(addr, timeoutms)
 	if err != nil {
 		loggo.Error("connect peer fail %s -> %s", ev.fa.LocalAddr(), addr)
 		return conn, false
@@ -409,26 +409,20 @@ func (ev *EvilNet) tryConnectPeer(addr string, mykey string, dstkey string) (*ru
 }
 
 func (ev *EvilNet) updatePeerServer(rpcid string, plugin Plugin, localaddr string, globaladdr string, eproto string, params []string,
-	mykey string, dstkey string) {
+	mykey string, dstkey string, timeoutms int) {
 
 	loggo.Info("start connect peer %s -> %s %s", ev.fa.LocalAddr(), localaddr, globaladdr)
 
-	var conn *rudp.Conn
-	var connected bool
-	for i := 0; i < 3; i++ {
-		conn, connected = ev.tryConnectPeer(localaddr, mykey, dstkey)
-		if connected {
-			break
-		}
+	conn, connected := ev.tryConnectPeer(globaladdr, mykey, dstkey, timeoutms/2)
+	if !connected {
 		if conn != nil {
 			conn.Close(true)
 		}
-		conn, connected = ev.tryConnectPeer(globaladdr, mykey, dstkey)
-		if connected {
-			break
-		}
-		if conn != nil {
-			conn.Close(true)
+		conn, connected = ev.tryConnectPeer(localaddr, mykey, dstkey, timeoutms/2)
+		if !connected {
+			if conn != nil {
+				conn.Close(true)
+			}
 		}
 	}
 
