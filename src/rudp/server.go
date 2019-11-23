@@ -84,6 +84,8 @@ func (conn *Conn) updateListener(cc *ConnConfig) {
 				conn.addClientConn(srcaddr.String(), clientConn)
 
 				go conn.accept(clientConn, srcaddr, cc)
+			} else {
+				loggo.Info("server read no connected data from %s", srcaddr.String())
 			}
 		} else {
 			f := &frame.Frame{}
