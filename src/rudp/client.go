@@ -41,6 +41,7 @@ func DailWithTimeout(targetAddr string, cc *ConnConfig, timeoutms int) (*Conn, e
 
 	fm := frame.NewFrameMgr(RUDP_MAX_SIZE, RUDP_MAX_ID, cc.BufferSize, cc.MaxWin, cc.ResendTimems, cc.Compress, cc.Stat)
 	conn.fm = fm
+	conn.fm.SetDebugid(conn.Id())
 
 	fm.Connect()
 	bytes := make([]byte, 2000)
