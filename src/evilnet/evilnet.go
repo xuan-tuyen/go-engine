@@ -413,16 +413,22 @@ func (ev *EvilNet) updatePeerServer(rpcid string, plugin Plugin, localaddr strin
 
 	loggo.Info("start connect peer %s -> %s %s", ev.fa.LocalAddr(), localaddr, globaladdr)
 
-	conn, connected := ev.tryConnectPeer(localaddr, mykey, dstkey)
-	if !connected {
+	var conn *rudp.Conn
+	var connected bool
+	for i := 0; i < 3; i++ {
+		conn, connected = ev.tryConnectPeer(localaddr, mykey, dstkey)
+		if connected {
+			break
+		}
 		if conn != nil {
 			conn.Close(true)
 		}
 		conn, connected = ev.tryConnectPeer(globaladdr, mykey, dstkey)
-		if !connected {
-			if conn != nil {
-				conn.Close(true)
-			}
+		if connected {
+			break
+		}
+		if conn != nil {
+			conn.Close(true)
 		}
 	}
 
