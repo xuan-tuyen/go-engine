@@ -66,8 +66,23 @@ type Conn struct {
 	localAddrToConnMap sync.Map
 	waitAccept         chan *Conn
 
+	username string
 	userdata interface{}
 	id       string
+
+	noaccept bool
+}
+
+func (conn *Conn) SetUsername(username string) {
+	conn.username = username
+}
+
+func (conn *Conn) Username() string {
+	return conn.username
+}
+
+func (conn *Conn) SetNoaccept(noaccept bool) {
+	conn.noaccept = noaccept
 }
 
 func (conn *Conn) Id() string {
@@ -91,6 +106,9 @@ func (conn *Conn) Close(force bool) {
 	}
 	conn.closed = true
 	conn.workResultLock.Wait()
+	if conn.isListener {
+		conn.conn.Close()
+	}
 }
 
 func (conn *Conn) IsConnected() bool {

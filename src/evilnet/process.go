@@ -85,6 +85,9 @@ func (ev *EvilNet) processSonReqReg(conn *rudp.Conn, enm *EvilNetMsg) {
 		son.localaddr = enm.ReqRegMsg.Localaddr
 		son.name = enm.ReqRegMsg.Name
 		son.sonkey = enm.ReqRegMsg.Sonkey
+
+		conn.SetUsername(enm.ReqRegMsg.Name)
+
 		ev.addSonConn(enm.ReqRegMsg.Name, son)
 	}
 
