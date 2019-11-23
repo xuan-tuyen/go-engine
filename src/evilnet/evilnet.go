@@ -337,7 +337,7 @@ func (ev *EvilNet) tryConnectPeer(addr string, mykey string, dstkey string) (*ru
 	conn, err := ev.fa.Dail(addr)
 	if err != nil {
 		loggo.Error("connect peer fail %s -> %s", ev.fa.LocalAddr(), addr)
-		return nil, false
+		return conn, false
 	}
 
 	ef := encrypt
@@ -415,17 +415,23 @@ func (ev *EvilNet) updatePeerServer(rpcid string, plugin Plugin, localaddr strin
 
 	conn, connected := ev.tryConnectPeer(localaddr, mykey, dstkey)
 	if !connected {
+		if conn != nil {
+			conn.Close(true)
+		}
 		conn, connected = ev.tryConnectPeer(globaladdr, mykey, dstkey)
+		if !connected {
+			if conn != nil {
+				conn.Close(true)
+			}
+		}
 	}
 
-	if !connected {
-		loggo.Error("real connect peer fail %s %s -> %s %s", conn.Id(), ev.fa.LocalAddr(), localaddr, globaladdr)
-		conn.Close(true)
-		loggo.Info("close peer ok %s", conn.RemoteAddr())
+	if !connected || conn == nil {
+		loggo.Error("real connect peer fail %s -> %s %s", ev.fa.LocalAddr(), localaddr, globaladdr)
 		return
 	}
 
-	loggo.Info("real connect peer ok %s %s -> %s %s", conn.Id(), ev.fa.LocalAddr(), localaddr, globaladdr)
+	loggo.Info("real connect peer ok %s %s -> %s %s %s", conn.Id(), ev.fa.LocalAddr(), localaddr, globaladdr, conn.RemoteAddr())
 
 	if len(rpcid) > 0 {
 		rpc.PutRet(rpcid, ev, plugin, conn)
