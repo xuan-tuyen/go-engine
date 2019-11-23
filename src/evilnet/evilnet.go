@@ -61,6 +61,8 @@ type EvilNet struct {
 	sonid      int
 
 	plugin map[string]PluginCreator
+
+	curConnRandomKey string
 }
 
 func (ev *EvilNet) Globalname() string {
@@ -330,7 +332,8 @@ func (ev *EvilNet) GetSonConnNum() int {
 	return n
 }
 
-func (ev *EvilNet) updatePeerServer(rpcid string, plugin Plugin, localaddr string, globaladdr string, eproto string, params []string) {
+func (ev *EvilNet) updatePeerServer(rpcid string, plugin Plugin, localaddr string, globaladdr string, eproto string, params []string,
+	mykey string, dstkey string) {
 
 	loggo.Info("start connect peer %s -> %s %s", ev.fa.LocalAddr(), localaddr, globaladdr)
 
@@ -346,13 +349,79 @@ func (ev *EvilNet) updatePeerServer(rpcid string, plugin Plugin, localaddr strin
 
 	loggo.Info("connect peer ok %s %s -> %s %s", conn.Id(), ev.fa.LocalAddr(), localaddr, globaladdr)
 
+	bytes := make([]byte, 2000)
+
+	ev.SendTo(conn, []byte(dstkey))
+
+	connected := false
+	startConnectTime := time.Now()
+	for !ev.exit && !plugin.IsClose(ev, conn) {
+		if !conn.IsConnected() {
+			break
+		}
+
+		mm := conn.UserData().(*msgmgr.MsgMgr)
+
+		// send msg
+		packbuffer := mm.GetPackBuffer()
+		n, err := conn.Write(packbuffer)
+		if err != nil {
+			break
+		}
+		if n > 0 {
+			mm.SkipPackBuffer(n)
+		}
+
+		// recv msg
+		n, err = conn.Read(bytes)
+		if err != nil {
+			break
+		}
+		if n > 0 {
+			mm.WriteUnPackBuffer(bytes[0:n])
+		}
+
+		mm.Update()
+
+		// process
+		rl := mm.RecvList()
+		if rl != nil {
+			e := rl.Front()
+			if e != nil {
+				rb := e.Value.([]byte)
+				if len(rb) != len(mykey) {
+					break
+				}
+				if string(rb) != mykey {
+					break
+				}
+				connected = true
+				break
+			}
+		}
+
+		// timeout
+		now := time.Now()
+		diffclose := now.Sub(startConnectTime)
+		if diffclose > time.Millisecond*1000 {
+			break
+		}
+	}
+
+	if !connected {
+		loggo.Error("real connect peer fail %s %s -> %s %s", conn.Id(), ev.fa.LocalAddr(), localaddr, globaladdr)
+		conn.Close(false)
+		loggo.Info("close peer ok %s", conn.RemoteAddr())
+		return
+	}
+
+	loggo.Info("real connect peer ok %s %s -> %s %s", conn.Id(), ev.fa.LocalAddr(), localaddr, globaladdr)
+
 	if len(rpcid) > 0 {
 		rpc.PutRet(rpcid, ev, plugin, conn)
 	}
 
 	plugin.OnConnected(ev, conn)
-
-	bytes := make([]byte, 2000)
 
 	for !ev.exit && !plugin.IsClose(ev, conn) {
 		if !conn.IsConnected() {

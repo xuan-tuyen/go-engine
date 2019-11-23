@@ -1,6 +1,7 @@
 package evilnet
 
 import (
+	"github.com/esrrhs/go-engine/src/common"
 	"github.com/esrrhs/go-engine/src/loggo"
 	"github.com/golang/protobuf/proto"
 	"strings"
@@ -39,10 +40,13 @@ func (ev *EvilNet) Connect(rpcid string, dst string, eproto string, param []stri
 	evm.ReqConnMsg.Localaddr = ev.father.LocalAddr()
 	evm.ReqConnMsg.Globaladdr = ev.globaladdr
 	evm.ReqConnMsg.Param = param
+	evm.ReqConnMsg.Randomkey = common.RandStr(16)
 
 	evmr := ev.packRouterMsg(rpcid, ev.globalname, dst, &evm)
 
 	ev.routerMsg(ev.globalname, dst, evmr)
+
+	ev.curConnRandomKey = evm.ReqConnMsg.Randomkey
 
 	loggo.Info("try connect to %s by father %s", dst, ev.config.Fatheraddr)
 }

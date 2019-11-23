@@ -30,6 +30,7 @@ message EvilNetReqConnMsg {
     string localaddr = 3;
     string globaladdr = 4;
     repeated string param = 5;
+    string randomkey = 6;
 }
 
 message EvilNetRspConnMsg {
@@ -39,6 +40,7 @@ message EvilNetRspConnMsg {
     string localaddr = 4;
     string globaladdr = 5;
     repeated string param = 6;
+    string randomkey = 7;
 }
 
 message EvilNetPingMsg {
