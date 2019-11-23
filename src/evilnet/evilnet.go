@@ -332,22 +332,19 @@ func (ev *EvilNet) GetSonConnNum() int {
 	return n
 }
 
-func (ev *EvilNet) updatePeerServer(rpcid string, plugin Plugin, localaddr string, globaladdr string, eproto string, params []string,
-	mykey string, dstkey string) {
+func (ev *EvilNet) tryConnectPeer(addr string, mykey string, dstkey string) (*rudp.Conn, bool) {
 
-	loggo.Info("start connect peer %s -> %s %s", ev.fa.LocalAddr(), localaddr, globaladdr)
-
-	conn, err := ev.fa.Dail(globaladdr)
+	conn, err := ev.fa.Dail(addr)
 	if err != nil {
-		loggo.Error("connect peer fail %s -> %s %s", ev.fa.LocalAddr(), localaddr, globaladdr)
-		return
+		loggo.Error("connect peer fail %s -> %s", ev.fa.LocalAddr(), addr)
+		return nil, false
 	}
 
 	ef := encrypt
 	df := decrypt
 	conn.SetUserData(msgmgr.NewMsgMgr(MSG_MAX_SIZE, CONN_MSG_BUFFER_SIZE, CONN_MSG_LIST_SIZE, &ef, &df))
 
-	loggo.Info("connect peer ok %s %s -> %s %s", conn.Id(), ev.fa.LocalAddr(), localaddr, globaladdr)
+	loggo.Info("connect peer ok %s %s -> %s", conn.Id(), ev.fa.LocalAddr(), addr)
 
 	bytes := make([]byte, 2000)
 
@@ -355,7 +352,7 @@ func (ev *EvilNet) updatePeerServer(rpcid string, plugin Plugin, localaddr strin
 
 	connected := false
 	startConnectTime := time.Now()
-	for !ev.exit && !plugin.IsClose(ev, conn) {
+	for !ev.exit {
 		if !conn.IsConnected() {
 			break
 		}
@@ -403,14 +400,27 @@ func (ev *EvilNet) updatePeerServer(rpcid string, plugin Plugin, localaddr strin
 		// timeout
 		now := time.Now()
 		diffclose := now.Sub(startConnectTime)
-		if diffclose > time.Millisecond*1000 {
+		if diffclose > time.Millisecond*time.Duration(1000) {
 			break
 		}
 	}
 
+	return conn, connected
+}
+
+func (ev *EvilNet) updatePeerServer(rpcid string, plugin Plugin, localaddr string, globaladdr string, eproto string, params []string,
+	mykey string, dstkey string) {
+
+	loggo.Info("start connect peer %s -> %s %s", ev.fa.LocalAddr(), localaddr, globaladdr)
+
+	conn, connected := ev.tryConnectPeer(localaddr, mykey, dstkey)
+	if !connected {
+		conn, connected = ev.tryConnectPeer(globaladdr, mykey, dstkey)
+	}
+
 	if !connected {
 		loggo.Error("real connect peer fail %s %s -> %s %s", conn.Id(), ev.fa.LocalAddr(), localaddr, globaladdr)
-		conn.Close(false)
+		conn.Close(true)
 		loggo.Info("close peer ok %s", conn.RemoteAddr())
 		return
 	}
@@ -422,6 +432,8 @@ func (ev *EvilNet) updatePeerServer(rpcid string, plugin Plugin, localaddr strin
 	}
 
 	plugin.OnConnected(ev, conn)
+
+	bytes := make([]byte, 2000)
 
 	for !ev.exit && !plugin.IsClose(ev, conn) {
 		if !conn.IsConnected() {
