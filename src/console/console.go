@@ -97,6 +97,7 @@ func (cc *Console) updateRead() {
 		}
 		s = strings.TrimRight(s, "\r")
 		s = strings.TrimRight(s, "\n")
+		s = strings.TrimSpace(s)
 		cc.readbuffer <- s
 	}
 }
@@ -174,6 +175,9 @@ func (cc *Console) run() {
 			cc.eb.Input(e)
 			str := cc.eb.GetEnterText()
 			if len(str) > 0 {
+				str = strings.TrimRight(str, "\r")
+				str = strings.TrimRight(str, "\n")
+				str = strings.TrimSpace(str)
 				cc.read.Push(str)
 			}
 		}

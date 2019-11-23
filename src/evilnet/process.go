@@ -1,6 +1,7 @@
 package evilnet
 
 import (
+	"github.com/esrrhs/go-engine/src/common"
 	"github.com/esrrhs/go-engine/src/loggo"
 	"github.com/esrrhs/go-engine/src/rpc"
 	"github.com/esrrhs/go-engine/src/rudp"
@@ -152,9 +153,11 @@ func (ev *EvilNet) processRouterReqConn(rpcid string, conn *rudp.Conn, src strin
 		evm.RspConnMsg.Proto = enm.ReqConnMsg.Proto
 		evm.RspConnMsg.Key = enm.ReqConnMsg.Key
 		evm.RspConnMsg.Param = enm.ReqConnMsg.Param
+		evm.RspConnMsg.Randomkey = common.RandStr(16)
 
 		// start connect peer
-		go ev.updatePeerServer("", val.Create(), enm.ReqConnMsg.Localaddr, enm.ReqConnMsg.Globaladdr, enm.ReqConnMsg.Proto, enm.ReqConnMsg.Param)
+		go ev.updatePeerServer("", val.Create(), enm.ReqConnMsg.Localaddr, enm.ReqConnMsg.Globaladdr, enm.ReqConnMsg.Proto, enm.ReqConnMsg.Param,
+			evm.RspConnMsg.Randomkey, enm.ReqConnMsg.Randomkey)
 	}
 
 	evmr := ev.packRouterMsg(rpcid, dst, src, &evm)
@@ -179,7 +182,8 @@ func (ev *EvilNet) processRouterRspConn(rpcid string, conn *rudp.Conn, src strin
 		}
 
 		// start connect peer
-		go ev.updatePeerServer(rpcid, val.Create(), enm.RspConnMsg.Localaddr, enm.RspConnMsg.Globaladdr, enm.RspConnMsg.Proto, enm.RspConnMsg.Param)
+		go ev.updatePeerServer(rpcid, val.Create(), enm.RspConnMsg.Localaddr, enm.RspConnMsg.Globaladdr, enm.RspConnMsg.Proto, enm.RspConnMsg.Param,
+			ev.curConnRandomKey, enm.RspConnMsg.Randomkey)
 	}
 }
 
