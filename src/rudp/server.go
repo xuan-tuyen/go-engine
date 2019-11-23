@@ -70,19 +70,21 @@ func (conn *Conn) updateListener(cc *ConnConfig) {
 
 		clientConn := conn.getClientConnByAddr(srcaddr.String())
 		if clientConn == nil {
-			clientConn := &Conn{}
-			clientConn.config = conn.config
-			clientConn.localAddr = conn.localAddr
-			clientConn.remoteAddr = srcaddr.String()
-			clientConn.conn = conn.conn
-			clientConn.id = common.Guid()
+			if !conn.noaccept {
+				clientConn := &Conn{}
+				clientConn.config = conn.config
+				clientConn.localAddr = conn.localAddr
+				clientConn.remoteAddr = srcaddr.String()
+				clientConn.conn = conn.conn
+				clientConn.id = common.Guid()
 
-			fm := frame.NewFrameMgr(RUDP_MAX_SIZE, RUDP_MAX_ID, conn.config.BufferSize, conn.config.MaxWin, conn.config.ResendTimems, conn.config.Compress, conn.config.Stat)
-			clientConn.fm = fm
+				fm := frame.NewFrameMgr(RUDP_MAX_SIZE, RUDP_MAX_ID, conn.config.BufferSize, conn.config.MaxWin, conn.config.ResendTimems, conn.config.Compress, conn.config.Stat)
+				clientConn.fm = fm
 
-			conn.addClientConn(srcaddr.String(), clientConn)
+				conn.addClientConn(srcaddr.String(), clientConn)
 
-			go conn.accept(clientConn, srcaddr, cc)
+				go conn.accept(clientConn, srcaddr, cc)
+			}
 		} else {
 			f := &frame.Frame{}
 			err := proto.Unmarshal(bytes[0:n], f)
@@ -254,7 +256,6 @@ func (conn *Conn) updateServer(fconn *Conn, addr *net.UDPAddr) {
 	fconn.deleteClientConn(addr.String())
 
 	conn.exit = true
-	conn.conn.Close()
 
 	loggo.Info("close rudp conn %s->%s", conn.remoteAddr, conn.localAddr)
 }

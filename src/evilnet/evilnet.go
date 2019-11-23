@@ -130,6 +130,7 @@ func (ev *EvilNet) Run() error {
 		return err
 	}
 	ev.fa = conn
+	ev.fa.SetNoaccept(true)
 
 	if len(ev.config.Fatheraddr) > 0 {
 		go ev.updateFather()
@@ -299,6 +300,7 @@ func (ev *EvilNet) updateSonConn(conn *rudp.Conn) {
 	loggo.Info("close son %s", conn.RemoteAddr())
 
 	conn.Close(false)
+	ev.deleteSonConn(conn.Username())
 
 	loggo.Info("close son ok %s", conn.RemoteAddr())
 }
