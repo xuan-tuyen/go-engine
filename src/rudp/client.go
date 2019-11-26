@@ -15,11 +15,19 @@ func Dail(targetAddr string, cc *ConnConfig) (*Conn, error) {
 		cc = &ConnConfig{}
 	}
 	cc.Check()
+	return DailWithTimeout(targetAddr, cc, cc.ConnectTimeoutMs)
+}
+
+func DailWithTimeout(targetAddr string, cc *ConnConfig, timeoutms int) (*Conn, error) {
+	if cc == nil {
+		cc = &ConnConfig{}
+	}
+	cc.Check()
 
 	conn := &Conn{}
 
 	startConnectTime := time.Now()
-	c, err := net.DialTimeout("udp", targetAddr, time.Millisecond*time.Duration(cc.ConnectTimeoutMs/2))
+	c, err := net.DialTimeout("udp", targetAddr, time.Millisecond*time.Duration(timeoutms/2))
 	if err != nil {
 		loggo.Debug("Error listening for udp packets: %s %s", targetAddr, err.Error())
 		return nil, err
@@ -33,6 +41,7 @@ func Dail(targetAddr string, cc *ConnConfig) (*Conn, error) {
 
 	fm := frame.NewFrameMgr(RUDP_MAX_SIZE, RUDP_MAX_ID, cc.BufferSize, cc.MaxWin, cc.ResendTimems, cc.Compress, cc.Stat)
 	conn.fm = fm
+	conn.fm.SetDebugid(conn.Id())
 
 	fm.Connect()
 	bytes := make([]byte, 2000)
@@ -66,7 +75,7 @@ func Dail(targetAddr string, cc *ConnConfig) (*Conn, error) {
 		// timeout
 		now := time.Now()
 		diffclose := now.Sub(startConnectTime)
-		if diffclose > time.Millisecond*time.Duration(cc.ConnectTimeoutMs) {
+		if diffclose > time.Millisecond*time.Duration(timeoutms) {
 			loggo.Debug("can not connect remote rudp %s", targetAddr)
 			return nil, errors.New("can not connect remote rudp " + targetAddr)
 		}
@@ -169,7 +178,7 @@ func (conn *Conn) updateClient() {
 		}
 
 		diffclose := now.Sub(startCloseTime)
-		if diffclose > time.Millisecond*time.Duration(conn.config.ConnectTimeoutMs) {
+		if diffclose > time.Millisecond*time.Duration(conn.config.CloseTimeoutMs) {
 			loggo.Info("close conn had timeout %s->%s", conn.localAddr, conn.remoteAddr)
 			break
 		}
