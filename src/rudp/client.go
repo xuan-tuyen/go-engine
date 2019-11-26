@@ -69,6 +69,8 @@ func DailWithTimeout(targetAddr string, cc *ConnConfig, timeoutms int) (*Conn, e
 			err := proto.Unmarshal(bytes[0:n], f)
 			if err == nil {
 				fm.OnRecvFrame(f)
+			} else {
+				loggo.Error("Unmarshal fail from %s %s", targetAddr, err)
 			}
 		}
 
@@ -127,6 +129,8 @@ func (conn *Conn) updateClient() {
 			err := proto.Unmarshal(bytes[0:n], f)
 			if err == nil {
 				conn.fm.OnRecvFrame(f)
+			} else {
+				loggo.Error("Unmarshal fail from %s %s", conn.remoteAddr, err)
 			}
 		}
 
@@ -174,6 +178,8 @@ func (conn *Conn) updateClient() {
 			err := proto.Unmarshal(bytes[0:n], f)
 			if err == nil {
 				conn.fm.OnRecvFrame(f)
+			} else {
+				loggo.Error("Unmarshal fail from %s %s", conn.remoteAddr, err)
 			}
 		}
 
