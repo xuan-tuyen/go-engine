@@ -80,10 +80,13 @@ func (conn *Conn) updateListener(cc *ConnConfig) {
 
 				fm := frame.NewFrameMgr(RUDP_MAX_SIZE, RUDP_MAX_ID, conn.config.BufferSize, conn.config.MaxWin, conn.config.ResendTimems, conn.config.Compress, conn.config.Stat)
 				clientConn.fm = fm
+				clientConn.fm.SetDebugid(clientConn.Id())
 
 				conn.addClientConn(srcaddr.String(), clientConn)
 
 				go conn.accept(clientConn, srcaddr, cc)
+			} else {
+				loggo.Info("server read no connected data from %s", srcaddr.String())
 			}
 		} else {
 			f := &frame.Frame{}
@@ -239,7 +242,7 @@ func (conn *Conn) updateServer(fconn *Conn, addr *net.UDPAddr) {
 		}
 
 		diffclose := now.Sub(startCloseTime)
-		if diffclose > time.Millisecond*time.Duration(conn.config.ConnectTimeoutMs) {
+		if diffclose > time.Millisecond*time.Duration(conn.config.CloseTimeoutMs) {
 			loggo.Info("close conn had timeout %s->%s", conn.remoteAddr, conn.localAddr)
 			break
 		}
@@ -253,14 +256,22 @@ func (conn *Conn) updateServer(fconn *Conn, addr *net.UDPAddr) {
 		time.Sleep(time.Millisecond * 10)
 	}
 
-	fconn.deleteClientConn(addr.String())
-
 	conn.exit = true
 
 	loggo.Info("close rudp conn %s->%s", conn.remoteAddr, conn.localAddr)
+
+	time.Sleep(time.Second)
+
+	fconn.deleteClientConn(addr.String())
+
+	loggo.Info("delete rudp conn %s->%s", conn.remoteAddr, conn.localAddr)
 }
 
 func (conn *Conn) Dail(targetAddr string) (*Conn, error) {
+	return conn.DailWithTimeout(targetAddr, conn.config.ConnectTimeoutMs)
+}
+
+func (conn *Conn) DailWithTimeout(targetAddr string, timeoutms int) (*Conn, error) {
 
 	addr, err := net.ResolveUDPAddr("udp", targetAddr)
 	if err != nil {
@@ -288,6 +299,7 @@ func (conn *Conn) Dail(targetAddr string) (*Conn, error) {
 
 	fm := frame.NewFrameMgr(RUDP_MAX_SIZE, RUDP_MAX_ID, conn.config.BufferSize, conn.config.MaxWin, conn.config.ResendTimems, conn.config.Compress, conn.config.Stat)
 	clientConn.fm = fm
+	clientConn.fm.SetDebugid(clientConn.Id())
 
 	conn.addClientConn(targetAddr, clientConn)
 
@@ -315,7 +327,7 @@ func (conn *Conn) Dail(targetAddr string) (*Conn, error) {
 		// timeout
 		now := time.Now()
 		diffclose := now.Sub(startConnectTime)
-		if diffclose > time.Millisecond*time.Duration(conn.config.ConnectTimeoutMs) {
+		if diffclose > time.Millisecond*time.Duration(timeoutms) {
 			loggo.Debug("can not connect remote rudp %s", targetAddr)
 			break
 		}

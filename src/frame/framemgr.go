@@ -70,6 +70,12 @@ type FrameMgr struct {
 	fs            *FrameStat
 	openstat      int
 	lastPrintStat int64
+
+	debugid string
+}
+
+func (fm *FrameMgr) SetDebugid(debugid string) {
+	fm.debugid = debugid
 }
 
 func NewFrameMgr(frame_max_size int, frame_max_id int, buffersize int, windowsize int, resend_timems int, compress int, openstat int) *FrameMgr {
@@ -107,7 +113,7 @@ func (fm *FrameMgr) WriteSendBuffer(data []byte) {
 	fm.sendblock.Lock()
 	defer fm.sendblock.Unlock()
 	fm.sendb.Write(data)
-	loggo.Debug("WriteSendBuffer %d %d", fm.sendb.Size(), len(data))
+	loggo.Debug("debugid %s WriteSendBuffer %d %d", fm.debugid, fm.sendb.Size(), len(data))
 }
 
 func (fm *FrameMgr) Update() {
@@ -164,7 +170,7 @@ func (fm *FrameMgr) cutSendBufferToWindow(cur int64) {
 		}
 
 		fm.sendwin.PushBack(f)
-		loggo.Debug("cut frame push to send win %d %d %d", f.Id, fm.frame_max_size, fm.sendwin.Len())
+		loggo.Debug("debugid %s cut frame push to send win %d %d %d", fm.debugid, f.Id, fm.frame_max_size, fm.sendwin.Len())
 	}
 
 	if sendall && fm.sendb.Size() > 0 && fm.sendwin.Len() < fm.windowsize {
@@ -190,7 +196,7 @@ func (fm *FrameMgr) cutSendBufferToWindow(cur int64) {
 		}
 
 		fm.sendwin.PushBack(f)
-		loggo.Debug("cut small frame push to send win %d %d %d", f.Id, len(f.Data.Data), fm.sendwin.Len())
+		loggo.Debug("debugid %s cut small frame push to send win %d %d %d", fm.debugid, f.Id, len(f.Data.Data), fm.sendwin.Len())
 	}
 
 	if fm.sendb.Empty() && fm.close && !fm.closesend && fm.sendwin.Len() < fm.windowsize {
@@ -207,7 +213,7 @@ func (fm *FrameMgr) cutSendBufferToWindow(cur int64) {
 
 		fm.sendwin.PushBack(f)
 		fm.closesend = true
-		loggo.Debug("close frame push to send win %d %d", f.Id, fm.sendwin.Len())
+		loggo.Debug("debugid %s close frame push to send win %d %d", fm.debugid, f.Id, fm.sendwin.Len())
 	}
 }
 
@@ -224,7 +230,7 @@ func (fm *FrameMgr) calSendList(cur int64) {
 				fm.fs.sendDataNum++
 				fm.fs.sendDataNumsMap[f.Id]++
 			}
-			loggo.Debug("push frame to sendlist %d %d", f.Id, len(f.Data.Data))
+			loggo.Debug("debugid %s push frame to sendlist %d %d", fm.debugid, f.Id, len(f.Data.Data))
 		}
 	}
 }
@@ -252,14 +258,14 @@ func (fm *FrameMgr) preProcessRecvList() (map[int32]int, map[int32]int, map[int3
 			for _, id := range f.Dataid {
 				tmpreq[id]++
 				if loggo.IsDebug() {
-					loggo.Debug("recv req %d %s", f.Id, common.Int32ArrayToString(f.Dataid, ","))
+					loggo.Debug("debugid %s recv req %d %s", fm.debugid, f.Id, common.Int32ArrayToString(f.Dataid, ","))
 				}
 			}
 		} else if f.Type == (int32)(Frame_ACK) {
 			for _, id := range f.Dataid {
 				tmpack[id]++
 				if loggo.IsDebug() {
-					loggo.Debug("recv ack %d %s", f.Id, common.Int32ArrayToString(f.Dataid, ","))
+					loggo.Debug("debugid %s recv ack %d %s", fm.debugid, f.Id, common.Int32ArrayToString(f.Dataid, ","))
 				}
 			}
 		} else if f.Type == (int32)(Frame_DATA) {
@@ -268,7 +274,7 @@ func (fm *FrameMgr) preProcessRecvList() (map[int32]int, map[int32]int, map[int3
 				fm.fs.recvDataNum++
 				fm.fs.recvDataNumsMap[f.Id]++
 			}
-			loggo.Debug("recv data %d %d", f.Id, len(f.Data.Data))
+			loggo.Debug("debugid %s recv data %d %d", fm.debugid, f.Id, len(f.Data.Data))
 		} else if f.Type == (int32)(Frame_PING) {
 			fm.processPing(f)
 		} else if f.Type == (int32)(Frame_PONG) {
@@ -288,7 +294,7 @@ func (fm *FrameMgr) processRecvList(tmpreq map[int32]int, tmpack map[int32]int, 
 			f := e.Value.(*Frame)
 			if f.Id == id {
 				f.Resend = true
-				loggo.Debug("choose resend win %d %d", f.Id, len(f.Data.Data))
+				loggo.Debug("debugid %s choose resend win %d %d", fm.debugid, f.Id, len(f.Data.Data))
 				break
 			}
 		}
@@ -303,7 +309,7 @@ func (fm *FrameMgr) processRecvList(tmpreq map[int32]int, tmpack map[int32]int, 
 			f := e.Value.(*Frame)
 			if f.Id == id {
 				fm.sendwin.Remove(e)
-				loggo.Debug("remove send win %d %d", f.Id, len(f.Data.Data))
+				loggo.Debug("debugid %s remove send win %d %d", fm.debugid, f.Id, len(f.Data.Data))
 				break
 			}
 		}
@@ -324,7 +330,7 @@ func (fm *FrameMgr) processRecvList(tmpreq map[int32]int, tmpack map[int32]int, 
 					fm.fs.sendAckNum++
 					fm.fs.sendAckNumsMap[id]++
 				}
-				loggo.Debug("add data to win %d %d", rf.Id, len(rf.Data.Data))
+				loggo.Debug("debugid %s add data to win %d %d", fm.debugid, rf.Id, len(rf.Data.Data))
 			}
 		}
 		if index > 0 {
@@ -333,7 +339,7 @@ func (fm *FrameMgr) processRecvList(tmpreq map[int32]int, tmpack map[int32]int, 
 				Dataid: tmp[0:index]}
 			fm.sendlist.PushBack(f)
 			if loggo.IsDebug() {
-				loggo.Debug("send ack %d %s", f.Id, common.Int32ArrayToString(f.Dataid, ","))
+				loggo.Debug("debugid %s send ack %d %s", fm.debugid, f.Id, common.Int32ArrayToString(f.Dataid, ","))
 			}
 		}
 	}
@@ -342,7 +348,7 @@ func (fm *FrameMgr) processRecvList(tmpreq map[int32]int, tmpack map[int32]int, 
 func (fm *FrameMgr) addToRecvWin(rf *Frame) bool {
 
 	if !fm.isIdInRange((int)(rf.Id), fm.frame_max_id) {
-		loggo.Debug("recv frame not in range %d %d", rf.Id, fm.recvid)
+		loggo.Debug("debugid %s recv frame not in range %d %d", fm.debugid, rf.Id, fm.recvid)
 		if fm.isIdOld((int)(rf.Id), fm.frame_max_id) {
 			return true
 		}
@@ -352,23 +358,23 @@ func (fm *FrameMgr) addToRecvWin(rf *Frame) bool {
 	for e := fm.recvwin.Front(); e != nil; e = e.Next() {
 		f := e.Value.(*Frame)
 		if f.Id == rf.Id {
-			loggo.Debug("recv frame ignore %d %d", f.Id, len(f.Data.Data))
+			loggo.Debug("debugid %s recv frame ignore %d %d", fm.debugid, f.Id, len(f.Data.Data))
 			return true
 		}
 	}
 
 	for e := fm.recvwin.Front(); e != nil; e = e.Next() {
 		f := e.Value.(*Frame)
-		loggo.Debug("start insert recv win %d %d %d", fm.recvid, rf.Id, f.Id)
+		loggo.Debug("debugid %s start insert recv win %d %d %d", fm.debugid, fm.recvid, rf.Id, f.Id)
 		if fm.compareId((int)(rf.Id), (int)(f.Id)) < 0 {
 			fm.recvwin.InsertBefore(rf, e)
-			loggo.Debug("insert recv win %d %d before %d", rf.Id, len(rf.Data.Data), f.Id)
+			loggo.Debug("debugid %s insert recv win %d %d before %d", fm.debugid, rf.Id, len(rf.Data.Data), f.Id)
 			return true
 		}
 	}
 
 	fm.recvwin.PushBack(rf)
-	loggo.Debug("insert recv win last %d %d", rf.Id, len(rf.Data.Data))
+	loggo.Debug("debugid %s insert recv win last %d %d", fm.debugid, rf.Id, len(rf.Data.Data))
 	return true
 }
 
@@ -389,33 +395,33 @@ func (fm *FrameMgr) processRecvFrame(f *Frame) bool {
 				if left < len(old) {
 					return false
 				}
-				loggo.Debug("deCompressData recv frame %d %d %d",
+				loggo.Debug("debugid %s deCompressData recv frame %d %d %d", fm.debugid,
 					f.Id, len(src), len(old))
 				src = old
 			}
 
 			fm.recvb.Write(src)
-			loggo.Debug("combined recv frame to recv buffer %d %d",
+			loggo.Debug("debugid %s combined recv frame to recv buffer %d %d", fm.debugid,
 				f.Id, len(src))
 			return true
 		}
 		return false
 	} else if f.Data.Type == (int32)(FrameData_CLOSE) {
 		fm.remoteclosed = true
-		loggo.Debug("recv remote close frame %d", f.Id)
+		loggo.Debug("debugid %s recv remote close frame %d", fm.debugid, f.Id)
 		return true
 	} else if f.Data.Type == (int32)(FrameData_CONN) {
 		fm.sendConnectRsp()
 		fm.connected = true
-		loggo.Debug("recv remote conn frame %d", f.Id)
+		loggo.Debug("debugid %s recv remote conn frame %d", fm.debugid, f.Id)
 		return true
 	} else if f.Data.Type == (int32)(FrameData_CONNRSP) {
 		fm.connected = true
-		loggo.Debug("recv remote conn rsp frame %d", f.Id)
+		loggo.Debug("debugid %s recv remote conn rsp frame %d", fm.debugid, f.Id)
 		return true
 	} else if f.Data.Type == (int32)(FrameData_HB) {
 		fm.lastRecvHBTime = time.Now().UnixNano()
-		loggo.Debug("recv remote hb frame %d", f.Id)
+		loggo.Debug("debugid %s recv remote hb frame %d", fm.debugid, f.Id)
 		return true
 	} else {
 		loggo.Error("recv frame type error %d", f.Data.Type)
@@ -434,7 +440,7 @@ func (fm *FrameMgr) combineWindowToRecvBuffer(cur int64) {
 				if fm.processRecvFrame(f) {
 					fm.recvwin.Remove(e)
 					done = true
-					loggo.Debug("process recv frame ok %d %d",
+					loggo.Debug("debugid %s process recv frame ok %d %d", fm.debugid,
 						f.Id, len(f.Data.Data))
 					break
 				}
@@ -447,7 +453,7 @@ func (fm *FrameMgr) combineWindowToRecvBuffer(cur int64) {
 			if fm.recvid >= fm.frame_max_id {
 				fm.recvid = 0
 			}
-			loggo.Debug("combined ok add recvid %d ", fm.recvid)
+			loggo.Debug("debugid %s combined ok add recvid %d ", fm.debugid, fm.recvid)
 		}
 	}
 
@@ -456,13 +462,13 @@ func (fm *FrameMgr) combineWindowToRecvBuffer(cur int64) {
 	id := fm.recvid
 	for len(reqtmp) < fm.windowsize && len(reqtmp)*4 < fm.frame_max_size/2 && e != nil {
 		f := e.Value.(*Frame)
-		loggo.Debug("start add req id %d %d %d", fm.recvid, f.Id, id)
+		loggo.Debug("debugid %s start add req id %d %d %d", fm.debugid, fm.recvid, f.Id, id)
 		if f.Id != (int32)(id) {
 			oldReq := fm.reqmap[f.Id]
 			if cur-oldReq > fm.rttns {
 				reqtmp[id]++
 				fm.reqmap[f.Id] = cur
-				loggo.Debug("add req id %d ", id)
+				loggo.Debug("debugid %s add req id %d ", fm.debugid, id)
 			}
 		} else {
 			e = e.Next()
@@ -489,7 +495,7 @@ func (fm *FrameMgr) combineWindowToRecvBuffer(cur int64) {
 		}
 		fm.sendlist.PushBack(f)
 		if loggo.IsDebug() {
-			loggo.Debug("send req %d %s", f.Id, common.Int32ArrayToString(f.Dataid, ","))
+			loggo.Debug("debugid %s send req %d %s", fm.debugid, f.Id, common.Int32ArrayToString(f.Dataid, ","))
 		}
 	}
 }
@@ -506,7 +512,7 @@ func (fm *FrameMgr) GetRecvReadLineBuffer() []byte {
 	defer fm.recvblock.Unlock()
 
 	ret := fm.recvb.GetReadLineBuffer()
-	loggo.Debug("GetRecvReadLineBuffer %d %d", fm.recvb.Size(), len(ret))
+	loggo.Debug("debugid %s GetRecvReadLineBuffer %d %d", fm.debugid, fm.recvb.Size(), len(ret))
 	return ret
 }
 
@@ -515,7 +521,7 @@ func (fm *FrameMgr) SkipRecvBuffer(size int) {
 	defer fm.recvblock.Unlock()
 
 	fm.recvb.SkipRead(size)
-	loggo.Debug("SkipRead %d %d", fm.recvb.Size(), size)
+	loggo.Debug("debugid %s SkipRead %d %d", fm.debugid, fm.recvb.Size(), size)
 }
 
 func (fm *FrameMgr) Close() {
@@ -533,7 +539,7 @@ func (fm *FrameMgr) ping() {
 		f := &Frame{Type: (int32)(Frame_PING), Resend: false, Sendtime: cur,
 			Id: 0}
 		fm.sendlist.PushBack(f)
-		loggo.Debug("send ping %d", cur)
+		loggo.Debug("debugid %s send ping %d", fm.debugid, cur)
 		if fm.openstat > 0 {
 			fm.fs.sendping++
 		}
@@ -568,7 +574,7 @@ func (fm *FrameMgr) processPing(f *Frame) {
 		fm.fs.recvping++
 		fm.fs.sendpong++
 	}
-	loggo.Debug("recv ping %d", f.Sendtime)
+	loggo.Debug("debugid %s recv ping %d", fm.debugid, f.Sendtime)
 }
 
 func (fm *FrameMgr) processPong(f *Frame) {
@@ -580,7 +586,7 @@ func (fm *FrameMgr) processPong(f *Frame) {
 			fm.fs.recvpong++
 		}
 		fm.lastPongTime = cur
-		loggo.Debug("recv pong %d %dms", rtt, fm.rttns/1000/1000)
+		loggo.Debug("debugid %s recv pong %d %dms", fm.debugid, rtt, fm.rttns/1000/1000)
 	}
 }
 
@@ -647,7 +653,7 @@ func (fm *FrameMgr) Connect() {
 	}
 
 	fm.sendwin.PushBack(f)
-	loggo.Debug("start connect")
+	loggo.Debug("debugid %s start connect", fm.debugid)
 }
 
 func (fm *FrameMgr) sendConnectRsp() {
@@ -663,7 +669,7 @@ func (fm *FrameMgr) sendConnectRsp() {
 	}
 
 	fm.sendwin.PushBack(f)
-	loggo.Debug("send connect rsp")
+	loggo.Debug("debugid %s send connect rsp", fm.debugid)
 }
 
 func (fm *FrameMgr) resetStat() {
