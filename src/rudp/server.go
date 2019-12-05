@@ -93,6 +93,8 @@ func (conn *Conn) updateListener(cc *ConnConfig) {
 			err := proto.Unmarshal(bytes[0:n], f)
 			if err == nil {
 				clientConn.fm.OnRecvFrame(f)
+			} else {
+				loggo.Error("Unmarshal fail from %s %s", srcaddr.String(), err)
 			}
 		}
 	}
