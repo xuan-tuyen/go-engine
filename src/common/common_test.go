@@ -20,4 +20,13 @@ func Test0001(t *testing.T) {
 
 	d, _ = Rc4("123456", d)
 	fmt.Println(string(d))
+
+	dd := MAKEINT64(12345, 7890)
+	fmt.Println(dd)
+	fmt.Println(HIINT32(dd))
+	fmt.Println(LOINT32(dd))
+	ddd := MAKEINT32(12345, 7890)
+	fmt.Println(ddd)
+	fmt.Println(HIINT16(ddd))
+	fmt.Println(LOINT16(ddd))
 }
