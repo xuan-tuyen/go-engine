@@ -118,3 +118,23 @@ func checkMathInit() {
 func mathInit() {
 	gseededRand = mrand.New(mrand.NewSource(time.Now().UnixNano()))
 }
+
+func MAKEINT64(high int32, low int32) int64 {
+	return (int64)(((int64)(low)) | ((int64)((int32)(high)))<<32)
+}
+func HIINT32(I int64) int32 {
+	return (int32)(((int64)(I) >> 32) & 0xFFFFFFFF)
+}
+func LOINT32(l int64) int32 {
+	return (int32)(l)
+}
+
+func MAKEINT32(high int16, low int16) int32 {
+	return (int32)(((int32)(low)) | ((int32)((int16)(high)))<<16)
+}
+func HIINT16(I int32) int16 {
+	return (int16)(((int32)(I) >> 16) & 0xFFFF)
+}
+func LOINT16(l int32) int16 {
+	return (int16)(l)
+}
