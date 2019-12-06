@@ -29,4 +29,7 @@ func Test0001(t *testing.T) {
 	fmt.Println(ddd)
 	fmt.Println(HIINT16(ddd))
 	fmt.Println(LOINT16(ddd))
+
+	fmt.Println(IsInt(3.0002))
+	fmt.Println(IsInt(3))
 }
