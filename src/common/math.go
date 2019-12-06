@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"hash/fnv"
 	"io"
+	"math"
 	mrand "math/rand"
 	"sync"
 	"time"
@@ -137,4 +138,8 @@ func HIINT16(I int32) int16 {
 }
 func LOINT16(l int32) int16 {
 	return (int16)(l)
+}
+
+func IsInt(r float64) bool {
+	return (r - math.Floor(r)) == 0
 }
