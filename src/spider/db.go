@@ -343,6 +343,10 @@ func InsertSpider(db *DB, title string, name string, url string) {
 	}
 	db.lock.Unlock()
 
+	if gcb != nil {
+		gcb(title, name, url)
+	}
+
 	loggo.Info("InsertSpider %v %v %v", title, name, url)
 }
 
