@@ -26,6 +26,8 @@ type HtmlGen struct {
 
 func New(name string, path string, maxlastest int, maxday int, mainpagetpl string, subpagetpl string) *HtmlGen {
 	loggo.Info("Ini start %s", path)
+	os.MkdirAll(path, os.ModePerm)
+	os.MkdirAll(path+"/htmlgen/", os.ModePerm)
 	hg := &HtmlGen{}
 	hg.name = name
 	hg.path = path
@@ -199,9 +201,9 @@ type subpage struct {
 func (hg *HtmlGen) saveSub(head string) error {
 	sp := &subpage{}
 	sp.Name = head
-	for _, v := range hg.cur {
+	for i := len(hg.cur) - 1; i >= 0; i-- {
 		t := subpageData{}
-		t.Name = v
+		t.Name = hg.cur[i]
 		sp.Data = append(sp.Data, t)
 	}
 
