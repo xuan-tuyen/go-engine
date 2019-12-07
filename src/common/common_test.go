@@ -2,6 +2,7 @@ package common
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 )
 
@@ -32,4 +33,6 @@ func Test0001(t *testing.T) {
 
 	fmt.Println(IsInt(3.0002))
 	fmt.Println(IsInt(3))
+	fmt.Println(strconv.FormatFloat(3.1415, 'E', -1, 64))
+
 }
