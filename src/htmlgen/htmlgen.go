@@ -120,6 +120,10 @@ type mainpage struct {
 	Sub     []mainpageSub
 }
 
+func noescape(str string) template.HTML {
+	return template.HTML(str)
+}
+
 func (hg *HtmlGen) savefile(data interface{}, des string, src string) error {
 
 	file, err := os.Create(des)
@@ -134,7 +138,7 @@ func (hg *HtmlGen) savefile(data interface{}, des string, src string) error {
 		return err
 	}
 
-	t = t.Funcs(template.FuncMap{})
+	t = t.Funcs(template.FuncMap{"noescape": noescape})
 
 	srcfile, err := os.Open(src)
 	if err != nil {
