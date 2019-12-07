@@ -71,6 +71,8 @@ type SpiderData struct {
 
 var gSpiderData SpiderData
 
+var gcb func(title string, name string, url string)
+
 func GetChromeWSEndpoint() string {
 	return gSpiderData.chromeWSEndpoint
 }
@@ -97,6 +99,10 @@ func startChrome() {
 		shell.Run(common.GetNodeDir()+"/start_chrome.sh", true, common.GetNodeDir())
 		time.Sleep(time.Second)
 	}
+}
+
+func SetCallback(cb func(title string, name string, url string)) {
+	gcb = cb
 }
 
 func Start(db *DB, config Config, url string) {

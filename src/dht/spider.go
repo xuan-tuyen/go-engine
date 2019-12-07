@@ -11,6 +11,7 @@ import (
 )
 
 var gdb *sql.DB
+var gcb func(infohash string, name string)
 
 func Load() error {
 
@@ -34,6 +35,10 @@ func Load() error {
 	go Crawl()
 
 	return nil
+}
+
+func SetCallback(cb func(infohash string, name string)) {
+	gcb = cb
 }
 
 type file struct {
@@ -113,6 +118,10 @@ func InsertSpider(infohash string, name string) {
 	gdb.Exec("delete from meta_info where date('now', '-30 day') > date(time)")
 
 	num := GetSize()
+
+	if gcb != nil {
+		gcb(infohash, name)
+	}
 
 	loggo.Info("InsertSpider size %v %v %v", infohash, name, num)
 }
