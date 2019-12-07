@@ -16,6 +16,7 @@ import (
 var gEngineDir string
 var gNodeDir string
 var gDataDir string
+var gSrcDir string
 
 func Ini() {
 
@@ -74,6 +75,15 @@ func Ini() {
 		return
 	}
 	loggo.Info("gDataDir %v", gDataDir)
+
+	gSrcDir = gEngineDir + "/src/"
+	gSrcDir = filepath.Clean(gSrcDir)
+	gSrcDir = filepath.ToSlash(gSrcDir)
+	if _, err := os.Stat(gSrcDir); os.IsNotExist(err) {
+		panic("need install src in go-engine " + gSrcDir)
+		return
+	}
+	loggo.Info("gSrcDir %v", gSrcDir)
 
 	loadConfig()
 	extract()
@@ -162,6 +172,10 @@ func GetDataDir() string {
 
 func GetNodeDir() string {
 	return gNodeDir
+}
+
+func GetSrcDir() string {
+	return gSrcDir
 }
 
 func decompress(tarFile string) error {
