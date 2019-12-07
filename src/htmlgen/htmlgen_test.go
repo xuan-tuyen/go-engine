@@ -6,7 +6,6 @@ import (
 )
 
 func Test0001(t *testing.T) {
-	common.Ini()
 	hg := New("test", "./", 10, 10, "./mainpage.tpl", "./subpage.tpl")
 
 	hg.AddHtml("aaa")
