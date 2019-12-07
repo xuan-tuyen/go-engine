@@ -1,7 +1,6 @@
 package htmlgen
 
 import (
-	"github.com/esrrhs/go-engine/src/common"
 	"testing"
 )
 
