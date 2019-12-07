@@ -7,7 +7,6 @@ import (
 	"html/template"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 )
@@ -180,7 +179,6 @@ func (hg *HtmlGen) saveLatest(now time.Time) error {
 		t.Name = tt.Format("2006-01-02")
 		mp.Sub = append(mp.Sub, t)
 	}
-	sort.Slice(mp.Sub, func(i, j int) bool { return mp.Sub[i].Name < mp.Sub[j].Name })
 
 	des := hg.path + "/" + "htmlgen.html"
 
