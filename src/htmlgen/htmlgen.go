@@ -21,6 +21,7 @@ type HtmlGen struct {
 	subpagetpl string
 	cur        []string
 	lastday    time.Time
+	lastsub    time.Time
 }
 
 func New(name string, path string, maxlastest int, maxday int, mainpagetpl string, subpagetpl string) *HtmlGen {
@@ -65,13 +66,13 @@ func New(name string, path string, maxlastest int, maxday int, mainpagetpl strin
 func (hg *HtmlGen) AddHtml(html string) error {
 	now := time.Now()
 	hg.addLatest(html)
-	hg.save(now, html)
+	mustsave := hg.save(now, html)
 	head := hg.calcSubdir(now)
 	err := hg.saveLatest(now)
 	if err != nil {
 		return err
 	}
-	err = hg.saveSub(head)
+	err = hg.saveSub(now, head, mustsave)
 	if err != nil {
 		return err
 	}
@@ -83,14 +84,17 @@ func (hg *HtmlGen) calcSubdir(now time.Time) string {
 	return now.Format("2006-01-02")
 }
 
-func (hg *HtmlGen) save(now time.Time, s string) {
+func (hg *HtmlGen) save(now time.Time, s string) bool {
 	cur := now.Format("2006-01-02")
 	last := hg.lastday.Format("2006-01-02")
+	mustsave := false
 	if cur != last {
 		hg.cur = make([]string, 0)
 		hg.lastday = now
+		mustsave = true
 	}
 	hg.cur = append(hg.cur, s)
+	return mustsave
 }
 
 func (hg *HtmlGen) addLatest(s string) {
@@ -200,7 +204,13 @@ type subpage struct {
 	Data []subpageData
 }
 
-func (hg *HtmlGen) saveSub(head string) error {
+func (hg *HtmlGen) saveSub(now time.Time, head string, mustsave bool) error {
+
+	if now.Sub(hg.lastsub) < time.Hour && !mustsave {
+		return nil
+	}
+	hg.lastsub = now
+
 	sp := &subpage{}
 	sp.Name = head
 	for i := len(hg.cur) - 1; i >= 0; i-- {
