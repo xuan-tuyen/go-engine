@@ -2,8 +2,10 @@ package htmlgen
 
 import (
 	"container/list"
+	"database/sql"
 	"github.com/esrrhs/go-engine/src/common"
 	"github.com/esrrhs/go-engine/src/loggo"
+	_ "github.com/mattn/go-sqlite3"
 	"html/template"
 	"os"
 	"path/filepath"
@@ -22,6 +24,7 @@ type HtmlGen struct {
 	cur        []string
 	lastday    time.Time
 	lastsub    time.Time
+	db         *sql.DB
 }
 
 func New(name string, path string, maxlastest int, maxday int, mainpagetpl string, subpagetpl string) *HtmlGen {
@@ -33,6 +36,7 @@ func New(name string, path string, maxlastest int, maxday int, mainpagetpl strin
 	hg.path = path
 	hg.lastestmax = maxlastest
 	hg.maxday = maxday
+	hg.lastday = time.Now()
 
 	if len(mainpagetpl) > 0 {
 		hg.lastesttpl = mainpagetpl
@@ -51,6 +55,17 @@ func New(name string, path string, maxlastest int, maxday int, mainpagetpl strin
 			panic("no main page tpl at " + hg.subpagetpl)
 		}
 	}
+
+	db, err := sql.Open("sqlite3", "./htmlgen.db")
+	if err != nil {
+		panic(err)
+	}
+
+	db.Exec("CREATE TABLE  IF NOT EXISTS [gen_info](" +
+		"[day] TEXT NOT NULL," +
+		"[html] TEXT NOT NULL);")
+	hg.db = db
+	hg.loadDB()
 
 	hg.deleteHtml()
 	go func() {
@@ -80,6 +95,51 @@ func (hg *HtmlGen) AddHtml(html string) error {
 	return nil
 }
 
+func (hg *HtmlGen) insertDB(now time.Time, s string) {
+	cur := now.Format("2006-01-02")
+	tx, err := hg.db.Begin()
+	if err != nil {
+		loggo.Error("Begin sqlite3 fail %v", err)
+		return
+	}
+	stmt, err := tx.Prepare("insert into gen_info(day, html) values(?,?)")
+	if err != nil {
+		loggo.Error("Prepare sqlite3 fail %v", err)
+		return
+	}
+	defer stmt.Close()
+	_, err = stmt.Exec(cur, s)
+	if err != nil {
+		loggo.Error("insert sqlite3 fail %v", err)
+	}
+	tx.Commit()
+}
+
+func (hg *HtmlGen) loadDB() {
+	cur := time.Now().Format("2006-01-02")
+	rows, err := hg.db.Query("select html from gen_info where day='" + cur + "'")
+	if err != nil {
+		loggo.Error("Query sqlite3 fail %v", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+
+		var html string
+		err = rows.Scan(&html)
+		if err != nil {
+			loggo.Error("Scan sqlite3 fail %v", err)
+		}
+
+		hg.cur = append(hg.cur, html)
+	}
+
+}
+
+func (hg *HtmlGen) clearDB() {
+	hg.db.Exec("delete from meta_info")
+}
+
 func (hg *HtmlGen) calcSubdir(now time.Time) string {
 	return now.Format("2006-01-02")
 }
@@ -92,8 +152,10 @@ func (hg *HtmlGen) save(now time.Time, s string) bool {
 		hg.cur = make([]string, 0)
 		hg.lastday = now
 		mustsave = true
+		hg.clearDB()
 	}
 	hg.cur = append(hg.cur, s)
+	hg.insertDB(now, s)
 	return mustsave
 }
 
