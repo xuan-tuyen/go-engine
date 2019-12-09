@@ -268,7 +268,7 @@ type subpage struct {
 
 func (hg *HtmlGen) saveSub(now time.Time, head string, mustsave bool) error {
 
-	if now.Sub(hg.lastsub) < time.Hour && !mustsave {
+	if now.Sub(hg.lastsub) < time.Minute && !mustsave {
 		return nil
 	}
 	hg.lastsub = now
