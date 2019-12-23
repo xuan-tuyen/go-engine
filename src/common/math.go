@@ -105,6 +105,10 @@ func Int31n(n int) int32 {
 	return int32(ret)
 }
 
+func Shuffle(n int, swap func(i, j int)) {
+	gseededRand.Shuffle(n, swap)
+}
+
 func checkMathInit() {
 	if !mathinited {
 		defer gmathlock.Unlock()
