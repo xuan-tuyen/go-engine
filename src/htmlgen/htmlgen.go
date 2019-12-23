@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -25,6 +26,7 @@ type HtmlGen struct {
 	lastday    time.Time
 	lastsub    time.Time
 	db         *sql.DB
+	lock       sync.Mutex
 }
 
 func New(name string, path string, maxlastest int, maxday int, mainpagetpl string, subpagetpl string) *HtmlGen {
@@ -96,6 +98,8 @@ func (hg *HtmlGen) AddHtml(html string) error {
 }
 
 func (hg *HtmlGen) insertDB(now time.Time, s string) {
+	hg.lock.Lock()
+	defer hg.lock.Unlock()
 	cur := now.Format("2006-01-02")
 	tx, err := hg.db.Begin()
 	if err != nil {
