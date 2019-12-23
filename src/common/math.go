@@ -106,6 +106,7 @@ func Int31n(n int) int32 {
 }
 
 func Shuffle(n int, swap func(i, j int)) {
+	checkMathInit()
 	gseededRand.Shuffle(n, swap)
 }
 
