@@ -35,4 +35,7 @@ func Test0001(t *testing.T) {
 	fmt.Println(IsInt(3))
 	fmt.Println(strconv.FormatFloat(3.1415, 'E', -1, 64))
 
+	aa := []int{1, 2, 3, 4, 5, 6, 7, 8}
+	Shuffle(len(aa), func(i, j int) { aa[i], aa[j] = aa[j], aa[i] })
+	fmt.Println(aa)
 }
