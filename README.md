@@ -12,6 +12,7 @@ go语言开发通用代码库
 * 内存池
 * 自失效Map
 * 同步rpc
+* FIFO消息
 #### 环境
 * nodejs
 * shell
