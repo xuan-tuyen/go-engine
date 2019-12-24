@@ -3,6 +3,7 @@ package threadpool
 import (
 	"github.com/esrrhs/go-engine/src/common"
 	"sync"
+	"time"
 )
 
 type ThreadPool struct {
@@ -31,6 +32,15 @@ func NewThreadPool(max int, buffer int, exef func(interface{})) *ThreadPool {
 
 func (tp *ThreadPool) AddJob(hash int, v interface{}) {
 	tp.ca[common.AbsInt(hash)%len(tp.ca)] <- v
+}
+
+func (tp *ThreadPool) AddJobTimeout(hash int, v interface{}, timeoutms int) bool {
+	select {
+	case tp.ca[common.AbsInt(hash)%len(tp.ca)] <- v:
+		return true
+	case <-time.After(time.Duration(timeoutms) * time.Millisecond):
+		return false
+	}
 }
 
 func (tp *ThreadPool) Stop() {
