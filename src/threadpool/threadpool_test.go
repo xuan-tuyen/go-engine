@@ -37,3 +37,23 @@ func Test2(t *testing.T) {
 	tp.Stop()
 	fmt.Println("Stop")
 }
+
+func Test3(t *testing.T) {
+	tp := NewThreadPool(1, 1, func(i interface{}) {
+		v := i.(int)
+		fmt.Println(v)
+		time.Sleep(time.Second * 10)
+	})
+	ret := tp.AddJobTimeout(0, 0, 1000)
+	fmt.Println("0 Stop ", ret)
+	ret = tp.AddJobTimeout(1, 1, 1000)
+	fmt.Println("1 Stop", ret)
+	ret = tp.AddJobTimeout(2, 2, 1000)
+	fmt.Println("2 Stop", ret)
+	ret = tp.AddJobTimeout(3, 3, 1000)
+	fmt.Println("3 Stop", ret)
+	ret = tp.AddJobTimeout(4, 4, 1000)
+	fmt.Println("4 Stop", ret)
+	tp.Stop()
+	fmt.Println("Stop")
+}
