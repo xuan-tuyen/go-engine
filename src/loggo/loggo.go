@@ -2,6 +2,7 @@ package loggo
 
 import (
 	"fmt"
+	"github.com/esrrhs/go-engine/src/common"
 	"github.com/esrrhs/go-engine/src/termcolor"
 	"os"
 	"path/filepath"
@@ -293,6 +294,7 @@ func checkDate(config Config) {
 }
 
 func loopCheck(config Config) {
+	defer common.CrashLog()
 	for {
 		checkDate(config)
 		time.Sleep(time.Minute)

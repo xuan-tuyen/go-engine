@@ -71,6 +71,7 @@ func New(name string, path string, maxlastest int, maxday int, mainpagetpl strin
 
 	hg.deleteHtml()
 	go func() {
+		defer common.CrashLog()
 		for {
 			time.Sleep(time.Hour)
 			hg.deleteHtml()

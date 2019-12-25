@@ -31,6 +31,8 @@ func timeInit() {
 }
 
 func updateNowInSecond() {
+	defer CrashLog()
+
 	for {
 		gnowsecond = time.Now()
 		time.Sleep(time.Second)
