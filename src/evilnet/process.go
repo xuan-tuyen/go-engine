@@ -64,7 +64,10 @@ func (ev *EvilNet) processSonReqReg(conn *rudp.Conn, enm *EvilNetMsg) {
 				evm.RspRegMsg.Result = "son key error"
 			} else {
 				if son.conn.Id() != conn.Id() {
-					go son.conn.Close(false)
+					go func() {
+						defer common.CrashLog()
+						son.conn.Close(false)
+					}()
 					son.conn = conn
 				}
 				evm.RspRegMsg.Result = "ok"
@@ -157,8 +160,11 @@ func (ev *EvilNet) processRouterReqConn(rpcid string, conn *rudp.Conn, src strin
 		evm.RspConnMsg.Timeoutms = enm.ReqConnMsg.Timeoutms
 
 		// start connect peer
-		go ev.updatePeerServer("", val.Create(), enm.ReqConnMsg.Localaddr, enm.ReqConnMsg.Globaladdr, enm.ReqConnMsg.Proto, enm.ReqConnMsg.Param,
-			evm.RspConnMsg.Randomkey, enm.ReqConnMsg.Randomkey, int(enm.ReqConnMsg.Timeoutms))
+		go func() {
+			defer common.CrashLog()
+			ev.updatePeerServer("", val.Create(), enm.ReqConnMsg.Localaddr, enm.ReqConnMsg.Globaladdr, enm.ReqConnMsg.Proto, enm.ReqConnMsg.Param,
+				evm.RspConnMsg.Randomkey, enm.ReqConnMsg.Randomkey, int(enm.ReqConnMsg.Timeoutms))
+		}()
 	}
 
 	evmr := ev.packRouterMsg(rpcid, dst, src, &evm)
@@ -183,8 +189,11 @@ func (ev *EvilNet) processRouterRspConn(rpcid string, conn *rudp.Conn, src strin
 		}
 
 		// start connect peer
-		go ev.updatePeerServer(rpcid, val.Create(), enm.RspConnMsg.Localaddr, enm.RspConnMsg.Globaladdr, enm.RspConnMsg.Proto, enm.RspConnMsg.Param,
-			ev.curConnRandomKey, enm.RspConnMsg.Randomkey, int(enm.RspConnMsg.Timeoutms))
+		go func() {
+			defer common.CrashLog()
+			ev.updatePeerServer(rpcid, val.Create(), enm.RspConnMsg.Localaddr, enm.RspConnMsg.Globaladdr, enm.RspConnMsg.Proto, enm.RspConnMsg.Param,
+				ev.curConnRandomKey, enm.RspConnMsg.Randomkey, int(enm.RspConnMsg.Timeoutms))
+		}()
 	}
 }
 
