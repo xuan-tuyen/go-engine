@@ -2,6 +2,7 @@ package spider
 
 import (
 	"database/sql"
+	"github.com/esrrhs/go-engine/src/common"
 	"github.com/esrrhs/go-engine/src/loggo"
 	_ "github.com/mattn/go-sqlite3"
 	"net/url"
@@ -127,6 +128,15 @@ func Load(dsn string, conn int) *DB {
 	return ret
 }
 
+func CloseJob(db *JobDB) {
+	db.gdb.Close()
+	db.gInsertJobStmt.Close()
+	db.gSizeJobStmt.Close()
+	db.gPeekJobStmt.Close()
+	db.gDeleteJobStmt.Close()
+	db.gHasJobStmt.Close()
+}
+
 func LoadJob(src string) *JobDB {
 
 	loggo.Info("sqlite3 Load Job start %v", src)
@@ -191,6 +201,14 @@ func LoadJob(src string) *JobDB {
 	loggo.Info("sqlite3 Job size %v %v", src, num)
 
 	return ret
+}
+
+func CloseDone(db *DoneDB) {
+	db.gdb.Close()
+	db.gInsertDoneStmt.Close()
+	db.gSizeDoneStmt.Close()
+	db.gDeleteDoneStmt.Close()
+	db.gHasDoneStmt.Close()
 }
 
 func LoadDone(src string) *DoneDB {
@@ -323,6 +341,8 @@ func InsertSpiderDone(db *DoneDB, url string) {
 }
 
 func DeleteOldSpider(db *DB) {
+	defer common.CrashLog()
+
 	for {
 		db.lock.Lock()
 		db.gDeleteStmt.Exec()

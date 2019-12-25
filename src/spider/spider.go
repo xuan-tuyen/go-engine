@@ -78,6 +78,7 @@ func GetChromeWSEndpoint() string {
 }
 
 func getChrome() {
+	defer common.CrashLog()
 
 	for {
 		ret := shell.Run(common.GetNodeDir()+"/get_chrome.sh", true, common.GetNodeDir())
@@ -93,6 +94,8 @@ func getChrome() {
 }
 
 func startChrome() {
+	defer common.CrashLog()
+
 	for {
 		shell.RunTimeout(common.GetNodeDir()+"/close_chrome.sh", true, 60)
 		loggo.Info("spider restart chrome ")
@@ -183,10 +186,15 @@ func Start(db *DB, config Config, url string) {
 	close(save)
 
 	loggo.Info("Spider end %v %v", GetSize(db), GetDoneSize(dbd))
+
+	CloseJob(jbd)
+	CloseDone(dbd)
 }
 
 func Crawler(jbd *JobDB, dbd *DoneDB, config Config, jobs *int32, crawl <-chan *URLInfo, parse chan<- *PageInfo,
 	jobsCrawlerTotal *int32, jobsCrawlerTotalFail *int32, crawlfunc string, crawlTimeout int, crawlRetry int) {
+	defer common.CrashLog()
+
 	loggo.Info("Crawler start")
 	for job := range crawl {
 		//loggo.Info("receive crawl job %v", job)
@@ -225,6 +233,8 @@ func Crawler(jbd *JobDB, dbd *DoneDB, config Config, jobs *int32, crawl <-chan *
 }
 
 func Parser(jbd *JobDB, dbd *DoneDB, config Config, jobs *int32, crawl chan<- *URLInfo, parse <-chan *PageInfo, save chan<- *DBInfo) {
+	defer common.CrashLog()
+
 	loggo.Info("Parser start")
 
 	for job := range parse {
@@ -343,6 +353,8 @@ func Parser(jbd *JobDB, dbd *DoneDB, config Config, jobs *int32, crawl chan<- *U
 }
 
 func Saver(db *DB, jobs *int32, save <-chan *DBInfo) {
+	defer common.CrashLog()
+
 	loggo.Info("Saver start")
 
 	for job := range save {
