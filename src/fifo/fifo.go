@@ -72,7 +72,7 @@ func (f *FiFo) Write(data string) error {
 		loggo.Error("Write fail %v", err)
 		return err
 	}
-	loggo.Info("Write ok %s", data)
+	//loggo.Info("Write ok %s", data)
 	return nil
 }
 
@@ -91,7 +91,7 @@ func (f *FiFo) Read() (string, error) {
 		return "", err
 	}
 
-	loggo.Info("Read ok %d %s", id, data)
+	//loggo.Info("Read ok %d %s", id, data)
 
 	return data, nil
 }
