@@ -7,13 +7,14 @@ import (
 	"io"
 	"math"
 	mrand "math/rand"
-	"sync"
 	"time"
 )
 
-var mathinited bool
-var gmathlock sync.Mutex
 var gseededRand *mrand.Rand
+
+func init() {
+	gseededRand = mrand.New(mrand.NewSource(time.Now().UnixNano()))
+}
 
 func MinOfInt(vars ...int) int {
 	min := vars[0]
@@ -100,29 +101,12 @@ func UniqueId() string {
 }
 
 func Int31n(n int) int32 {
-	checkMathInit()
 	ret := gseededRand.Int31n((int32)(n))
 	return int32(ret)
 }
 
 func Shuffle(n int, swap func(i, j int)) {
-	checkMathInit()
 	gseededRand.Shuffle(n, swap)
-}
-
-func checkMathInit() {
-	if !mathinited {
-		defer gmathlock.Unlock()
-		gmathlock.Lock()
-		if !mathinited {
-			mathinited = true
-			mathInit()
-		}
-	}
-}
-
-func mathInit() {
-	gseededRand = mrand.New(mrand.NewSource(time.Now().UnixNano()))
 }
 
 func MAKEINT64(high int32, low int32) int64 {
