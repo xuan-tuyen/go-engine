@@ -2,7 +2,6 @@ package fifo
 
 import (
 	"database/sql"
-	"errors"
 	"github.com/esrrhs/go-engine/src/loggo"
 	_ "github.com/mattn/go-sqlite3"
 	"sync"
@@ -100,26 +99,14 @@ func (f *FiFo) read() (int, string, error) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
-	rows, err := f.getJobStmt.Query()
+	var id int
+	var data string
+	err := f.getJobStmt.QueryRow().Scan(&id, &data)
 	if err != nil {
-		loggo.Error("Read Query fail %v", err)
+		loggo.Error("Read Scan fail %v", err)
 		return 0, "", err
 	}
-	defer rows.Close()
-
-	for rows.Next() {
-
-		var id int
-		var data string
-		err = rows.Scan(&id, &data)
-		if err != nil {
-			loggo.Error("Read Scan fail %v", err)
-			return 0, "", err
-		}
-		return id, data, nil
-	}
-
-	return 0, "", errors.New("no data")
+	return id, data, nil
 }
 
 func (f *FiFo) GetSize() int {

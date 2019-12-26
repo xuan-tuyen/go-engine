@@ -18,6 +18,7 @@ func simplecrawl(ui *URLInfo) *PageInfo {
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 	client := &http.Client{Transport: tr}
+	defer client.CloseIdleConnections()
 
 	res, err := client.Get(url)
 	if err != nil {
