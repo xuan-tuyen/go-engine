@@ -6,6 +6,7 @@ import (
 	"math"
 	"os/exec"
 	"path"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -40,6 +41,11 @@ func formatStdOut(stdout []byte, userfulIndex int) []string {
 }
 
 func GetStat(pid int) (*SysInfo, error) {
+
+	if runtime.GOOS != "linux" {
+		return nil, errors.New("GOOS not support")
+	}
+
 	_history := Stat{}
 	_, newhis, err := getStat(_history, pid)
 	if err != nil {
