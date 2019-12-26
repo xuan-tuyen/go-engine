@@ -83,7 +83,7 @@ func RunCommand(command string, silent bool) string {
 	out, err := cmd.CombinedOutput()
 	outstr := string(out)
 	if err != nil {
-		loggo.Warn("shell RunCommand fail %v %v", cmd.Args, outstr)
+		loggo.Warn("shell RunCommand fail %v %v %v", cmd.Args, outstr, err)
 		return ""
 	}
 
