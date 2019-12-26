@@ -79,7 +79,7 @@ func RunCommand(command string, silent bool) string {
 	}
 
 	begin := time.Now()
-	cmd := exec.Command(command)
+	cmd := exec.Command("bash", "-c", command)
 	out, err := cmd.CombinedOutput()
 	outstr := string(out)
 	if err != nil {
