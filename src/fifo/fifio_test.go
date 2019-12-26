@@ -13,8 +13,7 @@ func Test0001(t *testing.T) {
 
 	fmt.Println(f.GetSize())
 
-	fmt.Println(f.Read())
-	fmt.Println(f.Read())
-	fmt.Println(f.Read())
-	fmt.Println(f.Read())
+	for f.GetSize() > 0 {
+		fmt.Println(f.Read())
+	}
 }
