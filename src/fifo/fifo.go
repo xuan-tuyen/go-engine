@@ -103,7 +103,7 @@ func (f *FiFo) read() (int, string, error) {
 	var data string
 	err := f.getJobStmt.QueryRow().Scan(&id, &data)
 	if err != nil {
-		loggo.Error("Read Scan fail %v", err)
+		//loggo.Error("Read Scan fail %v", err)
 		return 0, "", err
 	}
 	return id, data, nil
