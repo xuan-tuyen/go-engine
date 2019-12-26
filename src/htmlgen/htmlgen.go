@@ -202,6 +202,7 @@ func (hg *HtmlGen) savefile(data interface{}, des string, src string) error {
 		loggo.Error("os create %s", err)
 		return err
 	}
+	defer file.Close()
 
 	t := template.New("text")
 	if err != nil {
@@ -216,6 +217,7 @@ func (hg *HtmlGen) savefile(data interface{}, des string, src string) error {
 		loggo.Error("os Open %s", err)
 		return err
 	}
+	defer srcfile.Close()
 
 	var buffer [1024 * 1024]byte
 	n, rerr := srcfile.Read(buffer[0:])
