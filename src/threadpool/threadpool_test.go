@@ -36,6 +36,8 @@ func Test2(t *testing.T) {
 	time.Sleep(time.Second * 2)
 	tp.Stop()
 	fmt.Println("Stop")
+	fmt.Println(tp.GetStat())
+	fmt.Println(tp.GetStat())
 }
 
 func Test3(t *testing.T) {
