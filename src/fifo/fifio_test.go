@@ -8,7 +8,12 @@ import (
 )
 
 func Test0001(t *testing.T) {
-	f := NewFIFO("aa")
+	f, err := NewFIFO("aa")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
 	f.Write("aa")
 	f.Write("bb")
 	f.Write("cc")
@@ -22,7 +27,11 @@ func Test0001(t *testing.T) {
 
 func Test0002(t *testing.T) {
 
-	f := NewFIFO("aa")
+	f, err := NewFIFO("aa")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
 	go func() {
 		last := time.Now()
