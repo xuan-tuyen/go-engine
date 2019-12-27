@@ -17,6 +17,7 @@ type ThreadPool struct {
 
 type ThreadPoolStat struct {
 	Datalen    []int
+	Pushnum    []int
 	Processnum []int
 }
 
@@ -29,6 +30,7 @@ func NewThreadPool(max int, buffer int, exef func(interface{})) *ThreadPool {
 
 	stat := ThreadPoolStat{}
 	stat.Datalen = make([]int, max)
+	stat.Pushnum = make([]int, max)
 	stat.Processnum = make([]int, max)
 
 	tp := &ThreadPool{max: max, exef: exef, ca: ca, control: control, stat: stat}
@@ -42,11 +44,13 @@ func NewThreadPool(max int, buffer int, exef func(interface{})) *ThreadPool {
 
 func (tp *ThreadPool) AddJob(hash int, v interface{}) {
 	tp.ca[common.AbsInt(hash)%len(tp.ca)] <- v
+	tp.stat.Pushnum[common.AbsInt(hash)%len(tp.ca)]++
 }
 
 func (tp *ThreadPool) AddJobTimeout(hash int, v interface{}, timeoutms int) bool {
 	select {
 	case tp.ca[common.AbsInt(hash)%len(tp.ca)] <- v:
+		tp.stat.Pushnum[common.AbsInt(hash)%len(tp.ca)]++
 		return true
 	case <-time.After(time.Duration(timeoutms) * time.Millisecond):
 		return false
@@ -86,6 +90,7 @@ func (tp *ThreadPool) GetStat() ThreadPoolStat {
 
 func (tp *ThreadPool) ResetStat() {
 	for index, _ := range tp.ca {
+		tp.stat.Pushnum[index] = 0
 		tp.stat.Processnum[index] = 0
 	}
 }
