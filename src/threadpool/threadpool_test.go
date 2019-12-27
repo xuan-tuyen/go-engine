@@ -37,6 +37,7 @@ func Test2(t *testing.T) {
 	tp.Stop()
 	fmt.Println("Stop")
 	fmt.Println(tp.GetStat())
+	tp.ResetStat()
 	fmt.Println(tp.GetStat())
 }
 

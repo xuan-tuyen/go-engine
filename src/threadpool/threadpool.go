@@ -78,13 +78,14 @@ func (tp *ThreadPool) run(index int) {
 }
 
 func (tp *ThreadPool) GetStat() ThreadPoolStat {
-	s := ThreadPoolStat{}
-	s.Datalen = make([]int, tp.max)
-	s.Processnum = make([]int, tp.max)
 	for index, _ := range tp.ca {
-		s.Datalen[index] = len(tp.ca[index])
-		s.Processnum[index] = tp.stat.Processnum[index]
+		tp.stat.Datalen[index] = len(tp.ca[index])
+	}
+	return tp.stat
+}
+
+func (tp *ThreadPool) ResetStat() {
+	for index, _ := range tp.ca {
 		tp.stat.Processnum[index] = 0
 	}
-	return s
 }
