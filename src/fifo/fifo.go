@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/hex"
 	"encoding/json"
+	"github.com/esrrhs/go-engine/src/common"
 	_ "github.com/mattn/go-sqlite3"
 	"io"
 	"math"
@@ -50,6 +51,8 @@ func NewFIFO(name string) (*FiFo, error) {
 
 	f.bd = bd
 	f.ed = ed
+
+	go f.loopCheck()
 
 	return f, nil
 }
@@ -351,4 +354,42 @@ func write_end(d *endData, folderPath string) error {
 		return err
 	}
 	return nil
+}
+
+func (f *FiFo) loopCheck() {
+	defer common.CrashLog()
+	for {
+		f.checkDate()
+		time.Sleep(time.Minute)
+	}
+}
+
+func (f *FiFo) checkDate() {
+	now := strings.TrimRight(f.bd.File, ".fifo")
+	nowt, _ := time.Parse("2006-01-02", now)
+	nowunix := nowt.Unix()
+	filepath.Walk(f.folderPath, func(path string, f os.FileInfo, err error) error {
+
+		if f == nil || f.IsDir() {
+			return nil
+		}
+
+		if !strings.HasSuffix(f.Name(), ".fifo") {
+			return nil
+		}
+
+		date := f.Name()
+		date = strings.TrimRight(date, ".fifo")
+
+		t, e := time.Parse("2006-01-02", date)
+		if e != nil {
+			return nil
+		}
+		tunix := t.Unix()
+		if nowunix-tunix > 24*3600 {
+			os.Remove(path)
+		}
+
+		return nil
+	})
 }
