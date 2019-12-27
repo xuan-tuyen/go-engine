@@ -39,6 +39,8 @@ func Test2(t *testing.T) {
 	fmt.Println(tp.GetStat())
 	tp.ResetStat()
 	fmt.Println(tp.GetStat())
+	tp.AddJob(5, 5)
+	fmt.Println(tp.GetStat())
 }
 
 func Test3(t *testing.T) {
