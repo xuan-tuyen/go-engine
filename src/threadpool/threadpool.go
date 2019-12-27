@@ -16,8 +16,8 @@ type ThreadPool struct {
 }
 
 type ThreadPoolStat struct {
-	datalen    []int
-	processnum []int
+	Datalen    []int
+	Processnum []int
 }
 
 func NewThreadPool(max int, buffer int, exef func(interface{})) *ThreadPool {
@@ -28,8 +28,8 @@ func NewThreadPool(max int, buffer int, exef func(interface{})) *ThreadPool {
 	}
 
 	stat := ThreadPoolStat{}
-	stat.datalen = make([]int, max)
-	stat.processnum = make([]int, max)
+	stat.Datalen = make([]int, max)
+	stat.Processnum = make([]int, max)
 
 	tp := &ThreadPool{max: max, exef: exef, ca: ca, control: control, stat: stat}
 
@@ -72,19 +72,19 @@ func (tp *ThreadPool) run(index int) {
 			return
 		case v := <-tp.ca[index]:
 			tp.exef(v)
-			tp.stat.processnum[index]++
+			tp.stat.Processnum[index]++
 		}
 	}
 }
 
 func (tp *ThreadPool) GetStat() ThreadPoolStat {
 	s := ThreadPoolStat{}
-	s.datalen = make([]int, tp.max)
-	s.processnum = make([]int, tp.max)
+	s.Datalen = make([]int, tp.max)
+	s.Processnum = make([]int, tp.max)
 	for index, _ := range tp.ca {
-		s.datalen[index] = len(tp.ca[index])
-		s.processnum[index] = tp.stat.processnum[index]
-		tp.stat.processnum[index] = 0
+		s.Datalen[index] = len(tp.ca[index])
+		s.Processnum[index] = tp.stat.Processnum[index]
+		tp.stat.Processnum[index] = 0
 	}
 	return s
 }
