@@ -42,7 +42,7 @@ func GetMd5String(s string) string {
 func RandStr(l int) string {
 	b := make([]byte, l)
 	for i := range b {
-		b[i] = gcharset[Int31n(len(gcharset))]
+		b[i] = gcharset[RandInt31n(len(gcharset))]
 	}
 	return string(b)
 }

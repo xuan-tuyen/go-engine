@@ -38,4 +38,7 @@ func Test0001(t *testing.T) {
 	aa := []int{1, 2, 3, 4, 5, 6, 7, 8}
 	Shuffle(len(aa), func(i, j int) { aa[i], aa[j] = aa[j], aa[i] })
 	fmt.Println(aa)
+
+	fmt.Println(RandInt())
+	fmt.Println(RandInt31n(10))
 }

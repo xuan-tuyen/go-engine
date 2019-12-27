@@ -100,8 +100,13 @@ func UniqueId() string {
 	return GetMd5String(base64.URLEncoding.EncodeToString(b))
 }
 
-func Int31n(n int) int32 {
+func RandInt31n(n int) int32 {
 	ret := gseededRand.Int31n((int32)(n))
+	return int32(ret)
+}
+
+func RandInt() int32 {
+	ret := gseededRand.Int()
 	return int32(ret)
 }
 
