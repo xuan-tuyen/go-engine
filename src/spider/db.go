@@ -373,11 +373,13 @@ func InsertSpider(db *DB, title string, name string, url string) {
 	}
 	db.lock.Unlock()
 
+	bb := time.Now()
 	if gcb != nil {
 		gcb(title, name, url)
 	}
 
-	loggo.Info("InsertSpider %v %v %v %s", title, name, url, time.Now().Sub(b).String())
+	loggo.Info("InsertSpider %v %v %v %s %s", title, name, url,
+		time.Now().Sub(bb).String(), time.Now().Sub(b).String())
 }
 
 func HasJob(db *JobDB, url string) bool {
