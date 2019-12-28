@@ -4,7 +4,6 @@ import (
 	"github.com/esrrhs/go-engine/src/common"
 	"github.com/esrrhs/go-engine/src/loggo"
 	"github.com/esrrhs/go-engine/src/shell"
-	_ "github.com/mattn/go-sqlite3"
 	"math"
 	"net/url"
 	"runtime"
