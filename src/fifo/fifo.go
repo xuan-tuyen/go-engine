@@ -40,15 +40,9 @@ func NewFIFO(dsn string, conn int, name string) (*FiFo, error) {
 		return nil, err
 	}
 
-	_, err = gdb.Exec("USE fifo;")
-	if err != nil {
-		loggo.Error("USE DATABASE fail %v", err)
-		return nil, err
-	}
-
-	_, err = gdb.Exec("CREATE TABLE  IF NOT EXISTS " + name + " (" +
+	_, err = gdb.Exec("CREATE TABLE  IF NOT EXISTS fifo." + name + " (" +
 		"id int NOT NULL AUTO_INCREMENT," +
-		"data varchar(255) NOT NULL," +
+		"data text NOT NULL," +
 		"PRIMARY KEY (id)" +
 		"); ")
 	if err != nil {
@@ -56,28 +50,28 @@ func NewFIFO(dsn string, conn int, name string) (*FiFo, error) {
 		return nil, err
 	}
 
-	stmt, err := gdb.Prepare("insert into " + name + "(data) values(?)")
+	stmt, err := gdb.Prepare("insert into fifo." + name + "(data) values(?)")
 	if err != nil {
 		loggo.Error("Prepare sqlite3 fail %v", err)
 		return nil, err
 	}
 	f.insertJobStmt = stmt
 
-	stmt, err = gdb.Prepare("select id,data from " + name + " limit 0,?")
+	stmt, err = gdb.Prepare("select id,data from fifo." + name + " limit 0,?")
 	if err != nil {
 		loggo.Error("Prepare sqlite3 fail %v", err)
 		return nil, err
 	}
 	f.getJobStmt = stmt
 
-	stmt, err = gdb.Prepare("delete from " + name + " where id = ?")
+	stmt, err = gdb.Prepare("delete from fifo." + name + " where id = ?")
 	if err != nil {
 		loggo.Error("Prepare sqlite3 fail %v", err)
 		return nil, err
 	}
 	f.deleteJobStmt = stmt
 
-	stmt, err = gdb.Prepare("select count(*) from " + name + "")
+	stmt, err = gdb.Prepare("select count(*) from fifo." + name + "")
 	if err != nil {
 		loggo.Error("Prepare sqlite3 fail %v", err)
 		return nil, err
