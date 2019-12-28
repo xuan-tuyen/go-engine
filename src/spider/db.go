@@ -185,7 +185,7 @@ func LoadJob(dsn string, conn int, src string) *JobDB {
 		return nil
 	}
 
-	stmt, err := gdb.Prepare("insert IGNORE into spiderjob." + host + "(src, url, deps, time) values(?, ?, ?, DATETIME())")
+	stmt, err := gdb.Prepare("insert IGNORE into spiderjob." + host + "(src, url, deps, time) values(?, ?, ?, NOW())")
 	if err != nil {
 		loggo.Error("Prepare Job fail %v", err)
 		return nil
@@ -280,7 +280,7 @@ func LoadDone(dsn string, conn int, src string) *DoneDB {
 
 	////
 
-	stmt, err := gdb.Prepare("insert IGNORE into spiderdone." + host + "(src, url, time) values(?, ?, DATETIME())")
+	stmt, err := gdb.Prepare("insert IGNORE into spiderdone." + host + "(src, url, time) values(?, ?, NOW())")
 	if err != nil {
 		loggo.Error("Prepare fail %v", err)
 		return nil
