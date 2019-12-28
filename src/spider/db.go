@@ -146,6 +146,7 @@ func LoadJob(dsn string, conn int, src string) *JobDB {
 	dstURL, _ := url.Parse(src)
 	host := dstURL.Host
 	host = strings.ReplaceAll(host, ".", "_")
+	host = strings.ReplaceAll(host, "-", "_")
 
 	gdb, err := sql.Open("mysql", dsn)
 	if err != nil {
