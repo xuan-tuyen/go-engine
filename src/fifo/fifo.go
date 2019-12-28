@@ -46,7 +46,7 @@ func NewFIFO(dsn string, conn int, name string) (*FiFo, error) {
 		return nil, err
 	}
 
-	_, err = gdb.Exec("CREATE TABLE " + name + " (" +
+	_, err = gdb.Exec("CREATE TABLE  IF NOT EXISTS " + name + " (" +
 		"id int NOT NULL AUTO_INCREMENT," +
 		"data varchar(255) NOT NULL," +
 		"PRIMARY KEY (id)" +
