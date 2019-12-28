@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"github.com/esrrhs/go-engine/src/common"
 	"github.com/esrrhs/go-engine/src/loggo"
-	_ "github.com/mattn/go-sqlite3"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 )
@@ -18,12 +18,13 @@ type DB struct {
 	gLastStmt   *sql.Stmt
 	gFindStmt   *sql.Stmt
 	gDeleteStmt *sql.Stmt
+	dsn         string
+	conn        int
 }
 
 type JobDB struct {
 	gdb            *sql.DB
 	src            string
-	lock           sync.Mutex
 	gInsertJobStmt *sql.Stmt
 	gSizeJobStmt   *sql.Stmt
 	gPeekJobStmt   *sql.Stmt
@@ -34,7 +35,6 @@ type JobDB struct {
 type DoneDB struct {
 	gdb             *sql.DB
 	src             string
-	lock            sync.Mutex
 	gInsertDoneStmt *sql.Stmt
 	gSizeDoneStmt   *sql.Stmt
 	gDeleteDoneStmt *sql.Stmt
@@ -63,6 +63,8 @@ func Load(dsn string, conn int) *DB {
 
 	ret := new(DB)
 
+	ret.dsn = dsn
+	ret.conn = conn
 	ret.gdb = gdb
 
 	_, err = gdb.Exec("CREATE DATABASE IF NOT EXISTS spider")
@@ -129,24 +131,41 @@ func Load(dsn string, conn int) *DB {
 }
 
 func CloseJob(db *JobDB) {
-	db.gdb.Close()
 	db.gInsertJobStmt.Close()
 	db.gSizeJobStmt.Close()
 	db.gPeekJobStmt.Close()
 	db.gDeleteJobStmt.Close()
 	db.gHasJobStmt.Close()
+	db.gdb.Close()
 }
 
-func LoadJob(src string) *JobDB {
+func LoadJob(dsn string, conn int, src string) *JobDB {
 
-	loggo.Info("sqlite3 Load Job start %v", src)
+	loggo.Info("Load Job start %v", src)
 
 	dstURL, _ := url.Parse(src)
 	host := dstURL.Host
+	host = strings.ReplaceAll(host, ".", "_")
 
-	gdb, err := sql.Open("sqlite3", "./spider_job_"+host+".db")
+	gdb, err := sql.Open("mysql", dsn)
 	if err != nil {
-		loggo.Error("open sqlite3 Job fail %v", err)
+		loggo.Error("open mysql fail %v", err)
+		return nil
+	}
+
+	err = gdb.Ping()
+	if err != nil {
+		loggo.Error("open mysql fail %v", err)
+		return nil
+	}
+
+	gdb.SetConnMaxLifetime(0)
+	gdb.SetMaxIdleConns(conn)
+	gdb.SetMaxOpenConns(conn)
+
+	_, err = gdb.Exec("CREATE DATABASE IF NOT EXISTS spiderjob")
+	if err != nil {
+		loggo.Error("CREATE DATABASE fail %v", err)
 		return nil
 	}
 
@@ -155,72 +174,93 @@ func LoadJob(src string) *JobDB {
 	ret.gdb = gdb
 	ret.src = src
 
-	gdb.Exec("CREATE TABLE  IF NOT EXISTS [link_job_info](" +
-		"[src] TEXT NOT NULL," +
-		"[url] TEXT NOT NULL," +
-		"[deps] INT NOT NULL," +
-		"[time] DATETIME NOT NULL," +
-		"PRIMARY KEY([url]) ON CONFLICT IGNORE);")
-
-	stmt, err := gdb.Prepare("insert into link_job_info(src, url, deps, time) values(?, ?, ?, DATETIME())")
+	_, err = gdb.Exec("CREATE TABLE  IF NOT EXISTS spiderjob." + host + "(" +
+		"src TEXT NOT NULL," +
+		"url VARCHAR(200)  NOT NULL ," +
+		"deps INT NOT NULL," +
+		"time DATETIME NOT NULL," +
+		"PRIMARY KEY(url));")
 	if err != nil {
-		loggo.Error("Prepare Job sqlite3 fail %v", err)
+		loggo.Error("CREATE DATABASE fail %v", err)
+		return nil
+	}
+
+	stmt, err := gdb.Prepare("insert IGNORE into spiderjob." + host + "(src, url, deps, time) values(?, ?, ?, DATETIME())")
+	if err != nil {
+		loggo.Error("Prepare Job fail %v", err)
 		return nil
 	}
 	ret.gInsertJobStmt = stmt
 
-	stmt, err = gdb.Prepare("select count(*) from link_job_info where src = ?")
+	stmt, err = gdb.Prepare("select count(*) from spiderjob." + host + " where src = ?")
 	if err != nil {
-		loggo.Error("HasDone Job Prepare sqlite3 fail %v", err)
+		loggo.Error("HasDone Job Prepare fail %v", err)
 		return nil
 	}
 	ret.gSizeJobStmt = stmt
 
-	stmt, err = gdb.Prepare("delete from link_job_info where src = ? and url = ?")
+	stmt, err = gdb.Prepare("delete from spiderjob." + host + " where src = ? and url = ?")
 	if err != nil {
-		loggo.Error("Prepare Job sqlite3 fail %v", err)
+		loggo.Error("Prepare Job fail %v", err)
 		return nil
 	}
 	ret.gDeleteJobStmt = stmt
 
-	stmt, err = gdb.Prepare("select url, deps from link_job_info where src = ? limit 0, ?")
+	stmt, err = gdb.Prepare("select url, deps from spiderjob." + host + " where src = ? limit 0, ?")
 	if err != nil {
-		loggo.Error("Prepare Job sqlite3 fail %v", err)
+		loggo.Error("Prepare Job fail %v", err)
 		return nil
 	}
 	ret.gPeekJobStmt = stmt
 
-	stmt, err = gdb.Prepare("select url from link_job_info where src = ? and url = ?")
+	stmt, err = gdb.Prepare("select url from spiderjob." + host + " where src = ? and url = ?")
 	if err != nil {
-		loggo.Error("Prepare Job sqlite3 fail %v", err)
+		loggo.Error("Prepare Job fail %v", err)
 		return nil
 	}
 	ret.gHasJobStmt = stmt
 
 	num := GetJobSize(ret)
-	loggo.Info("sqlite3 Job size %v %v", src, num)
+	loggo.Info("Job size %v %v", src, num)
 
 	return ret
 }
 
 func CloseDone(db *DoneDB) {
-	db.gdb.Close()
 	db.gInsertDoneStmt.Close()
 	db.gSizeDoneStmt.Close()
 	db.gDeleteDoneStmt.Close()
 	db.gHasDoneStmt.Close()
+	db.gdb.Close()
 }
 
-func LoadDone(src string) *DoneDB {
+func LoadDone(dsn string, conn int, src string) *DoneDB {
 
-	loggo.Info("sqlite3 Load Done start %v", src)
+	loggo.Info("Load Done start %v", src)
 
 	dstURL, _ := url.Parse(src)
 	host := dstURL.Host
+	host = strings.ReplaceAll(host, ".", "_")
 
-	gdb, err := sql.Open("sqlite3", "./spider_done_"+host+".db")
+	gdb, err := sql.Open("mysql", dsn)
 	if err != nil {
-		loggo.Error("open sqlite3 Done fail %v", err)
+		loggo.Error("open mysql fail %v", err)
+		return nil
+	}
+
+	err = gdb.Ping()
+	if err != nil {
+		loggo.Error("open mysql fail %v", err)
+		return nil
+	}
+
+	gdb.SetConnMaxLifetime(0)
+	gdb.SetMaxIdleConns(conn)
+	gdb.SetMaxOpenConns(conn)
+
+	_, err = gdb.Exec("CREATE DATABASE IF NOT EXISTS spiderdone")
+	if err != nil {
+		loggo.Error("CREATE DATABASE fail %v", err)
 		return nil
 	}
 
@@ -228,38 +268,42 @@ func LoadDone(src string) *DoneDB {
 	ret.gdb = gdb
 	ret.src = src
 
-	gdb.Exec("CREATE TABLE  IF NOT EXISTS [link_done_info](" +
-		"[src] TEXT NOT NULL," +
-		"[url] TEXT NOT NULL," +
-		"[time] DATETIME NOT NULL," +
-		"PRIMARY KEY([url]) ON CONFLICT IGNORE);")
+	_, err = gdb.Exec("CREATE TABLE  IF NOT EXISTS spiderdone." + host + "(" +
+		"src TEXT NOT NULL," +
+		"url VARCHAR(200)  NOT NULL," +
+		"time DATETIME NOT NULL," +
+		"PRIMARY KEY(url));")
+	if err != nil {
+		loggo.Error("CREATE DATABASE fail %v", err)
+		return nil
+	}
 
 	////
 
-	stmt, err := gdb.Prepare("insert into link_done_info(src, url, time) values(?, ?, DATETIME())")
+	stmt, err := gdb.Prepare("insert IGNORE into spiderdone." + host + "(src, url, time) values(?, ?, DATETIME())")
 	if err != nil {
-		loggo.Error("Prepare sqlite3 fail %v", err)
+		loggo.Error("Prepare fail %v", err)
 		return nil
 	}
 	ret.gInsertDoneStmt = stmt
 
-	stmt, err = gdb.Prepare("select count(*) from link_done_info where src = ?")
+	stmt, err = gdb.Prepare("select count(*) from spiderdone." + host + " where src = ?")
 	if err != nil {
-		loggo.Error("HasDone Prepare sqlite3 fail %v", err)
+		loggo.Error("HasDone Prepare fail %v", err)
 		return nil
 	}
 	ret.gSizeDoneStmt = stmt
 
-	stmt, err = gdb.Prepare("delete from link_done_info where src = ?")
+	stmt, err = gdb.Prepare("delete from spiderdone." + host + " where src = ?")
 	if err != nil {
-		loggo.Error("Prepare sqlite3 fail %v", err)
+		loggo.Error("Prepare fail %v", err)
 		return nil
 	}
 	ret.gDeleteDoneStmt = stmt
 
-	stmt, err = gdb.Prepare("select url from link_done_info where src = ? and url = ?")
+	stmt, err = gdb.Prepare("select url from spiderdone." + host + " where src = ? and url = ?")
 	if err != nil {
-		loggo.Error("Prepare sqlite3 fail %v", err)
+		loggo.Error("Prepare fail %v", err)
 		return nil
 	}
 	ret.gHasDoneStmt = stmt
@@ -267,7 +311,7 @@ func LoadDone(src string) *DoneDB {
 	////
 
 	num := GetDoneSize(ret)
-	loggo.Info("sqlite3 size %v %v", src, num)
+	loggo.Info("size %v %v", src, num)
 
 	return ret
 }
@@ -279,15 +323,12 @@ func PopSpiderJob(db *JobDB, n int) ([]string, []int) {
 
 	b := time.Now()
 
-	db.lock.Lock()
 	rows, err := db.gPeekJobStmt.Query(db.src, n)
 	if err != nil {
 		loggo.Error("PopSpiderJob Query sqlite3 fail %v %v", db.src, err)
-		db.lock.Unlock()
 		return ret, retdeps
 	}
 	defer rows.Close()
-	db.lock.Unlock()
 
 	for rows.Next() {
 
@@ -303,9 +344,7 @@ func PopSpiderJob(db *JobDB, n int) ([]string, []int) {
 	}
 
 	for i, url := range ret {
-		db.lock.Lock()
 		db.gDeleteJobStmt.Exec(db.src, url)
-		db.lock.Unlock()
 		loggo.Info("PopSpiderJob %v %v %v %s", db.src, url, retdeps[i], time.Now().Sub(b).String())
 	}
 
@@ -313,21 +352,17 @@ func PopSpiderJob(db *JobDB, n int) ([]string, []int) {
 }
 
 func DeleteSpiderDone(db *DoneDB) {
-	db.lock.Lock()
 	db.gDeleteDoneStmt.Exec(db.src)
-	db.lock.Unlock()
 }
 
 func InsertSpiderJob(db *JobDB, url string, deps int) {
 
 	b := time.Now()
 
-	db.lock.Lock()
 	_, err := db.gInsertJobStmt.Exec(db.src, url, deps)
 	if err != nil {
 		loggo.Error("InsertSpiderJob insert sqlite3 fail %v %v", url, err)
 	}
-	db.lock.Unlock()
 
 	loggo.Info("InsertSpiderJob %v %s", url, time.Now().Sub(b).String())
 }
@@ -336,12 +371,10 @@ func InsertSpiderDone(db *DoneDB, url string) {
 
 	b := time.Now()
 
-	db.lock.Lock()
 	_, err := db.gInsertDoneStmt.Exec(db.src, url)
 	if err != nil {
 		loggo.Error("InsertSpiderDone insert sqlite3 fail %v %v", url, err)
 	}
-	db.lock.Unlock()
 
 	loggo.Info("InsertSpiderDone %v %s", url, time.Now().Sub(b).String())
 }
@@ -383,26 +416,20 @@ func InsertSpider(db *DB, title string, name string, url string) {
 }
 
 func HasJob(db *JobDB, url string) bool {
-	db.lock.Lock()
 	var surl string
 	err := db.gHasJobStmt.QueryRow(db.src, url).Scan(&surl)
 	if err != nil {
-		db.lock.Unlock()
 		return false
 	}
-	db.lock.Unlock()
 	return true
 }
 
 func HasDone(db *DoneDB, url string) bool {
-	db.lock.Lock()
 	var surl string
 	err := db.gHasDoneStmt.QueryRow(db.src, url).Scan(&surl)
 	if err != nil {
-		db.lock.Unlock()
 		return false
 	}
-	db.lock.Unlock()
 	return true
 }
 
@@ -418,24 +445,20 @@ func GetSize(db *DB) int {
 }
 
 func GetJobSize(db *JobDB) int {
-	db.lock.Lock()
 	var ret int
 	err := db.gSizeJobStmt.QueryRow(db.src).Scan(&ret)
 	if err != nil {
 		loggo.Error("GetJobSize fail %v %v", db.src, err)
 	}
-	db.lock.Unlock()
 	return ret
 }
 
 func GetDoneSize(db *DoneDB) int {
-	db.lock.Lock()
 	var ret int
 	err := db.gSizeDoneStmt.QueryRow(db.src).Scan(&ret)
 	if err != nil {
 		loggo.Error("GetDoneSize fail %v %v", db.src, err)
 	}
-	db.lock.Unlock()
 	return ret
 }
 

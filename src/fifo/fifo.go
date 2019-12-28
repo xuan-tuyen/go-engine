@@ -15,7 +15,80 @@ type FiFo struct {
 	sizeDoneStmt  *sql.Stmt
 }
 
-func NewFIFO(name string) (*FiFo, error) {
+func NewFIFO(dsn string, conn int, name string) (*FiFo, error) {
+	f := &FiFo{name: name}
+
+	gdb, err := sql.Open("mysql", dsn)
+	if err != nil {
+		loggo.Error("open mysql fail %v", err)
+		return nil, err
+	}
+
+	err = gdb.Ping()
+	if err != nil {
+		loggo.Error("open mysql fail %v", err)
+		return nil, err
+	}
+
+	gdb.SetConnMaxLifetime(0)
+	gdb.SetMaxIdleConns(conn)
+	gdb.SetMaxOpenConns(conn)
+
+	_, err = gdb.Exec("CREATE DATABASE IF NOT EXISTS fifo")
+	if err != nil {
+		loggo.Error("CREATE DATABASE fail %v", err)
+		return nil, err
+	}
+
+	_, err = gdb.Exec("USE fifo;")
+	if err != nil {
+		loggo.Error("USE DATABASE fail %v", err)
+		return nil, err
+	}
+
+	_, err = gdb.Exec("CREATE TABLE " + name + " (" +
+		"id int NOT NULL AUTO_INCREMENT," +
+		"data varchar(255) NOT NULL," +
+		"PRIMARY KEY (id)" +
+		"); ")
+	if err != nil {
+		loggo.Error("CREATE TABLE fail %v", err)
+		return nil, err
+	}
+
+	stmt, err := gdb.Prepare("insert into " + name + "(data) values(?)")
+	if err != nil {
+		loggo.Error("Prepare sqlite3 fail %v", err)
+		return nil, err
+	}
+	f.insertJobStmt = stmt
+
+	stmt, err = gdb.Prepare("select id,data from " + name + " limit 0,?")
+	if err != nil {
+		loggo.Error("Prepare sqlite3 fail %v", err)
+		return nil, err
+	}
+	f.getJobStmt = stmt
+
+	stmt, err = gdb.Prepare("delete from " + name + " where id = ?")
+	if err != nil {
+		loggo.Error("Prepare sqlite3 fail %v", err)
+		return nil, err
+	}
+	f.deleteJobStmt = stmt
+
+	stmt, err = gdb.Prepare("select count(*) from " + name + "")
+	if err != nil {
+		loggo.Error("Prepare sqlite3 fail %v", err)
+		return nil, err
+	}
+	f.sizeDoneStmt = stmt
+
+	return f, nil
+}
+
+func NewFIFOLocal(name string) (*FiFo, error) {
+
 	f := &FiFo{name: name}
 
 	gdb, err := sql.Open("sqlite3", "./fifo_"+name+".db")

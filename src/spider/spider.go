@@ -113,12 +113,15 @@ func Start(db *DB, config Config, url string) {
 
 	var jobs int32
 
-	jbd := LoadJob(url)
+	dsn := db.dsn
+	conn := db.conn
+
+	jbd := LoadJob(dsn, conn, url)
 	if jbd == nil {
 		loggo.Error("Spider job LoadJob fail %v", url)
 		return
 	}
-	dbd := LoadDone(url)
+	dbd := LoadDone(dsn, conn, url)
 	if dbd == nil {
 		loggo.Error("Spider job LoadDone fail %v", url)
 		return
