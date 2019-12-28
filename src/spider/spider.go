@@ -205,6 +205,7 @@ func Crawler(jbd *JobDB, dbd *DoneDB, config Config, jobs *int32, crawl <-chan *
 			if job.Deps < config.Deps {
 				atomic.AddInt32(jobsCrawlerTotal, 1)
 				var pg *PageInfo
+				b := time.Now()
 				for t := 0; t < crawlRetry; t++ {
 					if crawlfunc == "simple" {
 						pg = simplecrawl(job)
@@ -216,7 +217,7 @@ func Crawler(jbd *JobDB, dbd *DoneDB, config Config, jobs *int32, crawl <-chan *
 					}
 				}
 				if pg != nil {
-					loggo.Info("crawl job ok %v %v %v", job.Url, pg.Title, len(pg.Son))
+					loggo.Info("crawl job ok %v %v %v %s", job.Url, pg.Title, len(pg.Son), time.Now().Sub(b).String())
 					atomic.AddInt32(jobs, 1)
 					parse <- pg
 				} else {
