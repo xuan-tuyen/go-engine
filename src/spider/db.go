@@ -277,6 +277,8 @@ func PopSpiderJob(db *JobDB, n int) ([]string, []int) {
 	var ret []string
 	var retdeps []int
 
+	b := time.Now()
+
 	db.lock.Lock()
 	rows, err := db.gPeekJobStmt.Query(db.src, n)
 	if err != nil {
@@ -304,7 +306,7 @@ func PopSpiderJob(db *JobDB, n int) ([]string, []int) {
 		db.lock.Lock()
 		db.gDeleteJobStmt.Exec(db.src, url)
 		db.lock.Unlock()
-		loggo.Info("PopSpiderJob %v %v %v", db.src, url, retdeps[i])
+		loggo.Info("PopSpiderJob %v %v %v %s", db.src, url, retdeps[i], time.Now().Sub(b).String())
 	}
 
 	return ret, retdeps
@@ -318,6 +320,8 @@ func DeleteSpiderDone(db *DoneDB) {
 
 func InsertSpiderJob(db *JobDB, url string, deps int) {
 
+	b := time.Now()
+
 	db.lock.Lock()
 	_, err := db.gInsertJobStmt.Exec(db.src, url, deps)
 	if err != nil {
@@ -325,10 +329,12 @@ func InsertSpiderJob(db *JobDB, url string, deps int) {
 	}
 	db.lock.Unlock()
 
-	loggo.Info("InsertSpiderJob %v ", url)
+	loggo.Info("InsertSpiderJob %v %s", url, time.Now().Sub(b).String())
 }
 
 func InsertSpiderDone(db *DoneDB, url string) {
+
+	b := time.Now()
 
 	db.lock.Lock()
 	_, err := db.gInsertDoneStmt.Exec(db.src, url)
@@ -337,24 +343,28 @@ func InsertSpiderDone(db *DoneDB, url string) {
 	}
 	db.lock.Unlock()
 
-	loggo.Info("InsertSpiderDone %v ", url)
+	loggo.Info("InsertSpiderDone %v %s", url, time.Now().Sub(b).String())
 }
 
 func DeleteOldSpider(db *DB) {
 	defer common.CrashLog()
 
 	for {
+		b := time.Now()
+
 		db.lock.Lock()
 		db.gDeleteStmt.Exec()
 		db.lock.Unlock()
 
-		loggo.Info("DeleteOldSpider %v", GetSize(db))
+		loggo.Info("DeleteOldSpider %v %s", GetSize(db), time.Now().Sub(b).String())
 
 		time.Sleep(time.Hour)
 	}
 }
 
 func InsertSpider(db *DB, title string, name string, url string) {
+
+	b := time.Now()
 
 	db.lock.Lock()
 	_, err := db.gInsertStmt.Exec(title, name, url)
@@ -367,7 +377,7 @@ func InsertSpider(db *DB, title string, name string, url string) {
 		gcb(title, name, url)
 	}
 
-	loggo.Info("InsertSpider %v %v %v", title, name, url)
+	loggo.Info("InsertSpider %v %v %v %s", title, name, url, time.Now().Sub(b).String())
 }
 
 func HasJob(db *JobDB, url string) bool {
