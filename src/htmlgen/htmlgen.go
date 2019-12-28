@@ -82,6 +82,7 @@ func New(name string, path string, maxlastest int, maxday int, mainpagetpl strin
 }
 
 func (hg *HtmlGen) AddHtml(html string) error {
+	b := time.Now()
 	now := time.Now()
 	hg.addLatest(html)
 	mustsave := hg.save(now, html)
@@ -94,7 +95,7 @@ func (hg *HtmlGen) AddHtml(html string) error {
 	if err != nil {
 		return err
 	}
-	loggo.Info("AddHtml %s ", html)
+	loggo.Info("AddHtml %s %s", html, time.Now().Sub(b).String())
 	return nil
 }
 
