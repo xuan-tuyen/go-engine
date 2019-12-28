@@ -14,6 +14,9 @@ func Test0001(t *testing.T) {
 	fmt.Println(f.GetSize())
 
 	for f.GetSize() > 0 {
-		fmt.Println(f.Read())
+		datas, _ := f.Read(10)
+		for _, d := range datas {
+			fmt.Println(d)
+		}
 	}
 }

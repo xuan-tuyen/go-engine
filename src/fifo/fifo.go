@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"github.com/esrrhs/go-engine/src/loggo"
 	_ "github.com/mattn/go-sqlite3"
-	"sync"
 )
 
 type FiFo struct {
@@ -14,7 +13,6 @@ type FiFo struct {
 	getJobStmt    *sql.Stmt
 	deleteJobStmt *sql.Stmt
 	sizeDoneStmt  *sql.Stmt
-	lock          sync.Mutex
 }
 
 func NewFIFO(name string) (*FiFo, error) {
@@ -39,7 +37,7 @@ func NewFIFO(name string) (*FiFo, error) {
 	}
 	f.insertJobStmt = stmt
 
-	stmt, err = gdb.Prepare("select id,data from data_info limit 0,1")
+	stmt, err = gdb.Prepare("select id,data from data_info limit 0,?")
 	if err != nil {
 		loggo.Error("Prepare sqlite3 fail %v", err)
 		return nil, err
@@ -64,8 +62,6 @@ func NewFIFO(name string) (*FiFo, error) {
 }
 
 func (f *FiFo) Write(data string) error {
-	f.lock.Lock()
-	defer f.lock.Unlock()
 	_, err := f.insertJobStmt.Exec(data)
 	if err != nil {
 		loggo.Error("Write fail %v", err)
@@ -75,43 +71,53 @@ func (f *FiFo) Write(data string) error {
 	return nil
 }
 
-func (f *FiFo) Read() (string, error) {
-	id, data, err := f.read()
+func (f *FiFo) Read(n int) ([]string, error) {
+	ids, datas, err := f.read(n)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	f.lock.Lock()
-	defer f.lock.Unlock()
-
-	_, err = f.deleteJobStmt.Exec(id)
-	if err != nil {
-		loggo.Error("Read delete fail %v", err)
-		return "", err
+	for _, id := range ids {
+		_, err = f.deleteJobStmt.Exec(id)
+		if err != nil {
+			loggo.Error("Read delete fail %v", err)
+			return nil, err
+		}
 	}
 
 	//loggo.Info("Read ok %d %s", id, data)
 
-	return data, nil
+	return datas, nil
 }
 
-func (f *FiFo) read() (int, string, error) {
-	f.lock.Lock()
-	defer f.lock.Unlock()
-
-	var id int
-	var data string
-	err := f.getJobStmt.QueryRow().Scan(&id, &data)
+func (f *FiFo) read(n int) ([]int, []string, error) {
+	var ids []int
+	var datas []string
+	rows, err := f.getJobStmt.Query(n)
 	if err != nil {
 		//loggo.Error("Read Scan fail %v", err)
-		return 0, "", err
+		return nil, nil, err
 	}
-	return id, data, nil
+	defer rows.Close()
+
+	for rows.Next() {
+
+		var id int
+		var data string
+		err := rows.Scan(&id, &data)
+		if err != nil {
+			loggo.Error("Scan sqlite3 fail %v", err)
+			return nil, nil, err
+		}
+
+		ids = append(ids, id)
+		datas = append(datas, data)
+	}
+
+	return ids, datas, nil
 }
 
 func (f *FiFo) GetSize() int {
-	f.lock.Lock()
-	defer f.lock.Unlock()
 	var ret int
 	err := f.sizeDoneStmt.QueryRow().Scan(&ret)
 	if err != nil {
