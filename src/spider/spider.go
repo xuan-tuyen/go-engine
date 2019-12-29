@@ -24,6 +24,7 @@ type Config struct {
 }
 
 type DBInfo struct {
+	Host  string
 	Title string
 	Name  string
 	Url   string
@@ -70,7 +71,7 @@ type SpiderData struct {
 
 var gSpiderData SpiderData
 
-var gcb func(title string, name string, url string)
+var gcb func(host string, title string, name string, url string)
 
 func GetChromeWSEndpoint() string {
 	return gSpiderData.chromeWSEndpoint
@@ -160,7 +161,7 @@ func Start(db *DB, config Config, url string) {
 	for i := 0; i < config.Threadnum; i++ {
 		go Crawler(jbd, dbd, config, &jobs, crawl, parse, &jobsCrawlerTotal, &jobsCrawlerFail,
 			config.Crawlfunc, config.CrawlTimeout, config.CrawlRetry)
-		go Parser(jbd, dbd, config, &jobs, crawl, parse, save)
+		go Parser(jbd, dbd, config, &jobs, crawl, parse, save, url)
 		go Saver(db, &jobs, save)
 	}
 
@@ -235,7 +236,8 @@ func Crawler(jbd *JobDB, dbd *DoneDB, config Config, jobs *int32, crawl <-chan *
 	loggo.Info("Crawler end")
 }
 
-func Parser(jbd *JobDB, dbd *DoneDB, config Config, jobs *int32, crawl chan<- *URLInfo, parse <-chan *PageInfo, save chan<- *DBInfo) {
+func Parser(jbd *JobDB, dbd *DoneDB, config Config, jobs *int32, crawl chan<- *URLInfo, parse <-chan *PageInfo,
+	save chan<- *DBInfo, hosturl string) {
 	defer common.CrashLog()
 
 	loggo.Info("Parser start")
@@ -279,7 +281,7 @@ func Parser(jbd *JobDB, dbd *DoneDB, config Config, jobs *int32, crawl chan<- *U
 			}
 
 			if ok {
-				di := DBInfo{job.Title, s.Name, sonurl}
+				di := DBInfo{hosturl, job.Title, s.Name, sonurl}
 				atomic.AddInt32(jobs, 1)
 				save <- &di
 
@@ -363,7 +365,7 @@ func Saver(db *DB, jobs *int32, save <-chan *DBInfo) {
 	for job := range save {
 		//loggo.Info("receive save job %v %v %v", job.Title, job.Name, job.Url)
 
-		InsertSpider(db, job.Title, job.Name, job.Url)
+		InsertSpider(db, job.Title, job.Name, job.Url, job.Host)
 
 		atomic.AddInt32(jobs, -1)
 	}
