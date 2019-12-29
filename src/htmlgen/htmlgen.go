@@ -1,11 +1,11 @@
 package htmlgen
 
 import (
+	"bufio"
 	"container/list"
-	"database/sql"
+	"encoding/hex"
 	"github.com/esrrhs/go-engine/src/common"
 	"github.com/esrrhs/go-engine/src/loggo"
-	_ "github.com/mattn/go-sqlite3"
 	"html/template"
 	"os"
 	"path/filepath"
@@ -25,8 +25,6 @@ type HtmlGen struct {
 	cur        []string
 	lastday    time.Time
 	lastsub    time.Time
-	db         *sql.DB
-	insertStmt *sql.Stmt
 	lock       sync.Mutex
 }
 
@@ -59,22 +57,6 @@ func New(name string, path string, maxlastest int, maxday int, mainpagetpl strin
 		}
 	}
 
-	db, err := sql.Open("sqlite3", "./htmlgen.db")
-	if err != nil {
-		panic(err)
-	}
-
-	db.Exec("CREATE TABLE  IF NOT EXISTS [gen_info](" +
-		"[day] TEXT NOT NULL," +
-		"[html] TEXT NOT NULL);")
-
-	stmt, err := db.Prepare("insert into gen_info(day, html) values(?,?)")
-	if err != nil {
-		panic(err)
-	}
-
-	hg.db = db
-	hg.insertStmt = stmt
 	hg.loadDB()
 
 	hg.deleteHtml()
@@ -112,38 +94,55 @@ func (hg *HtmlGen) AddHtml(html string) error {
 func (hg *HtmlGen) insertDB(now time.Time, s string) {
 	cur := now.Format("2006-01-02")
 
+	ecoded := hex.EncodeToString([]byte(s))
+
 	hg.lock.Lock()
 	defer hg.lock.Unlock()
 
-	_, err := hg.insertStmt.Exec(cur, s)
+	file, err := os.OpenFile("htmlgendb/"+cur+".txt", os.O_WRONLY|os.O_APPEND|os.O_CREATE, os.ModePerm)
 	if err != nil {
-		loggo.Error("insert sqlite3 fail %v", err)
+		return
 	}
+	defer file.Close()
+
+	file.WriteString(ecoded + "\n")
 }
 
 func (hg *HtmlGen) loadDB() {
 	cur := time.Now().Format("2006-01-02")
-	rows, err := hg.db.Query("select html from gen_info where day='" + cur + "'")
+
+	hg.lock.Lock()
+	defer hg.lock.Unlock()
+
+	os.MkdirAll("htmlgendb/", os.ModePerm)
+
+	file, err := os.Open("htmlgendb/" + cur + ".txt")
 	if err != nil {
-		loggo.Error("Query sqlite3 fail %v", err)
+		return
 	}
-	defer rows.Close()
+	defer file.Close()
 
-	for rows.Next() {
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		s := scanner.Text()
+		s = strings.TrimRight(s, "\n")
 
-		var html string
-		err = rows.Scan(&html)
+		dst := make([]byte, hex.DecodedLen(len(s)))
+		n, err := hex.Decode(dst, []byte(s))
 		if err != nil {
-			loggo.Error("Scan sqlite3 fail %v", err)
+			continue
 		}
-
-		hg.cur = append(hg.cur, html)
+		ret := dst[:n]
+		hg.cur = append(hg.cur, string(ret))
 	}
-
 }
 
 func (hg *HtmlGen) clearDB() {
-	hg.db.Exec("delete from meta_info")
+	hg.lock.Lock()
+	defer hg.lock.Unlock()
+
+	os.RemoveAll("htmlgendb/")
+	os.MkdirAll("htmlgendb/", os.ModePerm)
 }
 
 func (hg *HtmlGen) calcSubdir(now time.Time) string {
