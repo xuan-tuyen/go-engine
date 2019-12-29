@@ -104,7 +104,7 @@ func startChrome() {
 	}
 }
 
-func SetCallback(cb func(title string, name string, url string)) {
+func SetCallback(cb func(host string, title string, name string, url string)) {
 	gcb = cb
 }
 
