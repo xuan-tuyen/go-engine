@@ -26,6 +26,7 @@ type HtmlGen struct {
 	lastday    time.Time
 	lastsub    time.Time
 	db         *sql.DB
+	insertStmt *sql.Stmt
 	lock       sync.Mutex
 }
 
@@ -66,7 +67,14 @@ func New(name string, path string, maxlastest int, maxday int, mainpagetpl strin
 	db.Exec("CREATE TABLE  IF NOT EXISTS [gen_info](" +
 		"[day] TEXT NOT NULL," +
 		"[html] TEXT NOT NULL);")
+
+	stmt, err := db.Prepare("insert into gen_info(day, html) values(?,?)")
+	if err != nil {
+		panic(err)
+	}
+
 	hg.db = db
+	hg.insertStmt = stmt
 	hg.loadDB()
 
 	hg.deleteHtml()
@@ -102,25 +110,15 @@ func (hg *HtmlGen) AddHtml(html string) error {
 }
 
 func (hg *HtmlGen) insertDB(now time.Time, s string) {
+	cur := now.Format("2006-01-02")
+
 	hg.lock.Lock()
 	defer hg.lock.Unlock()
-	cur := now.Format("2006-01-02")
-	tx, err := hg.db.Begin()
-	if err != nil {
-		loggo.Error("Begin sqlite3 fail %v", err)
-		return
-	}
-	stmt, err := tx.Prepare("insert into gen_info(day, html) values(?,?)")
-	if err != nil {
-		loggo.Error("Prepare sqlite3 fail %v", err)
-		return
-	}
-	defer stmt.Close()
-	_, err = stmt.Exec(cur, s)
+
+	_, err := hg.insertStmt.Exec(cur, s)
 	if err != nil {
 		loggo.Error("insert sqlite3 fail %v", err)
 	}
-	tx.Commit()
 }
 
 func (hg *HtmlGen) loadDB() {
