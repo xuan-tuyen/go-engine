@@ -85,7 +85,9 @@ func (hg *HtmlGen) AddHtml(html string) error {
 	b := time.Now()
 	now := time.Now()
 	hg.addLatest(html)
+	saveb := time.Now()
 	mustsave := hg.save(now, html)
+	savee := time.Now()
 	head := hg.calcSubdir(now)
 	err := hg.saveLatest(now)
 	if err != nil {
@@ -95,7 +97,7 @@ func (hg *HtmlGen) AddHtml(html string) error {
 	if err != nil {
 		return err
 	}
-	loggo.Info("AddHtml %s %s", html, time.Now().Sub(b).String())
+	loggo.Info("AddHtml %s %s %s", html, savee.Sub(saveb).String(), time.Now().Sub(b).String())
 	return nil
 }
 
