@@ -397,7 +397,7 @@ func DeleteOldSpider(db *DB) {
 	}
 }
 
-func InsertSpider(db *DB, title string, name string, url string) {
+func InsertSpider(db *DB, title string, name string, url string, host string) {
 
 	b := time.Now()
 
@@ -410,7 +410,7 @@ func InsertSpider(db *DB, title string, name string, url string) {
 
 	bb := time.Now()
 	if gcb != nil {
-		gcb(title, name, url)
+		gcb(host, title, name, url)
 	}
 
 	loggo.Info("InsertSpider %v %v %v %s %s", title, name, url,
