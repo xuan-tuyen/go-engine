@@ -56,5 +56,5 @@ func Test0001(t *testing.T) {
 	tsl.AddData("aaa")
 	ts.AddLine(tsl)
 	fmt.Println(WrapString("abc", 10))
-	fmt.Println(ts.String())
+	fmt.Println(ts.String("\t"))
 }
