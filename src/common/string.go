@@ -126,17 +126,28 @@ func (s *StrTable) String(prefix string) string {
 	return ret
 }
 
-func StructToStrTable(v interface{}, trans func(name string, v interface{}) interface{}) *StrTable {
+func StructToStrTable(v interface{}) *StrTable {
 	s := reflect.ValueOf(v).Elem()
 	typeOfT := s.Type()
 
 	st := StrTable{}
+
+	for i := 0; i < s.NumField(); i++ {
+		name := typeOfT.Field(i).Name
+		st.AddHeader(name)
+	}
+	return &st
+}
+
+func StructToStrTableLine(v interface{}, trans func(name string, v interface{}) interface{}) *StrTableLine {
+	s := reflect.ValueOf(v).Elem()
+	typeOfT := s.Type()
+
 	stl := StrTableLine{}
 
 	for i := 0; i < s.NumField(); i++ {
 		f := s.Field(i)
 		name := typeOfT.Field(i).Name
-		st.AddHeader(name)
 		v := f.Interface()
 		if trans != nil {
 			v = trans(name, f.Interface())
@@ -148,8 +159,7 @@ func StructToStrTable(v interface{}, trans func(name string, v interface{}) inte
 			stl.AddData("")
 		}
 	}
-	st.AddLine(stl)
-	return &st
+	return &stl
 }
 
 func WrapString(s string, n int) string {

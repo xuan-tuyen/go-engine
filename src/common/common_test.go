@@ -79,11 +79,21 @@ type TestStruct struct {
 
 func Test0002(t *testing.T) {
 	ts := TestStruct{1, 2, "3"}
-	st := StructToStrTable(&ts, func(name string, v interface{}) interface{} {
+	st := StructToStrTable(&ts)
+	stl := StructToStrTableLine(&ts, func(name string, v interface{}) interface{} {
 		if name == "B" {
 			return time.Duration(v.(int64)).String()
 		}
 		return v
 	})
+	st.AddLine(*stl)
+	ts = TestStruct{12, 214124, "124123"}
+	stl = StructToStrTableLine(&ts, func(name string, v interface{}) interface{} {
+		if name == "B" {
+			return time.Duration(v.(int64)).String()
+		}
+		return v
+	})
+	st.AddLine(*stl)
 	fmt.Println(st.String(""))
 }
