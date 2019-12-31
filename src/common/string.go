@@ -69,7 +69,7 @@ func (s *StrTableLine) AddData(d string) {
 	s.cols = append(s.cols, d)
 }
 
-func (s *StrTable) String() string {
+func (s *StrTable) String(prefix string) string {
 
 	if len(s.header) <= 0 {
 		return ""
@@ -101,22 +101,22 @@ func (s *StrTable) String() string {
 		-----------
 	*/
 
-	ret := ""
-	ret += strings.Repeat("-", totalcol) + "\n"
+	ret := prefix
+	ret += strings.Repeat("-", totalcol) + "\n" + prefix
 	for i, h := range s.header {
 		ret += "|" + WrapString(h, colmax[i])
 	}
-	ret += "|" + "\n"
+	ret += "|" + "\n" + prefix
 
 	for _, l := range s.lines {
-		ret += strings.Repeat("-", totalcol) + "\n"
+		ret += strings.Repeat("-", totalcol) + "\n" + prefix
 		for i, d := range l.cols {
 			ret += "|" + WrapString(d, colmax[i])
 		}
 		for i := len(l.cols); i < len(colmax); i++ {
 			ret += "|" + WrapString("", colmax[i])
 		}
-		ret += "|" + "\n"
+		ret += "|" + "\n" + prefix
 	}
 
 	ret += strings.Repeat("-", totalcol) + "\n"
