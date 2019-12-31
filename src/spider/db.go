@@ -319,8 +319,8 @@ func LoadDone(dsn string, conn int, src string) *DoneDB {
 func PopSpiderJob(db *JobDB, n int, stat *Stat) ([]string, []int) {
 
 	defer common.Elapsed(func(d time.Duration) {
-		stat.PopJobNum++
-		stat.PopJobTotalTime += int64(d)
+		stat.JobPopNum++
+		stat.JobPopTotalTime += int64(d)
 	})()
 
 	var ret []string
@@ -363,8 +363,8 @@ func DeleteSpiderDone(db *DoneDB) {
 func InsertSpiderJob(db *JobDB, url string, deps int, stat *Stat) {
 
 	defer common.Elapsed(func(d time.Duration) {
-		stat.InsertJobNum++
-		stat.InsertJobTotalTime += int64(d)
+		stat.JobInsertNum++
+		stat.JobInsertTotalTime += int64(d)
 	})()
 
 	b := time.Now()
@@ -380,8 +380,8 @@ func InsertSpiderJob(db *JobDB, url string, deps int, stat *Stat) {
 func InsertSpiderDone(db *DoneDB, url string, stat *Stat) {
 
 	defer common.Elapsed(func(d time.Duration) {
-		stat.InsertDoneNum++
-		stat.InsertDoneTotalTime += int64(d)
+		stat.DoneInsertNum++
+		stat.DoneInsertTotalTime += int64(d)
 	})()
 
 	b := time.Now()
@@ -431,8 +431,8 @@ func InsertSpider(db *DB, title string, name string, url string, host string, st
 
 func HasJob(db *JobDB, url string, stat *Stat) bool {
 	defer common.Elapsed(func(d time.Duration) {
-		stat.HasJobNum++
-		stat.HasJobTotalTime += int64(d)
+		stat.JobHasNum++
+		stat.JobHasTotalTime += int64(d)
 	})()
 
 	var surl string
@@ -445,8 +445,8 @@ func HasJob(db *JobDB, url string, stat *Stat) bool {
 
 func HasDone(db *DoneDB, url string, stat *Stat) bool {
 	defer common.Elapsed(func(d time.Duration) {
-		stat.HasDoneNum++
-		stat.HasDoneTotalTime += int64(d)
+		stat.DoneHasNum++
+		stat.DoneHasTotalTime += int64(d)
 	})()
 
 	var surl string
