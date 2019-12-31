@@ -159,3 +159,10 @@ func ArrayContainString(a []string, f string) bool {
 
 	return false
 }
+
+func SafeDivide(a int64, b int64) int64 {
+	if b == 0 {
+		return 0
+	}
+	return a / b
+}
