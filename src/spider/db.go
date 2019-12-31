@@ -6,13 +6,11 @@ import (
 	"github.com/esrrhs/go-engine/src/loggo"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 )
 
 type DB struct {
 	gdb         *sql.DB
-	lock        sync.Mutex
 	gInsertStmt *sql.Stmt
 	gSizeStmt   *sql.Stmt
 	gLastStmt   *sql.Stmt
@@ -318,7 +316,12 @@ func LoadDone(dsn string, conn int, src string) *DoneDB {
 	return ret
 }
 
-func PopSpiderJob(db *JobDB, n int) ([]string, []int) {
+func PopSpiderJob(db *JobDB, n int, stat *Stat) ([]string, []int) {
+
+	defer common.Elapsed(func(d time.Duration) {
+		stat.PopJobNum++
+		stat.PopJobTotalTime += int64(d)
+	})()
 
 	var ret []string
 	var retdeps []int
@@ -357,7 +360,12 @@ func DeleteSpiderDone(db *DoneDB) {
 	db.gDeleteDoneStmt.Exec(db.src)
 }
 
-func InsertSpiderJob(db *JobDB, url string, deps int) {
+func InsertSpiderJob(db *JobDB, url string, deps int, stat *Stat) {
+
+	defer common.Elapsed(func(d time.Duration) {
+		stat.InsertJobNum++
+		stat.InsertJobTotalTime += int64(d)
+	})()
 
 	b := time.Now()
 
@@ -369,7 +377,12 @@ func InsertSpiderJob(db *JobDB, url string, deps int) {
 	loggo.Info("InsertSpiderJob %v %s", url, time.Now().Sub(b).String())
 }
 
-func InsertSpiderDone(db *DoneDB, url string) {
+func InsertSpiderDone(db *DoneDB, url string, stat *Stat) {
+
+	defer common.Elapsed(func(d time.Duration) {
+		stat.InsertDoneNum++
+		stat.InsertDoneTotalTime += int64(d)
+	})()
 
 	b := time.Now()
 
@@ -387,9 +400,7 @@ func DeleteOldSpider(db *DB) {
 	for {
 		b := time.Now()
 
-		db.lock.Lock()
 		db.gDeleteStmt.Exec()
-		db.lock.Unlock()
 
 		loggo.Info("DeleteOldSpider %v %s", GetSize(db), time.Now().Sub(b).String())
 
@@ -397,27 +408,33 @@ func DeleteOldSpider(db *DB) {
 	}
 }
 
-func InsertSpider(db *DB, title string, name string, url string, host string) {
+func InsertSpider(db *DB, title string, name string, url string, host string, stat *Stat) {
+
+	stat.InsertNum++
 
 	b := time.Now()
-
-	db.lock.Lock()
 	_, err := db.gInsertStmt.Exec(title, name, url)
 	if err != nil {
 		loggo.Error("InsertSpider insert sqlite3 fail %v %v", url, err)
 	}
-	db.lock.Unlock()
+	stat.InsertTotalTime += int64(time.Since(b))
 
 	bb := time.Now()
 	if gcb != nil {
 		gcb(host, title, name, url)
 	}
+	stat.InsertCBTotalTime += int64(time.Since(bb))
 
 	loggo.Info("InsertSpider %v %v %v %s %s", title, name, url,
 		time.Now().Sub(bb).String(), time.Now().Sub(b).String())
 }
 
-func HasJob(db *JobDB, url string) bool {
+func HasJob(db *JobDB, url string, stat *Stat) bool {
+	defer common.Elapsed(func(d time.Duration) {
+		stat.HasJobNum++
+		stat.HasJobTotalTime += int64(d)
+	})()
+
 	var surl string
 	err := db.gHasJobStmt.QueryRow(db.src, url).Scan(&surl)
 	if err != nil {
@@ -426,7 +443,12 @@ func HasJob(db *JobDB, url string) bool {
 	return true
 }
 
-func HasDone(db *DoneDB, url string) bool {
+func HasDone(db *DoneDB, url string, stat *Stat) bool {
+	defer common.Elapsed(func(d time.Duration) {
+		stat.HasDoneNum++
+		stat.HasDoneTotalTime += int64(d)
+	})()
+
 	var surl string
 	err := db.gHasDoneStmt.QueryRow(db.src, url).Scan(&surl)
 	if err != nil {
@@ -436,13 +458,11 @@ func HasDone(db *DoneDB, url string) bool {
 }
 
 func GetSize(db *DB) int {
-	db.lock.Lock()
 	var ret int
 	err := db.gSizeStmt.QueryRow().Scan(&ret)
 	if err != nil {
 		loggo.Error("GetSize fail %v", err)
 	}
-	db.lock.Unlock()
 	return ret
 }
 
@@ -476,12 +496,9 @@ func Last(db *DB, n int) []FindData {
 
 	retmap := make(map[string]string)
 
-	db.lock.Lock()
-
 	rows, err := db.gLastStmt.Query(n)
 	if err != nil {
 		loggo.Error("Last Query sqlite3 fail %v", err)
-		db.lock.Unlock()
 		return ret
 	}
 	defer rows.Close()
@@ -505,8 +522,6 @@ func Last(db *DB, n int) []FindData {
 		ret = append(ret, FindData{title, name, url})
 	}
 
-	db.lock.Unlock()
-
 	return ret
 }
 
@@ -514,12 +529,9 @@ func Find(db *DB, str string, max int) []FindData {
 
 	var ret []FindData
 
-	db.lock.Lock()
-
 	rows, err := db.gFindStmt.Query("%"+str+"%", "%"+str+"%", max)
 	if err != nil {
 		loggo.Error("Find Query sqlite3 fail %v", err)
-		db.lock.Unlock()
 		return ret
 	}
 	defer rows.Close()
@@ -536,8 +548,6 @@ func Find(db *DB, str string, max int) []FindData {
 
 		ret = append(ret, FindData{title, name, url})
 	}
-
-	db.lock.Unlock()
 
 	return ret
 }

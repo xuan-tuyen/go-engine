@@ -23,3 +23,10 @@ func updateNowInSecond() {
 		time.Sleep(time.Second)
 	}
 }
+
+func Elapsed(f func(d time.Duration)) func() {
+	start := time.Now()
+	return func() {
+		f(time.Since(start))
+	}
+}
