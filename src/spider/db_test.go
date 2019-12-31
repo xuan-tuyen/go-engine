@@ -18,12 +18,13 @@ func Test0001(t *testing.T) {
 	if f == nil {
 		return
 	}
-	InsertSpiderJob(f, "aaa", 1)
-	InsertSpiderJob(f, "aaaa", 1)
-	InsertSpiderJob(f, "aaaaa", 1)
-	fmt.Println(HasJob(f, "aaa"))
-	fmt.Println(HasJob(f, "aaba"))
-	u, d := PopSpiderJob(f, 1)
+	s := Stat{}
+	InsertSpiderJob(f, "aaa", 1, &s)
+	InsertSpiderJob(f, "aaaa", 1, &s)
+	InsertSpiderJob(f, "aaaaa", 1, &s)
+	fmt.Println(HasJob(f, "aaa", &s))
+	fmt.Println(HasJob(f, "aaba", &s))
+	u, d := PopSpiderJob(f, 1, &s)
 	fmt.Println(u)
 	fmt.Println(d)
 }

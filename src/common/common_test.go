@@ -4,9 +4,19 @@ import (
 	"fmt"
 	"strconv"
 	"testing"
+	"time"
 )
 
+func elapsed() {
+	defer Elapsed(func(d time.Duration) {
+		fmt.Println("use time " + d.String())
+	})()
+
+	time.Sleep(time.Second)
+}
+
 func Test0001(t *testing.T) {
+
 	a := RandStr(5)
 	a1 := RandStr(5)
 	fmt.Println(a)
@@ -57,4 +67,23 @@ func Test0001(t *testing.T) {
 	ts.AddLine(tsl)
 	fmt.Println(WrapString("abc", 10))
 	fmt.Println(ts.String("\t"))
+
+	elapsed()
+}
+
+type TestStruct struct {
+	A int
+	B int64
+	C string
+}
+
+func Test0002(t *testing.T) {
+	ts := TestStruct{1, 2, "3"}
+	st := StructToStrTable(&ts, func(name string, v interface{}) interface{} {
+		if name == "B" {
+			return time.Duration(v.(int64)).String()
+		}
+		return v
+	})
+	fmt.Println(st.String(""))
 }

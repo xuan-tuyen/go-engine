@@ -3,6 +3,8 @@ package common
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 )
@@ -122,6 +124,32 @@ func (s *StrTable) String(prefix string) string {
 	ret += strings.Repeat("-", totalcol) + "\n"
 
 	return ret
+}
+
+func StructToStrTable(v interface{}, trans func(name string, v interface{}) interface{}) *StrTable {
+	s := reflect.ValueOf(v).Elem()
+	typeOfT := s.Type()
+
+	st := StrTable{}
+	stl := StrTableLine{}
+
+	for i := 0; i < s.NumField(); i++ {
+		f := s.Field(i)
+		name := typeOfT.Field(i).Name
+		st.AddHeader(name)
+		v := f.Interface()
+		if trans != nil {
+			v = trans(name, f.Interface())
+		}
+		if v != nil {
+			str := fmt.Sprintf("%v", v)
+			stl.AddData(str)
+		} else {
+			stl.AddData("")
+		}
+	}
+	st.AddLine(stl)
+	return &st
 }
 
 func WrapString(s string, n int) string {
