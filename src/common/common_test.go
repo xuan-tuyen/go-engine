@@ -41,4 +41,20 @@ func Test0001(t *testing.T) {
 
 	fmt.Println(RandInt())
 	fmt.Println(RandInt31n(10))
+
+	fmt.Println(WrapString("abc", 10))
+
+	ts := StrTable{}
+	ts.AddHeader("a")
+	ts.AddHeader("b")
+	ts.AddHeader("c")
+	tsl := StrTableLine{}
+	tsl.AddData("1234")
+	tsl.AddData("123421412")
+	ts.AddLine(tsl)
+	tsl = StrTableLine{}
+	tsl.AddData("aaa")
+	ts.AddLine(tsl)
+	fmt.Println(WrapString("abc", 10))
+	fmt.Println(ts.String())
 }
