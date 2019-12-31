@@ -137,3 +137,25 @@ func LOINT16(l int32) int16 {
 func IsInt(r float64) bool {
 	return (r - math.Floor(r)) == 0
 }
+
+func ArrayContainInt(a []int, f int) bool {
+
+	for _, i := range a {
+		if f == i {
+			return true
+		}
+	}
+
+	return false
+}
+
+func ArrayContainString(a []string, f string) bool {
+
+	for _, i := range a {
+		if f == i {
+			return true
+		}
+	}
+
+	return false
+}
