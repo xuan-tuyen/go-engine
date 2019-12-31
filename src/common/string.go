@@ -126,32 +126,27 @@ func (s *StrTable) String(prefix string) string {
 	return ret
 }
 
-func StructToStrTable(v interface{}, use func(name string) bool) *StrTable {
-	s := reflect.ValueOf(v).Elem()
-	typeOfT := s.Type()
+func (s *StrTable) FromStruct(v interface{}, use func(name string) bool) {
+	ss := reflect.ValueOf(v).Elem()
+	typeOfT := ss.Type()
 
-	st := StrTable{}
-
-	for i := 0; i < s.NumField(); i++ {
+	for i := 0; i < ss.NumField(); i++ {
 		name := typeOfT.Field(i).Name
 		if use != nil {
 			if !use(name) {
 				continue
 			}
 		}
-		st.AddHeader(name)
+		s.AddHeader(name)
 	}
-	return &st
 }
 
-func StructToStrTableLine(st *StrTable, v interface{}, trans func(name string, v interface{}) interface{}) *StrTableLine {
-	s := reflect.ValueOf(v).Elem()
-	typeOfT := s.Type()
+func (s *StrTableLine) FromStruct(st *StrTable, v interface{}, trans func(name string, v interface{}) interface{}) {
+	ss := reflect.ValueOf(v).Elem()
+	typeOfT := ss.Type()
 
-	stl := StrTableLine{}
-
-	for i := 0; i < s.NumField(); i++ {
-		f := s.Field(i)
+	for i := 0; i < ss.NumField(); i++ {
+		f := ss.Field(i)
 		name := typeOfT.Field(i).Name
 
 		if !ArrayContainString(st.header, name) {
@@ -164,12 +159,11 @@ func StructToStrTableLine(st *StrTable, v interface{}, trans func(name string, v
 		}
 		if v != nil {
 			str := fmt.Sprintf("%v", v)
-			stl.AddData(str)
+			s.AddData(str)
 		} else {
-			stl.AddData("")
+			s.AddData("")
 		}
 	}
-	return &stl
 }
 
 func WrapString(s string, n int) string {

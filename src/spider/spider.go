@@ -109,7 +109,7 @@ func SetCallback(cb func(host string, title string, name string, url string)) {
 }
 
 type Stat struct {
-	PushJobNum int
+	CrawBePushJobNum int
 
 	CrawChannelNum  int
 	CrawFunc        string
@@ -137,22 +137,22 @@ type Stat struct {
 	InsertAvgTime     int64
 	InsertCBAvgTime   int64
 
-	InsertJobNum       int64
-	InsertJobTotalTime int64
-	InsertJobAvgTime   int64
-	PopJobNum          int64
-	PopJobTotalTime    int64
-	PopJobAvgTime      int64
-	HasJobNum          int64
-	HasJobTotalTime    int64
-	HasJobAvgTime      int64
+	JobInsertNum       int64
+	JobInsertTotalTime int64
+	JobInsertAvgTime   int64
+	JobPopNum          int64
+	JobPopTotalTime    int64
+	JobPopAvgTime      int64
+	JobHasNum          int64
+	JobHasTotalTime    int64
+	JobHasAvgTime      int64
 
-	InsertDoneNum       int64
-	InsertDoneTotalTime int64
-	InsertDoneAvgTime   int64
-	HasDoneNum          int64
-	HasDoneTotalTime    int64
-	HasDoneAvgTime      int64
+	DoneInsertNum       int64
+	DoneInsertTotalTime int64
+	DoneInsertAvgTime   int64
+	DoneHasNum          int64
+	DoneHasTotalTime    int64
+	DoneHasAvgTime      int64
 }
 
 func Start(db *DB, config Config, url string, stat *Stat) {
@@ -224,7 +224,7 @@ func Start(db *DB, config Config, url string, stat *Stat) {
 			}
 		} else {
 			for i, url := range tmpurls {
-				stat.PushJobNum++
+				stat.CrawBePushJobNum++
 				crawl <- &URLInfo{url, tmpdeps[i]}
 			}
 		}
