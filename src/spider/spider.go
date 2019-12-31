@@ -109,13 +109,14 @@ func SetCallback(cb func(host string, title string, name string, url string)) {
 }
 
 type Stat struct {
+	Host       string
 	PushJobNum int
 
 	CrawChannelNum  int
 	CrawFunc        string
 	CrawNum         int
 	CrawRetrtyNum   int
-	CrawOKNum       int
+	CrawOKNum       int64
 	CrawFailNum     int
 	CrawOKTotalTime int64
 	CrawOKAvgTime   int64
@@ -135,6 +136,7 @@ type Stat struct {
 	InsertTotalTime   int64
 	InsertCBTotalTime int64
 	InsertAvgTime     int64
+	InsertCBAvgTime   int64
 
 	InsertJobNum       int64
 	InsertJobTotalTime int64
@@ -156,6 +158,8 @@ type Stat struct {
 
 func Start(db *DB, config Config, url string, stat *Stat) {
 	loggo.Info("Spider Start  %v", url)
+
+	stat.Host = url
 
 	var jobs int32
 
