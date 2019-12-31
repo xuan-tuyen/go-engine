@@ -109,7 +109,6 @@ func SetCallback(cb func(host string, title string, name string, url string)) {
 }
 
 type Stat struct {
-	Host       string
 	PushJobNum int
 
 	CrawChannelNum  int
@@ -158,8 +157,6 @@ type Stat struct {
 
 func Start(db *DB, config Config, url string, stat *Stat) {
 	loggo.Info("Spider Start  %v", url)
-
-	stat.Host = url
 
 	var jobs int32
 
