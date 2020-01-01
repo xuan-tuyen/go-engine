@@ -213,7 +213,7 @@ func Start(db *DB, config Config, url string, stat *Stat) {
 	}
 
 	for {
-		tmpurls, tmpdeps := PopSpiderJob(jbd, 1024, stat)
+		tmpurls, tmpdeps := PopSpiderJob(jbd, config.Buffersize, stat)
 		if len(tmpurls) == 0 {
 			time.Sleep(time.Second)
 			if jobs <= 0 {
