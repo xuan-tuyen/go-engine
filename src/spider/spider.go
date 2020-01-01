@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"runtime"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -205,11 +206,13 @@ func Start(db *DB, config Config, url string, stat *Stat) {
 	var jobsCrawlerTotal int32
 	var jobsCrawlerFail int32
 
+	var wg sync.WaitGroup
+
 	for i := 0; i < config.Threadnum; i++ {
-		go Crawler(jbd, dbd, config, &jobs, crawl, parse, &jobsCrawlerTotal, &jobsCrawlerFail,
+		go Crawler(&wg, jbd, dbd, config, &jobs, crawl, parse, &jobsCrawlerTotal, &jobsCrawlerFail,
 			config.Crawlfunc, config.CrawlTimeout, config.CrawlRetry, stat)
-		go Parser(jbd, dbd, config, &jobs, crawl, parse, save, url, stat)
-		go Saver(db, &jobs, save, stat)
+		go Parser(&wg, jbd, dbd, config, &jobs, crawl, parse, save, url, stat)
+		go Saver(&wg, db, &jobs, save, stat)
 	}
 
 	for {
@@ -232,6 +235,8 @@ func Start(db *DB, config Config, url string, stat *Stat) {
 
 	loggo.Info("Spider jobs done crawl %v, failed %v", jobsCrawlerTotal, jobsCrawlerFail)
 
+	wg.Wait()
+
 	close(crawl)
 	close(parse)
 	close(save)
@@ -242,9 +247,11 @@ func Start(db *DB, config Config, url string, stat *Stat) {
 	CloseDone(dbd)
 }
 
-func Crawler(jbd *JobDB, dbd *DoneDB, config Config, jobs *int32, crawl <-chan *URLInfo, parse chan<- *PageInfo,
-	jobsCrawlerTotal *int32, jobsCrawlerTotalFail *int32, crawlfunc string, crawlTimeout int, crawlRetry int, stat *Stat) {
+func Crawler(group *sync.WaitGroup, jbd *JobDB, dbd *DoneDB, config Config, jobs *int32, crawl <-chan *URLInfo, parse chan<- *PageInfo, jobsCrawlerTotal *int32, jobsCrawlerTotalFail *int32, crawlfunc string, crawlTimeout int, crawlRetry int, stat *Stat) {
 	defer common.CrashLog()
+
+	group.Add(1)
+	defer group.Done()
 
 	loggo.Info("Crawler start")
 	for job := range crawl {
@@ -291,8 +298,11 @@ func Crawler(jbd *JobDB, dbd *DoneDB, config Config, jobs *int32, crawl <-chan *
 	loggo.Info("Crawler end")
 }
 
-func Parser(jbd *JobDB, dbd *DoneDB, config Config, jobs *int32, crawl chan<- *URLInfo, parse <-chan *PageInfo, save chan<- *DBInfo, hosturl string, stat *Stat) {
+func Parser(group *sync.WaitGroup, jbd *JobDB, dbd *DoneDB, config Config, jobs *int32, crawl chan<- *URLInfo, parse <-chan *PageInfo, save chan<- *DBInfo, hosturl string, stat *Stat) {
 	defer common.CrashLog()
+
+	group.Add(1)
+	defer group.Done()
 
 	loggo.Info("Parser start")
 
@@ -423,8 +433,11 @@ func Parser(jbd *JobDB, dbd *DoneDB, config Config, jobs *int32, crawl chan<- *U
 	loggo.Info("Parser end")
 }
 
-func Saver(db *DB, jobs *int32, save <-chan *DBInfo, stat *Stat) {
+func Saver(group *sync.WaitGroup, db *DB, jobs *int32, save <-chan *DBInfo, stat *Stat) {
 	defer common.CrashLog()
+
+	group.Add(1)
+	defer group.Done()
 
 	loggo.Info("Saver start")
 
