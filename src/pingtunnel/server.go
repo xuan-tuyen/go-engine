@@ -263,6 +263,9 @@ func (p *Server) processDataPacket(packet *Packet) {
 			localConn.fm.OnRecvFrame(f)
 
 		} else {
+			if packet.my.Data == nil {
+				return
+			}
 			_, err := localConn.conn.Write(packet.my.Data)
 			if err != nil {
 				loggo.Info("WriteToUDP Error %s", err)

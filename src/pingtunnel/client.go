@@ -604,6 +604,9 @@ func (p *Client) processPacket(packet *Packet) {
 
 		clientConn.fm.OnRecvFrame(f)
 	} else {
+		if packet.my.Data == nil {
+			return
+		}
 		addr := clientConn.ipaddr
 		_, err := p.listenConn.WriteToUDP(packet.my.Data, addr)
 		if err != nil {
