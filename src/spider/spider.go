@@ -207,14 +207,14 @@ func Start(db *DB, config Config, url string, stat *Stat) {
 	var jobsCrawlerFail int32
 
 	var wg sync.WaitGroup
-	stop := make(chan bool)
+	exit := false
 
 	for i := 0; i < config.Threadnum; i++ {
 		wg.Add(3)
-		go Crawler(&wg, stop, jbd, dbd, config, &jobs, crawl, parse, &jobsCrawlerTotal, &jobsCrawlerFail,
+		go Crawler(&wg, &exit, jbd, dbd, config, &jobs, crawl, parse, &jobsCrawlerTotal, &jobsCrawlerFail,
 			config.Crawlfunc, config.CrawlTimeout, config.CrawlRetry, stat)
-		go Parser(&wg, stop, jbd, dbd, config, &jobs, crawl, parse, save, url, stat)
-		go Saver(&wg, stop, db, &jobs, save, stat)
+		go Parser(&wg, &exit, jbd, dbd, config, &jobs, crawl, parse, save, url, stat)
+		go Saver(&wg, &exit, db, &jobs, save, stat)
 	}
 
 	for {
@@ -237,7 +237,7 @@ func Start(db *DB, config Config, url string, stat *Stat) {
 
 	loggo.Info("Spider jobs done crawl %v, failed %v", jobsCrawlerTotal, jobsCrawlerFail)
 
-	close(stop)
+	exit = true
 	wg.Wait()
 
 	close(crawl)
@@ -250,220 +250,217 @@ func Start(db *DB, config Config, url string, stat *Stat) {
 	CloseDone(dbd)
 }
 
-func Crawler(group *sync.WaitGroup, stop chan bool, jbd *JobDB, dbd *DoneDB, config Config, jobs *int32, crawl <-chan *URLInfo, parse chan<- *PageInfo, jobsCrawlerTotal *int32, jobsCrawlerTotalFail *int32, crawlfunc string, crawlTimeout int, crawlRetry int, stat *Stat) {
+func Crawler(group *sync.WaitGroup, exit *bool, jbd *JobDB, dbd *DoneDB, config Config, jobs *int32, crawl <-chan *URLInfo, parse chan<- *PageInfo, jobsCrawlerTotal *int32, jobsCrawlerTotalFail *int32, crawlfunc string, crawlTimeout int, crawlRetry int, stat *Stat) {
 	defer common.CrashLog()
 
 	defer group.Done()
 
 	loggo.Info("Crawler start")
-	for {
-		select {
-		case <-stop:
+	for job := range crawl {
+		if *exit {
 			break
-		case job := <-crawl:
-			stat.CrawChannelNum = len(crawl)
-			//loggo.Info("receive crawl job %v", job)
+		}
 
-			ok := HasDone(dbd, job.Url, stat)
-			if !ok {
-				InsertSpiderDone(dbd, job.Url, stat)
-				if job.Deps < config.Deps {
-					atomic.AddInt32(jobsCrawlerTotal, 1)
-					var pg *PageInfo
-					b := time.Now()
-					stat.CrawNum++
-					stat.CrawFunc = crawlfunc
-					for t := 0; t < crawlRetry; t++ {
-						stat.CrawRetrtyNum++
-						if crawlfunc == "simple" {
-							pg = simplecrawl(job)
-						} else if crawlfunc == "puppeteer" {
-							pg = puppeteercrawl(job, crawlTimeout)
-						}
-						if pg != nil {
-							break
-						}
+		stat.CrawChannelNum = len(crawl)
+		//loggo.Info("receive crawl job %v", job)
+
+		ok := HasDone(dbd, job.Url, stat)
+		if !ok {
+			InsertSpiderDone(dbd, job.Url, stat)
+			if job.Deps < config.Deps {
+				atomic.AddInt32(jobsCrawlerTotal, 1)
+				var pg *PageInfo
+				b := time.Now()
+				stat.CrawNum++
+				stat.CrawFunc = crawlfunc
+				for t := 0; t < crawlRetry; t++ {
+					stat.CrawRetrtyNum++
+					if crawlfunc == "simple" {
+						pg = simplecrawl(job)
+					} else if crawlfunc == "puppeteer" {
+						pg = puppeteercrawl(job, crawlTimeout)
 					}
 					if pg != nil {
-						stat.CrawOKNum++
-						stat.CrawOKTotalTime += int64(time.Now().Sub(b))
-						loggo.Info("crawl job ok %v %v %v %s", job.Url, pg.Title, len(pg.Son), time.Now().Sub(b).String())
-						atomic.AddInt32(jobs, 1)
-						parse <- pg
-					} else {
-						stat.CrawFailNum++
-						atomic.AddInt32(jobsCrawlerTotalFail, 1)
+						break
 					}
 				}
+				if pg != nil {
+					stat.CrawOKNum++
+					stat.CrawOKTotalTime += int64(time.Now().Sub(b))
+					loggo.Info("crawl job ok %v %v %v %s", job.Url, pg.Title, len(pg.Son), time.Now().Sub(b).String())
+					atomic.AddInt32(jobs, 1)
+					parse <- pg
+				} else {
+					stat.CrawFailNum++
+					atomic.AddInt32(jobsCrawlerTotalFail, 1)
+				}
 			}
-
-			atomic.AddInt32(jobs, -1)
-
-			time.Sleep(time.Duration(config.Sleeptimems) * time.Millisecond)
 		}
+
+		atomic.AddInt32(jobs, -1)
+
+		time.Sleep(time.Duration(config.Sleeptimems) * time.Millisecond)
 	}
 	loggo.Info("Crawler end")
 }
 
-func Parser(group *sync.WaitGroup, stop chan bool, jbd *JobDB, dbd *DoneDB, config Config, jobs *int32, crawl chan<- *URLInfo, parse <-chan *PageInfo, save chan<- *DBInfo, hosturl string, stat *Stat) {
+func Parser(group *sync.WaitGroup, exit *bool, jbd *JobDB, dbd *DoneDB, config Config, jobs *int32, crawl chan<- *URLInfo, parse <-chan *PageInfo, save chan<- *DBInfo, hosturl string, stat *Stat) {
 	defer common.CrashLog()
 
 	defer group.Done()
 
 	loggo.Info("Parser start")
 
-	for {
-		select {
-		case <-stop:
+	for job := range parse {
+		if *exit {
 			break
-		case job := <-parse:
-			stat.ParseChannelNum = len(parse)
-			//loggo.Info("receive parse job %v %v", job.Title, job.UI.Url)
+		}
 
-			stat.ParseNum++
+		stat.ParseChannelNum = len(parse)
+		//loggo.Info("receive parse job %v %v", job.Title, job.UI.Url)
 
-			srcURL, err := url.Parse(job.UI.Url)
-			if err != nil {
+		stat.ParseNum++
+
+		srcURL, err := url.Parse(job.UI.Url)
+		if err != nil {
+			continue
+		}
+
+		stat.ParseValidNum++
+
+		for _, s := range job.Son {
+			sonurl := s.UI.Url
+
+			stat.ParseSpawnNum++
+
+			if strings.HasPrefix(sonurl, "#") {
 				continue
 			}
 
-			stat.ParseValidNum++
+			if sonurl == "/" {
+				continue
+			}
 
-			for _, s := range job.Son {
-				sonurl := s.UI.Url
+			if strings.Contains(sonurl, "javascript:") {
+				continue
+			}
 
-				stat.ParseSpawnNum++
+			ss := strings.ToLower(sonurl)
 
-				if strings.HasPrefix(sonurl, "#") {
+			ok := false
+			if strings.HasPrefix(ss, "thunder://") || strings.HasPrefix(ss, "magnet:?") ||
+				strings.HasPrefix(ss, "ed2k://") {
+				ok = true
+			}
+
+			if strings.HasSuffix(ss, ".mp4") || strings.HasSuffix(ss, ".rmvb") || strings.HasSuffix(ss, ".mkv") ||
+				strings.HasSuffix(ss, ".avi") || strings.HasSuffix(ss, ".mpg") || strings.HasSuffix(ss, ".mpeg") ||
+				strings.HasSuffix(ss, ".wmv") ||
+				strings.HasSuffix(ss, ".torrent") {
+				ok = true
+			}
+
+			if ok {
+				stat.ParseFinishNum++
+
+				di := DBInfo{hosturl, job.Title, s.Name, sonurl}
+				atomic.AddInt32(jobs, 1)
+				save <- &di
+
+				//loggo.Info("receive parse ok %v %v %v", job.Title, s.Name, sonurl)
+			} else {
+
+				if s.UI.Deps >= config.Deps {
+					stat.ParseTooDeepNum++
 					continue
 				}
 
-				if sonurl == "/" {
-					continue
-				}
+				if strings.HasPrefix(ss, "http://") || strings.HasPrefix(ss, "https://") {
 
-				if strings.Contains(sonurl, "javascript:") {
-					continue
-				}
-
-				ss := strings.ToLower(sonurl)
-
-				ok := false
-				if strings.HasPrefix(ss, "thunder://") || strings.HasPrefix(ss, "magnet:?") ||
-					strings.HasPrefix(ss, "ed2k://") {
-					ok = true
-				}
-
-				if strings.HasSuffix(ss, ".mp4") || strings.HasSuffix(ss, ".rmvb") || strings.HasSuffix(ss, ".mkv") ||
-					strings.HasSuffix(ss, ".avi") || strings.HasSuffix(ss, ".mpg") || strings.HasSuffix(ss, ".mpeg") ||
-					strings.HasSuffix(ss, ".wmv") ||
-					strings.HasSuffix(ss, ".torrent") {
-					ok = true
-				}
-
-				if ok {
-					stat.ParseFinishNum++
-
-					di := DBInfo{hosturl, job.Title, s.Name, sonurl}
-					atomic.AddInt32(jobs, 1)
-					save <- &di
-
-					//loggo.Info("receive parse ok %v %v %v", job.Title, s.Name, sonurl)
+				} else if strings.HasPrefix(ss, "/") {
+					sonurl = srcURL.Scheme + "://" + srcURL.Host + sonurl
 				} else {
+					dir := srcURL.Path
 
-					if s.UI.Deps >= config.Deps {
-						stat.ParseTooDeepNum++
-						continue
-					}
-
-					if strings.HasPrefix(ss, "http://") || strings.HasPrefix(ss, "https://") {
-
-					} else if strings.HasPrefix(ss, "/") {
-						sonurl = srcURL.Scheme + "://" + srcURL.Host + sonurl
+					dirIndex := strings.LastIndex(dir, "/")
+					if dirIndex >= 0 {
+						dir = dir[0:dirIndex]
 					} else {
-						dir := srcURL.Path
-
-						dirIndex := strings.LastIndex(dir, "/")
-						if dirIndex >= 0 {
-							dir = dir[0:dirIndex]
-						} else {
-							dir = ""
-						}
-						sonurl = srcURL.Scheme + "://" + srcURL.Host + dir + "/" + sonurl
-
-						mIndex := strings.Index(sonurl, "#")
-						if mIndex >= 0 {
-							sonurl = sonurl[0:mIndex]
-						}
+						dir = ""
 					}
+					sonurl = srcURL.Scheme + "://" + srcURL.Host + dir + "/" + sonurl
 
-					_, err := url.Parse(sonurl)
-					if err != nil {
-						continue
+					mIndex := strings.Index(sonurl, "#")
+					if mIndex >= 0 {
+						sonurl = sonurl[0:mIndex]
 					}
+				}
 
-					var tmp *URLInfo
+				_, err := url.Parse(sonurl)
+				if err != nil {
+					continue
+				}
 
-					finded := HasDone(dbd, sonurl, stat)
-					if !finded {
-						if config.FocusSpider {
-							dstURL, dsterr := url.Parse(sonurl)
+				var tmp *URLInfo
 
-							if dsterr == nil {
-								dstParams := strings.Split(dstURL.Host, ".")
-								srcParams := strings.Split(srcURL.Host, ".")
+				finded := HasDone(dbd, sonurl, stat)
+				if !finded {
+					if config.FocusSpider {
+						dstURL, dsterr := url.Parse(sonurl)
 
-								if len(dstParams) >= 2 && len(srcParams) >= 2 &&
-									dstParams[len(dstParams)-1] == srcParams[len(srcParams)-1] &&
-									dstParams[len(dstParams)-2] == srcParams[len(srcParams)-2] {
-									tmp = &URLInfo{sonurl, s.UI.Deps}
-								}
+						if dsterr == nil {
+							dstParams := strings.Split(dstURL.Host, ".")
+							srcParams := strings.Split(srcURL.Host, ".")
+
+							if len(dstParams) >= 2 && len(srcParams) >= 2 &&
+								dstParams[len(dstParams)-1] == srcParams[len(srcParams)-1] &&
+								dstParams[len(dstParams)-2] == srcParams[len(srcParams)-2] {
+								tmp = &URLInfo{sonurl, s.UI.Deps}
 							}
-						} else {
-							tmp = &URLInfo{sonurl, s.UI.Deps}
 						}
+					} else {
+						tmp = &URLInfo{sonurl, s.UI.Deps}
 					}
+				}
 
-					if tmp != nil {
-						hasJob := HasJob(jbd, tmp.Url, stat)
-						if !hasJob {
-							stat.ParseJobNum++
+				if tmp != nil {
+					hasJob := HasJob(jbd, tmp.Url, stat)
+					if !hasJob {
+						stat.ParseJobNum++
 
-							atomic.AddInt32(jobs, 1)
-							InsertSpiderJob(jbd, tmp.Url, tmp.Deps, stat)
+						atomic.AddInt32(jobs, 1)
+						InsertSpiderJob(jbd, tmp.Url, tmp.Deps, stat)
 
-							//loggo.Info("parse spawn job %v %v %v", job.UI.Url, sonurl, GetJobSize(src))
-						}
+						//loggo.Info("parse spawn job %v %v %v", job.UI.Url, sonurl, GetJobSize(src))
 					}
 				}
 			}
-
-			atomic.AddInt32(jobs, -1)
 		}
+
+		atomic.AddInt32(jobs, -1)
 	}
 	loggo.Info("Parser end")
 }
 
-func Saver(group *sync.WaitGroup, stop chan bool, db *DB, jobs *int32, save <-chan *DBInfo, stat *Stat) {
+func Saver(group *sync.WaitGroup, exit *bool, db *DB, jobs *int32, save <-chan *DBInfo, stat *Stat) {
 	defer common.CrashLog()
 
 	defer group.Done()
 
 	loggo.Info("Saver start")
 
-	for {
-		select {
-		case <-stop:
+	for job := range save {
+		if *exit {
 			break
-		case job := <-save:
-			stat.SaveChannelNum = len(save)
-			//loggo.Info("receive save job %v %v %v", job.Title, job.Name, job.Url)
-
-			stat.SaveNum++
-			InsertSpider(db, job.Title, job.Name, job.Url, job.Host, stat)
-
-			atomic.AddInt32(jobs, -1)
 		}
+
+		stat.SaveChannelNum = len(save)
+		//loggo.Info("receive save job %v %v %v", job.Title, job.Name, job.Url)
+
+		stat.SaveNum++
+		InsertSpider(db, job.Title, job.Name, job.Url, job.Host, stat)
+
+		atomic.AddInt32(jobs, -1)
 	}
 
 	loggo.Info("Saver end")
