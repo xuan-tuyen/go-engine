@@ -211,6 +211,7 @@ func Start(db *DB, config Config, url string, stat *Stat) {
 		if job <= 0 {
 			break
 		}
+		time.Sleep(time.Second)
 	}
 
 	loggo.Info("Spider jobs done %v crawl %v, failed %v", url, jobsCrawlerTotal, jobsCrawlerFail)
