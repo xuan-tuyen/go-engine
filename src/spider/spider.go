@@ -304,6 +304,7 @@ func Parser(group *sync.WaitGroup, jbd *JobDB, dbd *DoneDB, config Config, jobs 
 
 		srcURL, err := url.Parse(job.UI.Url)
 		if err != nil {
+			atomic.AddInt32(jobs, -1)
 			continue
 		}
 
