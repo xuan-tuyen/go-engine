@@ -4,7 +4,6 @@ import (
 	"github.com/esrrhs/go-engine/src/common"
 	"github.com/esrrhs/go-engine/src/loggo"
 	"github.com/esrrhs/go-engine/src/shell"
-	"math"
 	"net/url"
 	"runtime"
 	"strings"
@@ -193,48 +192,28 @@ func Start(db *DB, config Config, url string, stat *Stat) {
 
 	atomic.AddInt32(&jobs, int32(GetJobSize(jbd)))
 
-	entry, deps := PopSpiderJob(jbd, int(math.Min(float64(old), float64(config.Buffersize))), stat)
-	if len(entry) == 0 {
-		loggo.Error("Spider job no jobs %v", url)
-		return
-	}
-
-	for i, u := range entry {
-		crawl <- &URLInfo{u, deps[i]}
-	}
-
 	var jobsCrawlerTotal int32
 	var jobsCrawlerFail int32
 
 	var wg sync.WaitGroup
 
 	for i := 0; i < config.Threadnum; i++ {
-		wg.Add(3)
+		wg.Add(4)
 		go Crawler(&wg, jbd, dbd, config, &jobs, crawl, parse, &jobsCrawlerTotal, &jobsCrawlerFail,
 			config.Crawlfunc, config.CrawlTimeout, config.CrawlRetry, stat)
 		go Parser(&wg, jbd, dbd, config, &jobs, crawl, parse, save, url, stat)
 		go Saver(&wg, db, &jobs, save, stat)
+		go Feeder(&wg, jbd, db, config, &jobs, crawl, stat)
 	}
 
 	for {
-		tmpurls, tmpdeps := PopSpiderJob(jbd, config.Buffersize, stat)
-		if len(tmpurls) == 0 {
-			time.Sleep(time.Second)
-			if jobs <= 0 {
-				time.Sleep(time.Second)
-				if jobs <= 0 {
-					break
-				}
-			}
-		} else {
-			for i, url := range tmpurls {
-				stat.CrawBePushJobNum++
-				crawl <- &URLInfo{url, tmpdeps[i]}
-			}
+		job := atomic.LoadInt32(&jobs)
+		if job <= 0 {
+			break
 		}
 	}
 
-	loggo.Info("Spider jobs done crawl %v, failed %v", jobsCrawlerTotal, jobsCrawlerFail)
+	loggo.Info("Spider jobs done %v crawl %v, failed %v", url, jobsCrawlerTotal, jobsCrawlerFail)
 
 	crawl <- nil
 	parse <- nil
@@ -245,7 +224,7 @@ func Start(db *DB, config Config, url string, stat *Stat) {
 	close(parse)
 	close(save)
 
-	loggo.Info("Spider end %v %v", GetSize(db), GetDoneSize(dbd))
+	loggo.Info("Spider end %v %v %v", url, GetSize(db), GetDoneSize(dbd))
 
 	CloseJob(jbd)
 	CloseDone(dbd)
@@ -465,4 +444,30 @@ func Saver(group *sync.WaitGroup, db *DB, jobs *int32, save <-chan *DBInfo, stat
 	}
 
 	loggo.Info("Saver end")
+}
+
+func Feeder(group *sync.WaitGroup, jbd *JobDB, db *DB, config Config, jobs *int32, crawl chan<- *URLInfo, stat *Stat) {
+	defer common.CrashLog()
+
+	defer group.Done()
+
+	loggo.Info("Feeder start")
+
+	for {
+		tmpurls, tmpdeps := PopSpiderJob(jbd, config.Buffersize, stat)
+		if len(tmpurls) == 0 {
+			time.Sleep(time.Second)
+		} else {
+			for i, url := range tmpurls {
+				stat.CrawBePushJobNum++
+				crawl <- &URLInfo{url, tmpdeps[i]}
+			}
+		}
+		job := atomic.LoadInt32(jobs)
+		if job <= 0 {
+			break
+		}
+	}
+
+	loggo.Info("Feeder end")
 }
