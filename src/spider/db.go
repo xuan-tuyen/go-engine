@@ -49,11 +49,15 @@ func Load(dsn string, conn int) *DB {
 		return nil
 	}
 
+	loggo.Info("mysql Load Open ok")
+
 	err = gdb.Ping()
 	if err != nil {
 		loggo.Error("open mysql fail %v", err)
 		return nil
 	}
+
+	loggo.Info("mysql Load Ping ok")
 
 	gdb.SetConnMaxLifetime(0)
 	gdb.SetMaxIdleConns(conn)
@@ -83,6 +87,8 @@ func Load(dsn string, conn int) *DB {
 		loggo.Error("CREATE TABLE fail %v", err)
 		return nil
 	}
+
+	loggo.Info("mysql Load CREATE TABLE ok")
 
 	stmt, err := gdb.Prepare("insert IGNORE  into spider.link_info(title, name, url, time) values(?, ?, ?, NOW())")
 	if err != nil {
@@ -118,6 +124,8 @@ func Load(dsn string, conn int) *DB {
 		return nil
 	}
 	ret.gDeleteStmt = stmt
+
+	loggo.Info("mysql Load Prepare stmt ok")
 
 	////
 	go DeleteOldSpider(ret)
