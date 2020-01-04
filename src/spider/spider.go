@@ -4,6 +4,7 @@ import (
 	"github.com/esrrhs/go-engine/src/common"
 	"github.com/esrrhs/go-engine/src/loggo"
 	"github.com/esrrhs/go-engine/src/shell"
+	"math"
 	"net/url"
 	"runtime"
 	"strings"
@@ -158,8 +159,6 @@ type Stat struct {
 func Start(db *DB, config Config, url string, stat *Stat) {
 	loggo.Info("Spider Start  %v", url)
 
-	var jobs int32
-
 	dsn := db.dsn
 	conn := db.conn
 
@@ -190,29 +189,49 @@ func Start(db *DB, config Config, url string, stat *Stat) {
 	parse := make(chan *PageInfo, config.Buffersize)
 	save := make(chan *DBInfo, config.Buffersize)
 
-	atomic.AddInt32(&jobs, int32(GetJobSize(jbd)))
+	entry, deps := PopSpiderJob(jbd, int(math.Min(float64(old), float64(config.Buffersize))), stat)
+	if len(entry) == 0 {
+		loggo.Error("Spider job no jobs %v", url)
+		return
+	}
+
+	for i, u := range entry {
+		crawl <- &URLInfo{u, deps[i]}
+	}
 
 	var jobsCrawlerTotal int32
 	var jobsCrawlerFail int32
 
 	var wg sync.WaitGroup
+	var running int32
 
 	for i := 0; i < config.Threadnum; i++ {
-		wg.Add(4)
-		go Crawler(&wg, jbd, dbd, config, &jobs, crawl, parse, &jobsCrawlerTotal, &jobsCrawlerFail,
+		wg.Add(3)
+		go Crawler(&running, &wg, jbd, dbd, config, crawl, parse, &jobsCrawlerTotal, &jobsCrawlerFail,
 			config.Crawlfunc, config.CrawlTimeout, config.CrawlRetry, stat)
-		go Parser(&wg, jbd, dbd, config, &jobs, crawl, parse, save, url, stat)
-		go Saver(&wg, db, &jobs, save, stat)
-		go Feeder(&wg, jbd, db, config, &jobs, crawl, stat)
+		go Parser(&running, &wg, jbd, dbd, config, crawl, parse, save, url, stat)
+		go Saver(&running, &wg, db, save, stat)
 	}
 
 	for {
-		job := atomic.LoadInt32(&jobs)
-		if job <= 0 {
-			break
+		tmpurls, tmpdeps := PopSpiderJob(jbd, config.Buffersize, stat)
+		if len(tmpurls) == 0 {
+			time.Sleep(time.Second)
+			run := atomic.LoadInt32(&running)
+			if run == 0 {
+				time.Sleep(time.Second)
+				tmpurls, tmpdeps = PopSpiderJob(jbd, config.Buffersize, stat)
+				if len(tmpurls) == 0 && run == 0 &&
+					len(crawl) == 0 && len(parse) == 0 && len(save) == 0 {
+					break
+				}
+			}
 		}
-		loggo.Info("Spider jobs left %v %v", url, job)
-		time.Sleep(time.Minute)
+
+		for i, url := range tmpurls {
+			stat.CrawBePushJobNum++
+			crawl <- &URLInfo{url, tmpdeps[i]}
+		}
 	}
 
 	loggo.Info("Spider jobs done %v crawl %v, failed %v", url, jobsCrawlerTotal, jobsCrawlerFail)
@@ -232,7 +251,7 @@ func Start(db *DB, config Config, url string, stat *Stat) {
 	CloseDone(dbd)
 }
 
-func Crawler(group *sync.WaitGroup, jbd *JobDB, dbd *DoneDB, config Config, jobs *int32, crawl <-chan *URLInfo, parse chan<- *PageInfo, jobsCrawlerTotal *int32, jobsCrawlerTotalFail *int32, crawlfunc string, crawlTimeout int, crawlRetry int, stat *Stat) {
+func Crawler(running *int32, group *sync.WaitGroup, jbd *JobDB, dbd *DoneDB, config Config, crawl <-chan *URLInfo, parse chan<- *PageInfo, jobsCrawlerTotal *int32, jobsCrawlerTotalFail *int32, crawlfunc string, crawlTimeout int, crawlRetry int, stat *Stat) {
 	defer common.CrashLog()
 
 	defer group.Done()
@@ -242,6 +261,7 @@ func Crawler(group *sync.WaitGroup, jbd *JobDB, dbd *DoneDB, config Config, jobs
 		if job == nil {
 			break
 		}
+		atomic.AddInt32(running, 1)
 
 		stat.CrawChannelNum = len(crawl)
 		//loggo.Info("receive crawl job %v", job)
@@ -258,7 +278,7 @@ func Crawler(group *sync.WaitGroup, jbd *JobDB, dbd *DoneDB, config Config, jobs
 				for t := 0; t < crawlRetry; t++ {
 					stat.CrawRetrtyNum++
 					if crawlfunc == "simple" {
-						pg = simplecrawl(job)
+						pg = simplecrawl(job, crawlTimeout)
 					} else if crawlfunc == "puppeteer" {
 						pg = puppeteercrawl(job, crawlTimeout)
 					}
@@ -270,7 +290,6 @@ func Crawler(group *sync.WaitGroup, jbd *JobDB, dbd *DoneDB, config Config, jobs
 					stat.CrawOKNum++
 					stat.CrawOKTotalTime += int64(time.Now().Sub(b))
 					loggo.Info("crawl job ok %v %v %v %s", job.Url, pg.Title, len(pg.Son), time.Now().Sub(b).String())
-					atomic.AddInt32(jobs, 1)
 					parse <- pg
 				} else {
 					stat.CrawFailNum++
@@ -279,14 +298,14 @@ func Crawler(group *sync.WaitGroup, jbd *JobDB, dbd *DoneDB, config Config, jobs
 			}
 		}
 
-		atomic.AddInt32(jobs, -1)
-
 		time.Sleep(time.Duration(config.Sleeptimems) * time.Millisecond)
+
+		atomic.AddInt32(running, -1)
 	}
 	loggo.Info("Crawler end")
 }
 
-func Parser(group *sync.WaitGroup, jbd *JobDB, dbd *DoneDB, config Config, jobs *int32, crawl chan<- *URLInfo, parse <-chan *PageInfo, save chan<- *DBInfo, hosturl string, stat *Stat) {
+func Parser(running *int32, group *sync.WaitGroup, jbd *JobDB, dbd *DoneDB, config Config, crawl chan<- *URLInfo, parse <-chan *PageInfo, save chan<- *DBInfo, hosturl string, stat *Stat) {
 	defer common.CrashLog()
 
 	defer group.Done()
@@ -297,6 +316,7 @@ func Parser(group *sync.WaitGroup, jbd *JobDB, dbd *DoneDB, config Config, jobs 
 		if job == nil {
 			break
 		}
+		atomic.AddInt32(running, 1)
 
 		stat.ParseChannelNum = len(parse)
 		//loggo.Info("receive parse job %v %v", job.Title, job.UI.Url)
@@ -305,7 +325,7 @@ func Parser(group *sync.WaitGroup, jbd *JobDB, dbd *DoneDB, config Config, jobs 
 
 		srcURL, err := url.Parse(job.UI.Url)
 		if err != nil {
-			atomic.AddInt32(jobs, -1)
+			atomic.AddInt32(running, -1)
 			continue
 		}
 
@@ -347,7 +367,6 @@ func Parser(group *sync.WaitGroup, jbd *JobDB, dbd *DoneDB, config Config, jobs 
 				stat.ParseFinishNum++
 
 				di := DBInfo{hosturl, job.Title, s.Name, sonurl}
-				atomic.AddInt32(jobs, 1)
 				save <- &di
 
 				//loggo.Info("receive parse ok %v %v %v", job.Title, s.Name, sonurl)
@@ -411,7 +430,6 @@ func Parser(group *sync.WaitGroup, jbd *JobDB, dbd *DoneDB, config Config, jobs 
 					if !hasJob {
 						stat.ParseJobNum++
 
-						atomic.AddInt32(jobs, 1)
 						InsertSpiderJob(jbd, tmp.Url, tmp.Deps, stat)
 
 						//loggo.Info("parse spawn job %v %v %v", job.UI.Url, sonurl, GetJobSize(src))
@@ -419,13 +437,12 @@ func Parser(group *sync.WaitGroup, jbd *JobDB, dbd *DoneDB, config Config, jobs 
 				}
 			}
 		}
-
-		atomic.AddInt32(jobs, -1)
+		atomic.AddInt32(running, -1)
 	}
 	loggo.Info("Parser end")
 }
 
-func Saver(group *sync.WaitGroup, db *DB, jobs *int32, save <-chan *DBInfo, stat *Stat) {
+func Saver(running *int32, group *sync.WaitGroup, db *DB, save <-chan *DBInfo, stat *Stat) {
 	defer common.CrashLog()
 
 	defer group.Done()
@@ -436,6 +453,7 @@ func Saver(group *sync.WaitGroup, db *DB, jobs *int32, save <-chan *DBInfo, stat
 		if job == nil {
 			break
 		}
+		atomic.AddInt32(running, 1)
 
 		stat.SaveChannelNum = len(save)
 		//loggo.Info("receive save job %v %v %v", job.Title, job.Name, job.Url)
@@ -443,34 +461,8 @@ func Saver(group *sync.WaitGroup, db *DB, jobs *int32, save <-chan *DBInfo, stat
 		stat.SaveNum++
 		InsertSpider(db, job.Title, job.Name, job.Url, job.Host, stat)
 
-		atomic.AddInt32(jobs, -1)
+		atomic.AddInt32(running, -1)
 	}
 
 	loggo.Info("Saver end")
-}
-
-func Feeder(group *sync.WaitGroup, jbd *JobDB, db *DB, config Config, jobs *int32, crawl chan<- *URLInfo, stat *Stat) {
-	defer common.CrashLog()
-
-	defer group.Done()
-
-	loggo.Info("Feeder start")
-
-	for {
-		tmpurls, tmpdeps := PopSpiderJob(jbd, config.Buffersize, stat)
-		if len(tmpurls) == 0 {
-			time.Sleep(time.Second)
-		} else {
-			for i, url := range tmpurls {
-				stat.CrawBePushJobNum++
-				crawl <- &URLInfo{url, tmpdeps[i]}
-			}
-		}
-		job := atomic.LoadInt32(jobs)
-		if job <= 0 {
-			break
-		}
-	}
-
-	loggo.Info("Feeder end")
 }
