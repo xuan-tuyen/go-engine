@@ -7,9 +7,10 @@ import (
 	"github.com/esrrhs/go-engine/src/loggo"
 	"net/http"
 	"strings"
+	"time"
 )
 
-func simplecrawl(ui *URLInfo) *PageInfo {
+func simplecrawl(ui *URLInfo, crawlTimeout int) *PageInfo {
 
 	url := ui.Url
 	loggo.Info("start simple crawl %v", url)
@@ -17,7 +18,10 @@ func simplecrawl(ui *URLInfo) *PageInfo {
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
-	client := &http.Client{Transport: tr}
+	client := &http.Client{
+		Transport: tr,
+		Timeout:   time.Duration(crawlTimeout) * time.Second,
+	}
 	defer client.CloseIdleConnections()
 
 	res, err := client.Get(url)
