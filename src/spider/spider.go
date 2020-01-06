@@ -16,7 +16,6 @@ import (
 type Config struct {
 	Threadnum    int
 	Buffersize   int
-	Sleeptimems  int
 	Deps         int
 	FocusSpider  bool
 	Crawlfunc    string // simple,puppeteer
@@ -297,8 +296,6 @@ func Crawler(running *int32, group *sync.WaitGroup, jbd *JobDB, dbd *DoneDB, con
 				}
 			}
 		}
-
-		time.Sleep(time.Duration(config.Sleeptimems) * time.Millisecond)
 
 		atomic.AddInt32(running, -1)
 	}
