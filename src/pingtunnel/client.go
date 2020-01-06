@@ -431,7 +431,7 @@ func (p *Client) AcceptTcpConn(conn *net.TCPConn, targetAddr string) {
 		tcpdiffrecv := now.Sub(tcpActiveRecvTime)
 		tcpdiffsend := now.Sub(tcpActiveSendTime)
 		if diffrecv > time.Second*(time.Duration(p.timeout)) || diffsend > time.Second*(time.Duration(p.timeout)) ||
-			tcpdiffrecv > time.Second*(time.Duration(p.timeout)) || tcpdiffsend > time.Second*(time.Duration(p.timeout)) {
+			(tcpdiffrecv > time.Second*(time.Duration(p.timeout)) && tcpdiffsend > time.Second*(time.Duration(p.timeout))) {
 			loggo.Info("close inactive conn %s %s", clientConn.id, clientConn.tcpaddr.String())
 			clientConn.fm.Close()
 			break
