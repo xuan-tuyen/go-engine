@@ -45,18 +45,12 @@ func Test001(t *testing.T) {
 		fmt.Println(secondValue)
 	}
 
-	// Iterate through all the elements, in order.
-	unboundIterator := s.Iterator()
 	sum := 0
-	for unboundIterator.Next() {
-		sum += int(unboundIterator.Key().(int32))
+	for e := s.Front(); e != nil; e = e.Next() {
+		sum += int(e.Key().(int32))
 	}
 	fmt.Printf("%d\n", sum)
 
-	boundIterator := s.Range(int32(32544), int32(32546))
-	// Iterate only through elements in some range.
-	for boundIterator.Next() {
-		fmt.Printf("%d: %s\n", boundIterator.Key(), boundIterator.Value())
-	}
-
+	e := s.Last()
+	fmt.Printf("%d\n", e.key.(int32))
 }
