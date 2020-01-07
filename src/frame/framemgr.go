@@ -28,6 +28,8 @@ type FrameStat struct {
 	sendpong        int
 	recvping        int
 	recvpong        int
+	recvOldNum      int
+	recvOutWinNum   int
 }
 
 type FrameMgr struct {
@@ -344,7 +346,13 @@ func (fm *FrameMgr) addToRecvWin(rf *Frame) bool {
 	if !fm.isIdInRange(rf.Id, fm.frame_max_id) {
 		//loggo.Debug("debugid %v recv frame not in range %v %v", fm.debugid, rf.Id, fm.recvid)
 		if fm.isIdOld(rf.Id, fm.frame_max_id) {
+			if fm.openstat > 0 {
+				fm.fs.recvOldNum++
+			}
 			return true
+		}
+		if fm.openstat > 0 {
+			fm.fs.recvOutWinNum++
 		}
 		return false
 	}
@@ -675,7 +683,8 @@ func (fm *FrameMgr) printStat(cur int64) {
 			loggo.Info("\nsendDataNum %v\nrecvDataNum %v\nsendReqNum %v\nrecvReqNum %v\nsendAckNum %v\nrecvAckNum %v\n"+
 				"sendDataNumsMap %v\nrecvDataNumsMap %v\nsendReqNumsMap %v\nrecvReqNumsMap %v\nsendAckNumsMap %v\nrecvAckNumsMap %v\n"+
 				"sendping %v\nrecvping %v\nsendpong %v\nrecvpong %v\n"+
-				"sendwin %v\nrecvwin %v\n",
+				"sendwin %v\nrecvwin %v\n"+
+				"recvOldNum %v\nrecvOutWinNum %v\n",
 				fs.sendDataNum, fs.recvDataNum,
 				fs.sendReqNum, fs.recvReqNum,
 				fs.sendAckNum, fs.recvAckNum,
@@ -684,7 +693,8 @@ func (fm *FrameMgr) printStat(cur int64) {
 				fm.printStatMap(&fs.sendAckNumsMap), fm.printStatMap(&fs.recvAckNumsMap),
 				fs.sendping, fs.recvping,
 				fs.sendpong, fs.recvpong,
-				fm.sendwin.Len(), fm.recvwin.Len())
+				fm.sendwin.Len(), fm.recvwin.Len(),
+				fs.recvOldNum, fs.recvOutWinNum)
 			fm.resetStat()
 		}
 	}
