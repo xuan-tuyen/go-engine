@@ -1,13 +1,16 @@
 package htmlgen
 
 import (
+	"bufio"
 	"container/list"
+	"encoding/hex"
 	"github.com/esrrhs/go-engine/src/common"
 	"github.com/esrrhs/go-engine/src/loggo"
 	"html/template"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -21,6 +24,8 @@ type HtmlGen struct {
 	subpagetpl string
 	cur        []string
 	lastday    time.Time
+	lastsub    time.Time
+	lock       sync.Mutex
 }
 
 func New(name string, path string, maxlastest int, maxday int, mainpagetpl string, subpagetpl string) *HtmlGen {
@@ -32,6 +37,7 @@ func New(name string, path string, maxlastest int, maxday int, mainpagetpl strin
 	hg.path = path
 	hg.lastestmax = maxlastest
 	hg.maxday = maxday
+	hg.lastday = time.Now()
 
 	if len(mainpagetpl) > 0 {
 		hg.lastesttpl = mainpagetpl
@@ -51,8 +57,11 @@ func New(name string, path string, maxlastest int, maxday int, mainpagetpl strin
 		}
 	}
 
+	hg.loadDB()
+
 	hg.deleteHtml()
 	go func() {
+		defer common.CrashLog()
 		for {
 			time.Sleep(time.Hour)
 			hg.deleteHtml()
@@ -63,34 +72,96 @@ func New(name string, path string, maxlastest int, maxday int, mainpagetpl strin
 }
 
 func (hg *HtmlGen) AddHtml(html string) error {
+	b := time.Now()
 	now := time.Now()
 	hg.addLatest(html)
-	hg.save(now, html)
+	saveb := time.Now()
+	mustsave := hg.save(now, html)
+	savee := time.Now()
 	head := hg.calcSubdir(now)
 	err := hg.saveLatest(now)
 	if err != nil {
 		return err
 	}
-	err = hg.saveSub(head)
+	err = hg.saveSub(now, head, mustsave)
 	if err != nil {
 		return err
 	}
-	loggo.Info("AddHtml %s ", html)
+	loggo.Info("AddHtml %s %s %s", html, savee.Sub(saveb).String(), time.Now().Sub(b).String())
 	return nil
+}
+
+func (hg *HtmlGen) insertDB(now time.Time, s string) {
+	cur := now.Format("2006-01-02")
+
+	ecoded := hex.EncodeToString([]byte(s))
+
+	hg.lock.Lock()
+	defer hg.lock.Unlock()
+
+	file, err := os.OpenFile("htmlgendb/"+cur+".txt", os.O_WRONLY|os.O_APPEND|os.O_CREATE, os.ModePerm)
+	if err != nil {
+		return
+	}
+	defer file.Close()
+
+	file.WriteString(ecoded + "\n")
+}
+
+func (hg *HtmlGen) loadDB() {
+	cur := time.Now().Format("2006-01-02")
+
+	hg.lock.Lock()
+	defer hg.lock.Unlock()
+
+	os.MkdirAll("htmlgendb/", os.ModePerm)
+
+	file, err := os.Open("htmlgendb/" + cur + ".txt")
+	if err != nil {
+		return
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		s := scanner.Text()
+		s = strings.TrimRight(s, "\n")
+
+		dst := make([]byte, hex.DecodedLen(len(s)))
+		n, err := hex.Decode(dst, []byte(s))
+		if err != nil {
+			continue
+		}
+		ret := dst[:n]
+		hg.cur = append(hg.cur, string(ret))
+	}
+}
+
+func (hg *HtmlGen) clearDB() {
+	hg.lock.Lock()
+	defer hg.lock.Unlock()
+
+	os.RemoveAll("htmlgendb/")
+	os.MkdirAll("htmlgendb/", os.ModePerm)
 }
 
 func (hg *HtmlGen) calcSubdir(now time.Time) string {
 	return now.Format("2006-01-02")
 }
 
-func (hg *HtmlGen) save(now time.Time, s string) {
+func (hg *HtmlGen) save(now time.Time, s string) bool {
 	cur := now.Format("2006-01-02")
 	last := hg.lastday.Format("2006-01-02")
+	mustsave := false
 	if cur != last {
 		hg.cur = make([]string, 0)
 		hg.lastday = now
+		mustsave = true
+		hg.clearDB()
 	}
 	hg.cur = append(hg.cur, s)
+	hg.insertDB(now, s)
+	return mustsave
 }
 
 func (hg *HtmlGen) addLatest(s string) {
@@ -131,6 +202,7 @@ func (hg *HtmlGen) savefile(data interface{}, des string, src string) error {
 		loggo.Error("os create %s", err)
 		return err
 	}
+	defer file.Close()
 
 	t := template.New("text")
 	if err != nil {
@@ -145,6 +217,7 @@ func (hg *HtmlGen) savefile(data interface{}, des string, src string) error {
 		loggo.Error("os Open %s", err)
 		return err
 	}
+	defer srcfile.Close()
 
 	var buffer [1024 * 1024]byte
 	n, rerr := srcfile.Read(buffer[0:])
@@ -200,7 +273,13 @@ type subpage struct {
 	Data []subpageData
 }
 
-func (hg *HtmlGen) saveSub(head string) error {
+func (hg *HtmlGen) saveSub(now time.Time, head string, mustsave bool) error {
+
+	if now.Sub(hg.lastsub) < time.Minute && !mustsave {
+		return nil
+	}
+	hg.lastsub = now
+
 	sp := &subpage{}
 	sp.Name = head
 	for i := len(hg.cur) - 1; i >= 0; i-- {

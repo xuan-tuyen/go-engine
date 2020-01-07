@@ -3,6 +3,7 @@ package threadpool
 import (
 	"github.com/esrrhs/go-engine/src/common"
 	"sync"
+	"time"
 )
 
 type ThreadPool struct {
@@ -11,6 +12,13 @@ type ThreadPool struct {
 	exef           func(interface{})
 	ca             []chan interface{}
 	control        chan int
+	stat           ThreadPoolStat
+}
+
+type ThreadPoolStat struct {
+	Datalen    []int
+	Pushnum    []int
+	Processnum []int
 }
 
 func NewThreadPool(max int, buffer int, exef func(interface{})) *ThreadPool {
@@ -20,7 +28,12 @@ func NewThreadPool(max int, buffer int, exef func(interface{})) *ThreadPool {
 		ca[index] = make(chan interface{}, buffer)
 	}
 
-	tp := &ThreadPool{max: max, exef: exef, ca: ca, control: control}
+	stat := ThreadPoolStat{}
+	stat.Datalen = make([]int, max)
+	stat.Pushnum = make([]int, max)
+	stat.Processnum = make([]int, max)
+
+	tp := &ThreadPool{max: max, exef: exef, ca: ca, control: control, stat: stat}
 
 	for index, _ := range ca {
 		go tp.run(index)
@@ -31,6 +44,17 @@ func NewThreadPool(max int, buffer int, exef func(interface{})) *ThreadPool {
 
 func (tp *ThreadPool) AddJob(hash int, v interface{}) {
 	tp.ca[common.AbsInt(hash)%len(tp.ca)] <- v
+	tp.stat.Pushnum[common.AbsInt(hash)%len(tp.ca)]++
+}
+
+func (tp *ThreadPool) AddJobTimeout(hash int, v interface{}, timeoutms int) bool {
+	select {
+	case tp.ca[common.AbsInt(hash)%len(tp.ca)] <- v:
+		tp.stat.Pushnum[common.AbsInt(hash)%len(tp.ca)]++
+		return true
+	case <-time.After(time.Duration(timeoutms) * time.Millisecond):
+		return false
+	}
 }
 
 func (tp *ThreadPool) Stop() {
@@ -52,6 +76,21 @@ func (tp *ThreadPool) run(index int) {
 			return
 		case v := <-tp.ca[index]:
 			tp.exef(v)
+			tp.stat.Processnum[index]++
 		}
+	}
+}
+
+func (tp *ThreadPool) GetStat() ThreadPoolStat {
+	for index, _ := range tp.ca {
+		tp.stat.Datalen[index] = len(tp.ca[index])
+	}
+	return tp.stat
+}
+
+func (tp *ThreadPool) ResetStat() {
+	for index, _ := range tp.ca {
+		tp.stat.Pushnum[index] = 0
+		tp.stat.Processnum[index] = 0
 	}
 }

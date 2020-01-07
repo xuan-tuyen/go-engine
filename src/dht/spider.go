@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"github.com/esrrhs/go-engine/src/common"
 	"github.com/esrrhs/go-engine/src/loggo"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/shiyanhui/dht"
@@ -54,6 +55,8 @@ type bitTorrent struct {
 }
 
 func OnCrawl(w *dht.Wire) {
+	defer common.CrashLog()
+
 	for resp := range w.Response() {
 		loggo.Info("OnCrawl resp bytes %v", len(resp.MetadataInfo))
 
@@ -148,9 +151,14 @@ func GetSize() int {
 }
 
 func Crawl() {
+	defer common.CrashLog()
+
 	w := dht.NewWire(65536, 1024, 256)
 	go OnCrawl(w)
-	go w.Run()
+	go func() {
+		defer common.CrashLog()
+		w.Run()
+	}()
 
 	config := dht.NewCrawlConfig()
 	config.OnAnnouncePeer = func(infoHash, ip string, port int) {
@@ -158,7 +166,10 @@ func Crawl() {
 	}
 	d := dht.New(config)
 
-	go d.Run()
+	go func() {
+		defer common.CrashLog()
+		d.Run()
+	}()
 }
 
 type FindData struct {

@@ -7,13 +7,14 @@ import (
 	"io"
 	"math"
 	mrand "math/rand"
-	"sync"
 	"time"
 )
 
-var mathinited bool
-var gmathlock sync.Mutex
 var gseededRand *mrand.Rand
+
+func init() {
+	gseededRand = mrand.New(mrand.NewSource(time.Now().UnixNano()))
+}
 
 func MinOfInt(vars ...int) int {
 	min := vars[0]
@@ -99,25 +100,18 @@ func UniqueId() string {
 	return GetMd5String(base64.URLEncoding.EncodeToString(b))
 }
 
-func Int31n(n int) int32 {
-	checkMathInit()
+func RandInt31n(n int) int32 {
 	ret := gseededRand.Int31n((int32)(n))
 	return int32(ret)
 }
 
-func checkMathInit() {
-	if !mathinited {
-		defer gmathlock.Unlock()
-		gmathlock.Lock()
-		if !mathinited {
-			mathinited = true
-			mathInit()
-		}
-	}
+func RandInt() int32 {
+	ret := gseededRand.Int()
+	return int32(ret)
 }
 
-func mathInit() {
-	gseededRand = mrand.New(mrand.NewSource(time.Now().UnixNano()))
+func Shuffle(n int, swap func(i, j int)) {
+	gseededRand.Shuffle(n, swap)
 }
 
 func MAKEINT64(high int32, low int32) int64 {
@@ -142,4 +136,33 @@ func LOINT16(l int32) int16 {
 
 func IsInt(r float64) bool {
 	return (r - math.Floor(r)) == 0
+}
+
+func ArrayContainInt(a []int, f int) bool {
+
+	for _, i := range a {
+		if f == i {
+			return true
+		}
+	}
+
+	return false
+}
+
+func ArrayContainString(a []string, f string) bool {
+
+	for _, i := range a {
+		if f == i {
+			return true
+		}
+	}
+
+	return false
+}
+
+func SafeDivide(a int64, b int64) int64 {
+	if b == 0 {
+		return 0
+	}
+	return a / b
 }

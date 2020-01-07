@@ -1,6 +1,7 @@
 package loggo
 
 import (
+	"errors"
 	"fmt"
 	"github.com/esrrhs/go-engine/src/termcolor"
 	"os"
@@ -292,7 +293,32 @@ func checkDate(config Config) {
 	})
 }
 
+func crashLog() {
+	if r := recover(); r != nil {
+		var err error
+		switch x := r.(type) {
+		case string:
+			err = errors.New(x)
+		case error:
+			err = x
+		default:
+			err = errors.New("Unknown panic")
+		}
+		if err != nil {
+			Error("crash %s \n%s", err, dumpStacks())
+		}
+		panic(err)
+	}
+}
+
+func dumpStacks() string {
+	buf := make([]byte, 16384)
+	buf = buf[:runtime.Stack(buf, true)]
+	return fmt.Sprintf("=== BEGIN goroutine stack dump ===\n%s\n=== END goroutine stack dump ===", buf)
+}
+
 func loopCheck(config Config) {
+	defer crashLog()
 	for {
 		checkDate(config)
 		time.Sleep(time.Minute)

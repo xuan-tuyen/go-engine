@@ -263,6 +263,9 @@ func (p *Server) processDataPacket(packet *Packet) {
 			localConn.fm.OnRecvFrame(f)
 
 		} else {
+			if packet.my.Data == nil {
+				return
+			}
 			_, err := localConn.conn.Write(packet.my.Data)
 			if err != nil {
 				loggo.Info("WriteToUDP Error %s", err)
@@ -396,7 +399,7 @@ func (p *Server) RecvTCP(conn *ServerConn, id string, src *net.IPAddr) {
 		tcpdiffrecv := now.Sub(tcpActiveRecvTime)
 		tcpdiffsend := now.Sub(tcpActiveSendTime)
 		if diffrecv > time.Second*(time.Duration(conn.timeout)) || diffsend > time.Second*(time.Duration(conn.timeout)) ||
-			tcpdiffrecv > time.Second*(time.Duration(conn.timeout)) || tcpdiffsend > time.Second*(time.Duration(conn.timeout)) {
+			(tcpdiffrecv > time.Second*(time.Duration(conn.timeout)) && tcpdiffsend > time.Second*(time.Duration(conn.timeout))) {
 			loggo.Info("close inactive conn %s %s", conn.id, conn.tcpaddrTarget.String())
 			conn.fm.Close()
 			break
