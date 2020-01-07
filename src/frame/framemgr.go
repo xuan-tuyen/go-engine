@@ -684,7 +684,8 @@ func (fm *FrameMgr) printStat(cur int64) {
 				"sendDataNumsMap %v\nrecvDataNumsMap %v\nsendReqNumsMap %v\nrecvReqNumsMap %v\nsendAckNumsMap %v\nrecvAckNumsMap %v\n"+
 				"sendping %v\nrecvping %v\nsendpong %v\nrecvpong %v\n"+
 				"sendwin %v\nrecvwin %v\n"+
-				"recvOldNum %v\nrecvOutWinNum %v\n",
+				"recvOldNum %v\nrecvOutWinNum %v\n"+
+				"rtt %v\n",
 				fs.sendDataNum, fs.recvDataNum,
 				fs.sendReqNum, fs.recvReqNum,
 				fs.sendAckNum, fs.recvAckNum,
@@ -694,7 +695,8 @@ func (fm *FrameMgr) printStat(cur int64) {
 				fs.sendping, fs.recvping,
 				fs.sendpong, fs.recvpong,
 				fm.sendwin.Len(), fm.recvwin.Len(),
-				fs.recvOldNum, fs.recvOutWinNum)
+				fs.recvOldNum, fs.recvOutWinNum,
+				time.Duration(fm.rttns).String())
 			fm.resetStat()
 		}
 	}
