@@ -115,5 +115,5 @@ type Packet struct {
 
 const (
 	FRAME_MAX_SIZE int = 888
-	FRAME_MAX_ID   int = 1000000
+	FRAME_MAX_ID   int = 100000
 )
