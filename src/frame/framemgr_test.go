@@ -19,26 +19,26 @@ func Test0001(t *testing.T) {
 	rr := &Frame{}
 	lr.Id = 1
 	rr.Id = 4
-	fmt.Println("fm.compareId(lr, rr)  = ", fm.compareId((int)(lr.Id), (int)(rr.Id)))
+	fmt.Println("fm.compareId(lr, rr)  = ", fm.compareId(lr.Id, rr.Id))
 
 	lr.Id = 99
 	rr.Id = 8
-	fmt.Println("fm.compareId(lr, rr)  = ", fm.compareId((int)(lr.Id), (int)(rr.Id)))
+	fmt.Println("fm.compareId(lr, rr)  = ", fm.compareId(lr.Id, rr.Id))
 
 	fm.recvid = 9000
 	lr.Id = 9998
 	rr.Id = 9999
-	fmt.Println("fm.compareId(lr, rr)  = ", fm.compareId((int)(lr.Id), (int)(rr.Id)))
+	fmt.Println("fm.compareId(lr, rr)  = ", fm.compareId(lr.Id, rr.Id))
 
 	fm.recvid = 9000
 	lr.Id = 9998
 	rr.Id = 8
-	fmt.Println("fm.compareId(lr, rr)  = ", fm.compareId((int)(lr.Id), (int)(rr.Id)))
+	fmt.Println("fm.compareId(lr, rr)  = ", fm.compareId(lr.Id, rr.Id))
 
 	fm.recvid = 0
 	lr.Id = 9998
 	rr.Id = 8
-	fmt.Println("fm.compareId(lr, rr)  = ", fm.compareId((int)(lr.Id), (int)(rr.Id)))
+	fmt.Println("fm.compareId(lr, rr)  = ", fm.compareId(lr.Id, rr.Id))
 
 	fm.recvid = 0
 	fm.windowsize = 5
