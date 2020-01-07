@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"github.com/esrrhs/go-engine/src/common"
 	"github.com/esrrhs/go-engine/src/loggo"
 	"testing"
 )
@@ -20,6 +21,7 @@ func Test0002(t *testing.T) {
 	ret, _ := call.Call(func() {
 		loggo.Info("start call %s", call.Id())
 		go func() {
+			defer common.CrashLog()
 			PutRet(call.Id(), 1, 2, "a")
 		}()
 	})

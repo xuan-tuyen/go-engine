@@ -2,6 +2,7 @@ package console
 
 import (
 	"fmt"
+	"github.com/esrrhs/go-engine/src/common"
 	"testing"
 	"time"
 )
@@ -27,6 +28,8 @@ func Test0002(t *testing.T) {
 	}
 
 	go func() {
+		defer common.CrashLog()
+
 		for {
 			e := ci.PollEvent()
 			if e != nil {

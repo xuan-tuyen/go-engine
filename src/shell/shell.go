@@ -71,3 +71,26 @@ func RunTimeout(script string, silent bool, timeout int, param ...string) string
 	}
 	return outstr
 }
+
+func RunCommand(command string, silent bool) string {
+
+	if !silent {
+		loggo.Info("shell RunCommand start %v ", command)
+	}
+
+	begin := time.Now()
+	cmd := exec.Command("bash", "-c", command)
+	out, err := cmd.CombinedOutput()
+	outstr := string(out)
+	if err != nil {
+		loggo.Warn("shell RunCommand fail %v %v %v", cmd.Args, outstr, err)
+		return ""
+	}
+
+	if !silent {
+		loggo.Info("shell RunCommand ok %v %v", cmd.Args, time.Now().Sub(begin))
+		loggo.Info("%v", outstr)
+	}
+
+	return outstr
+}

@@ -1,38 +1,32 @@
 package common
 
 import (
-	"sync"
 	"time"
 )
 
-var timeinited bool
 var gnowsecond time.Time
-var gtimelock sync.Mutex
 
-func GetNowUpdateInSecond() time.Time {
-	checkTimeInit()
-	return gnowsecond
-}
-
-func checkTimeInit() {
-	if !timeinited {
-		defer gtimelock.Unlock()
-		gtimelock.Lock()
-		if !timeinited {
-			timeinited = true
-			gnowsecond = time.Now()
-			timeInit()
-		}
-	}
-}
-
-func timeInit() {
+func init() {
+	gnowsecond = time.Now()
 	go updateNowInSecond()
 }
 
+func GetNowUpdateInSecond() time.Time {
+	return gnowsecond
+}
+
 func updateNowInSecond() {
+	defer CrashLog()
+
 	for {
 		gnowsecond = time.Now()
 		time.Sleep(time.Second)
+	}
+}
+
+func Elapsed(f func(d time.Duration)) func() {
+	start := time.Now()
+	return func() {
+		f(time.Since(start))
 	}
 }

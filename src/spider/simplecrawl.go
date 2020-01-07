@@ -1,19 +1,30 @@
 package spider
 
 import (
+	"crypto/tls"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/axgle/mahonia"
 	"github.com/esrrhs/go-engine/src/loggo"
 	"net/http"
 	"strings"
+	"time"
 )
 
-func simplecrawl(ui *URLInfo) *PageInfo {
+func simplecrawl(ui *URLInfo, crawlTimeout int) *PageInfo {
 
 	url := ui.Url
 	loggo.Info("start simple crawl %v", url)
 
-	res, err := http.Get(url)
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{
+		Transport: tr,
+		Timeout:   time.Duration(crawlTimeout) * time.Second,
+	}
+	defer client.CloseIdleConnections()
+
+	res, err := client.Get(url)
 	if err != nil {
 		loggo.Warn("simple crawl http Get fail %v %v", url, err)
 		return nil

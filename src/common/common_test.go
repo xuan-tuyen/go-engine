@@ -4,9 +4,19 @@ import (
 	"fmt"
 	"strconv"
 	"testing"
+	"time"
 )
 
+func elapsed() {
+	defer Elapsed(func(d time.Duration) {
+		fmt.Println("use time " + d.String())
+	})()
+
+	time.Sleep(time.Second)
+}
+
 func Test0001(t *testing.T) {
+
 	a := RandStr(5)
 	a1 := RandStr(5)
 	fmt.Println(a)
@@ -35,4 +45,63 @@ func Test0001(t *testing.T) {
 	fmt.Println(IsInt(3))
 	fmt.Println(strconv.FormatFloat(3.1415, 'E', -1, 64))
 
+	aa := []int{1, 2, 3, 4, 5, 6, 7, 8}
+	Shuffle(len(aa), func(i, j int) { aa[i], aa[j] = aa[j], aa[i] })
+	fmt.Println(aa)
+
+	fmt.Println(RandInt())
+	fmt.Println(RandInt31n(10))
+
+	fmt.Println(WrapString("abc", 10))
+
+	ts := StrTable{}
+	ts.AddHeader("a")
+	ts.AddHeader("b")
+	ts.AddHeader("c")
+	tsl := StrTableLine{}
+	tsl.AddData("1234")
+	tsl.AddData("123421412")
+	ts.AddLine(tsl)
+	tsl = StrTableLine{}
+	tsl.AddData("aaa")
+	ts.AddLine(tsl)
+	fmt.Println(WrapString("abc", 10))
+	fmt.Println(ts.String("\t"))
+
+	elapsed()
+}
+
+type TestStruct struct {
+	A int
+	B int64
+	C string
+}
+
+func Test0002(t *testing.T) {
+	ts := TestStruct{1, 2, "3"}
+	st := StrTable{}
+	st.AddHeader("AA")
+	st.FromStruct(&ts, func(name string) bool {
+		return name != "A"
+	})
+	stl := StrTableLine{}
+	stl.AddData("a")
+	stl.FromStruct(&st, &ts, func(name string, v interface{}) interface{} {
+		if name == "B" {
+			return time.Duration(v.(int64)).String()
+		}
+		return v
+	})
+	st.AddLine(stl)
+	ts = TestStruct{12, 214124, "124123"}
+	stl = StrTableLine{}
+	stl.AddData("aaa")
+	stl.FromStruct(&st, &ts, func(name string, v interface{}) interface{} {
+		if name == "B" {
+			return time.Duration(v.(int64)).String()
+		}
+		return v
+	})
+	st.AddLine(stl)
+	fmt.Println(st.String(""))
 }
