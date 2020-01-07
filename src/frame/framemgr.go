@@ -223,7 +223,7 @@ func (fm *FrameMgr) calSendList(cur int64) {
 
 	for e := fm.sendwin.Front(); e != nil; e = e.Next() {
 		f := e.Value.(*Frame)
-		if (f.Resend || cur-f.Sendtime > int64(fm.resend_timems*(int)(time.Millisecond))) &&
+		if !f.Acked && (f.Resend || cur-f.Sendtime > int64(fm.resend_timems*(int)(time.Millisecond))) &&
 			cur-f.Sendtime > fm.rttns {
 			f.Sendtime = cur
 			fm.sendlist.PushBack(f)
@@ -306,7 +306,7 @@ func (fm *FrameMgr) processRecvList(tmpreq map[int32]int, tmpack map[int32]int, 
 		for e := fm.sendwin.Front(); e != nil; e = e.Next() {
 			f := e.Value.(*Frame)
 			if f.Id == id {
-				fm.sendwin.Remove(e)
+				f.Acked = true
 				//loggo.Debug("debugid %v remove send win %v %v", fm.debugid, f.Id, len(f.Data.Data))
 				break
 			}
@@ -314,6 +314,19 @@ func (fm *FrameMgr) processRecvList(tmpreq map[int32]int, tmpack map[int32]int, 
 		if fm.openstat > 0 {
 			fm.fs.recvAckNum += num
 			fm.fs.recvAckNumsMap[id] += num
+		}
+	}
+
+	for {
+		e := fm.sendwin.Front()
+		if e == nil {
+			break
+		}
+		f := e.Value.(*Frame)
+		if f.Acked {
+			fm.sendwin.Remove(e)
+		} else {
+			break
 		}
 	}
 

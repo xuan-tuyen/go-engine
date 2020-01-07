@@ -12,6 +12,8 @@ require (
 	github.com/oschwald/geoip2-golang v1.3.0
 	github.com/oschwald/maxminddb-golang v1.5.0 // indirect
 	github.com/shiyanhui/dht v0.0.0-20190320084728-1b3b78ecf279
+	github.com/stretchr/testify v1.4.0 // indirect
 	golang.org/x/net v0.0.0-20191125084936-ffdde1057850
 	golang.org/x/sys v0.0.0-20191120155948-bd437916bb0e
+	google.golang.org/appengine v1.6.5 // indirect
 )

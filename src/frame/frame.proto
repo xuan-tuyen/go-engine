@@ -29,4 +29,5 @@ message Frame {
     int32 id = 4;
     FrameData data = 5;
     repeated int32 dataid = 6;
+    bool acked = 7;
 }
