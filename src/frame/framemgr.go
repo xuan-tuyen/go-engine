@@ -355,10 +355,6 @@ func (fm *FrameMgr) addToRecvWin(rf *Frame) bool {
 			//loggo.Debug("debugid %v recv frame ignore %v %v", fm.debugid, f.Id, len(f.Data.Data))
 			return true
 		}
-	}
-
-	for e := fm.recvwin.Front(); e != nil; e = e.Next() {
-		f := e.Value.(*Frame)
 		//loggo.Debug("debugid %v start insert recv win %v %v %v", fm.debugid, fm.recvid, rf.Id, f.Id)
 		if fm.compareId(rf.Id, f.Id) < 0 {
 			fm.recvwin.InsertBefore(rf, e)
