@@ -237,6 +237,18 @@ func (p *Client) Run() error {
 		defer p.workResultLock.Done()
 
 		for !p.exit {
+			p.updateServerAddr()
+			time.Sleep(time.Minute)
+		}
+	}()
+
+	go func() {
+		defer common.CrashLog()
+
+		p.workResultLock.Add(1)
+		defer p.workResultLock.Done()
+
+		for !p.exit {
 			select {
 			case <-p.recvcontrol:
 				return
@@ -874,4 +886,14 @@ func (p *Client) AcceptDirectTcpConn(conn *net.TCPConn, targetAddr string) {
 	conn.Close()
 	targetconn.Close()
 	loggo.Info("client stop direct local tcp %s %s", tcpsrcaddr.String(), targetAddr)
+}
+
+func (p *Client) updateServerAddr() {
+	ipaddrServer, err := net.ResolveIPAddr("ip", p.addrServer)
+	if err != nil {
+		return
+	}
+	if p.ipaddrServer.String() != ipaddrServer.String() {
+		p.ipaddrServer = ipaddrServer
+	}
 }
