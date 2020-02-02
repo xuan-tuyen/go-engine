@@ -18,8 +18,8 @@ type FiFo struct {
 	sizeDoneStmt  *sql.Stmt
 }
 
-func NewFIFO(dsn string, conn int, name string, max int) (*FiFo, error) {
-	f := &FiFo{name: name, max: max}
+func NewFIFO(dsn string, conn int, name string) (*FiFo, error) {
+	f := &FiFo{name: name}
 
 	gdb, err := sql.Open("mysql", dsn)
 	if err != nil {
@@ -132,7 +132,7 @@ func NewFIFOLocal(name string, max int) (*FiFo, error) {
 }
 
 func (f *FiFo) Write(data string) error {
-	if f.GetSize() >= f.max {
+	if f.max > 0 && f.GetSize() >= f.max {
 		return errors.New("fifo max " + strconv.Itoa(f.max))
 	}
 
