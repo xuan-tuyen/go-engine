@@ -2,12 +2,15 @@ package fifo
 
 import (
 	"database/sql"
+	"errors"
 	"github.com/esrrhs/go-engine/src/loggo"
 	_ "github.com/mattn/go-sqlite3"
+	"strconv"
 )
 
 type FiFo struct {
 	name          string
+	max           int
 	db            *sql.DB
 	insertJobStmt *sql.Stmt
 	getJobStmt    *sql.Stmt
@@ -15,8 +18,8 @@ type FiFo struct {
 	sizeDoneStmt  *sql.Stmt
 }
 
-func NewFIFO(dsn string, conn int, name string) (*FiFo, error) {
-	f := &FiFo{name: name}
+func NewFIFO(dsn string, conn int, name string, max int) (*FiFo, error) {
+	f := &FiFo{name: name, max: max}
 
 	gdb, err := sql.Open("mysql", dsn)
 	if err != nil {
@@ -81,9 +84,9 @@ func NewFIFO(dsn string, conn int, name string) (*FiFo, error) {
 	return f, nil
 }
 
-func NewFIFOLocal(name string) (*FiFo, error) {
+func NewFIFOLocal(name string, max int) (*FiFo, error) {
 
-	f := &FiFo{name: name}
+	f := &FiFo{name: name, max: max}
 
 	gdb, err := sql.Open("sqlite3", "./fifo_"+name+".db")
 	if err != nil {
@@ -129,6 +132,10 @@ func NewFIFOLocal(name string) (*FiFo, error) {
 }
 
 func (f *FiFo) Write(data string) error {
+	if f.GetSize() >= f.max {
+		return errors.New("fifo max " + strconv.Itoa(f.max))
+	}
+
 	_, err := f.insertJobStmt.Exec(data)
 	if err != nil {
 		loggo.Error("Write fail %v", err)

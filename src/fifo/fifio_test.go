@@ -14,7 +14,7 @@ func Test0001(t *testing.T) {
 	dbconfig.Addr = "192.168.0.106:4406"
 	dbconfig.Net = "tcp"
 
-	f, err := NewFIFO(dbconfig.FormatDSN(), 10, "aa")
+	f, err := NewFIFO(dbconfig.FormatDSN(), 10, "aa", 2)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -35,7 +35,7 @@ func Test0001(t *testing.T) {
 
 func Test0002(t *testing.T) {
 
-	f, err := NewFIFOLocal("aa")
+	f, err := NewFIFOLocal("aa", 2)
 	if err != nil {
 		fmt.Println(err)
 		return
