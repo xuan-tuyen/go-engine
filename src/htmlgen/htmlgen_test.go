@@ -5,7 +5,7 @@ import (
 )
 
 func Test0001(t *testing.T) {
-	hg := New("test", "./", 10, 10, "./mainpage.tpl", "./subpage.tpl")
+	hg := New("test", "./", 10, 10, "./mainpage.tpl")
 	hg.AddHtml("aa")
 	hg.AddHtml("bb")
 	//hg.AddHtml("aaa")
