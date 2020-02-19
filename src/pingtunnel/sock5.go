@@ -36,7 +36,6 @@ func sock5Handshake(conn net.Conn) (err error) {
 	buf := make([]byte, 258)
 
 	var n int
-	conn.SetReadDeadline(time.Now().Add(time.Millisecond * 100))
 	// make sure we get the nmethod field
 	if n, err = io.ReadAtLeast(conn, buf, idNmethod+1); err != nil {
 		return
