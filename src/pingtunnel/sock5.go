@@ -6,7 +6,6 @@ import (
 	"io"
 	"net"
 	"strconv"
-	"time"
 )
 
 var (
