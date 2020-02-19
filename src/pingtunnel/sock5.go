@@ -80,7 +80,6 @@ func sock5GetRequest(conn net.Conn) (rawaddr []byte, host string, err error) {
 	// refer to getRequest in server.go for why set buffer size to 263
 	buf := make([]byte, 263)
 	var n int
-	conn.SetReadDeadline(time.Now().Add(time.Millisecond * 100))
 	// read till we get possible domain length field
 	if n, err = io.ReadAtLeast(conn, buf, idDmLen+1); err != nil {
 		return
