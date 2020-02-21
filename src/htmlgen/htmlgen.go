@@ -312,7 +312,7 @@ func (hg *HtmlGen) saveDayTime(now time.Time) error {
 
 	for i := 0; i < 24; i++ {
 		t := subtimepageData{}
-		t.Name = fmt.Sprintf("%02d", i)
+		t.Name = day + "_" + fmt.Sprintf("%02d", i)
 		dp.Data = append(dp.Data, t)
 	}
 
@@ -331,7 +331,7 @@ func (hg *HtmlGen) saveHourTime(now time.Time) error {
 
 	for i := 0; i < 60; i++ {
 		t := subtimepageData{}
-		t.Name = fmt.Sprintf("%02d", i)
+		t.Name = hour + "-" + fmt.Sprintf("%02d", i)
 		dp.Data = append(dp.Data, t)
 	}
 
