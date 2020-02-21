@@ -2,6 +2,7 @@ package htmlgen
 
 import (
 	"container/list"
+	"fmt"
 	"github.com/esrrhs/go-engine/src/common"
 	"github.com/esrrhs/go-engine/src/loggo"
 	"html/template"
@@ -10,11 +11,18 @@ import (
 )
 
 type HtmlGen struct {
-	name       string
-	path       string
-	lastest    list.List
-	lastestmax int
-	lastesttpl string
+	name        string
+	path        string
+	lastest     list.List
+	lastestmax  int
+	lastesttpl  string
+	maxday      int
+	subpagetpl  string
+	cur         []string
+	lasttime    time.Time
+	lastsub     time.Time
+	daypagetpl  string
+	hourpagetpl string
 }
 
 func New(name string, path string, maxlastest int, maxday int, mainpagetpl string) *HtmlGen {
@@ -38,7 +46,6 @@ func New(name string, path string, maxlastest int, maxday int, mainpagetpl strin
 }
 
 func (hg *HtmlGen) AddHtml(html string) error {
-	b := time.Now()
 	now := time.Now()
 	hg.addLatest(html)
 	err := hg.saveLatest(now)
