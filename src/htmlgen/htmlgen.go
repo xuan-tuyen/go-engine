@@ -222,8 +222,8 @@ type subpage struct {
 
 func (hg *HtmlGen) saveSub(now time.Time, s string) error {
 
-	cur := now.Format("2006-01-02 15-04")
-	last := hg.lasttime.Format("2006-01-02 15-04")
+	cur := now.Format("2006-01-02_15-04")
+	last := hg.lasttime.Format("2006-01-02_15-04")
 
 	mustsave := false
 	var old []string
@@ -272,8 +272,9 @@ func (hg *HtmlGen) deleteHtml() {
 
 		date := f.Name()
 		date = strings.TrimRight(date, ".html")
-		if strings.Index(date, " ") > 0 {
-			date = date[0:strings.Index(date, " ")]
+		index := strings.Index(date, "_")
+		if index > 0 {
+			date = date[0:index]
 		}
 
 		t, e := time.Parse("2006-01-02", date)
@@ -323,7 +324,7 @@ func (hg *HtmlGen) saveDayTime(now time.Time) error {
 }
 
 func (hg *HtmlGen) saveHourTime(now time.Time) error {
-	hour := time.Now().Format("2006-01-02 15")
+	hour := time.Now().Format("2006-01-02_15")
 
 	dp := &timepage{}
 	dp.Name = hour
