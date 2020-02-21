@@ -7,6 +7,8 @@ import (
 	"github.com/esrrhs/go-engine/src/loggo"
 	"html/template"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -25,13 +27,18 @@ type HtmlGen struct {
 	hourpagetpl string
 }
 
-func New(name string, path string, maxlastest int, maxday int, mainpagetpl string) *HtmlGen {
+func New(name string, path string, maxlastest int, maxday int,
+	mainpagetpl string, subpagetpl string,
+	daypagetpl string, hourpagetpl string) *HtmlGen {
 	loggo.Info("Ini start %s", path)
 	os.MkdirAll(path, os.ModePerm)
+	os.MkdirAll(path+"/htmlgen/", os.ModePerm)
 	hg := &HtmlGen{}
 	hg.name = name
 	hg.path = path
 	hg.lastestmax = maxlastest
+	hg.maxday = maxday
+	hg.lasttime = time.Now()
 
 	if len(mainpagetpl) > 0 {
 		hg.lastesttpl = mainpagetpl
@@ -41,6 +48,42 @@ func New(name string, path string, maxlastest int, maxday int, mainpagetpl strin
 			panic("no main page tpl at " + hg.lastesttpl)
 		}
 	}
+
+	if len(subpagetpl) > 0 {
+		hg.subpagetpl = subpagetpl
+	} else {
+		hg.subpagetpl = common.GetSrcDir() + "/htmlgen/" + "subpage.tpl"
+		if _, err := os.Stat(hg.subpagetpl); os.IsNotExist(err) {
+			panic("no main page tpl at " + hg.subpagetpl)
+		}
+	}
+
+	if len(daypagetpl) > 0 {
+		hg.daypagetpl = daypagetpl
+	} else {
+		hg.daypagetpl = common.GetSrcDir() + "/htmlgen/" + "daypage.tpl"
+		if _, err := os.Stat(hg.daypagetpl); os.IsNotExist(err) {
+			panic("no main page tpl at " + hg.daypagetpl)
+		}
+	}
+
+	if len(hourpagetpl) > 0 {
+		hg.hourpagetpl = hourpagetpl
+	} else {
+		hg.hourpagetpl = common.GetSrcDir() + "/htmlgen/" + "hourpage.tpl"
+		if _, err := os.Stat(hg.hourpagetpl); os.IsNotExist(err) {
+			panic("no main page tpl at " + hg.hourpagetpl)
+		}
+	}
+
+	hg.deleteHtml()
+	go func() {
+		defer common.CrashLog()
+		for {
+			time.Sleep(time.Hour)
+			hg.deleteHtml()
+		}
+	}()
 
 	return hg
 }
@@ -52,7 +95,19 @@ func (hg *HtmlGen) AddHtml(html string) error {
 	if err != nil {
 		return err
 	}
-	loggo.Info("AddHtml %s %s ", html, time.Now().Sub(b).String())
+	err = hg.saveDayTime(now)
+	if err != nil {
+		return err
+	}
+	err = hg.saveHourTime(now)
+	if err != nil {
+		return err
+	}
+	err = hg.saveSub(now, html)
+	if err != nil {
+		return err
+	}
+	loggo.Info("AddHtml %s", html)
 	return nil
 }
 
@@ -73,9 +128,14 @@ type mainpageLastest struct {
 	Name string
 }
 
+type mainpageSub struct {
+	Name string
+}
+
 type mainpage struct {
 	Name    string
 	Lastest []mainpageLastest
+	Sub     []mainpageSub
 }
 
 func noescape(str string) template.HTML {
@@ -137,9 +197,146 @@ func (hg *HtmlGen) saveLatest(now time.Time) error {
 		mp.Lastest = append(mp.Lastest, t)
 	}
 
+	for i := 0; i < hg.maxday; i++ {
+		tt := time.Now().Add(-24 * time.Hour * time.Duration(i))
+		t := mainpageSub{}
+		t.Name = tt.Format("2006-01-02")
+		mp.Sub = append(mp.Sub, t)
+	}
+
 	des := hg.path + "/" + "htmlgen.html"
 
 	src := hg.lastesttpl
 
 	return hg.savefile(mp, des, src)
+}
+
+type subpageData struct {
+	Name string
+}
+
+type subpage struct {
+	Name string
+	Data []subpageData
+}
+
+func (hg *HtmlGen) saveSub(now time.Time, s string) error {
+
+	cur := now.Format("2006-01-02 15-04")
+	last := hg.lasttime.Format("2006-01-02 15-04")
+
+	mustsave := false
+	var old []string
+	if cur != last {
+		old = hg.cur
+		hg.cur = make([]string, 0)
+		hg.lasttime = now
+		mustsave = true
+	}
+	hg.cur = append(hg.cur, s)
+
+	if !mustsave {
+		return nil
+	}
+
+	head := cur
+
+	sp := &subpage{}
+	sp.Name = head
+	for i := len(old) - 1; i >= 0; i-- {
+		t := subpageData{}
+		t.Name = old[i]
+		sp.Data = append(sp.Data, t)
+	}
+
+	des := hg.path + "/htmlgen" + "/" + head + ".html"
+
+	src := hg.subpagetpl
+
+	return hg.savefile(sp, des, src)
+}
+
+func (hg *HtmlGen) deleteHtml() {
+	now := time.Now().Format("2006-01-02")
+	nowt, _ := time.Parse("2006-01-02", now)
+	nowunix := nowt.Unix()
+	filepath.Walk(hg.path+"/htmlgen", func(path string, f os.FileInfo, err error) error {
+
+		if f == nil || f.IsDir() {
+			return nil
+		}
+
+		if !strings.HasSuffix(f.Name(), ".html") {
+			return nil
+		}
+
+		date := f.Name()
+		date = strings.TrimRight(date, ".html")
+		if strings.Index(date, " ") > 0 {
+			date = date[0:strings.Index(date, " ")]
+		}
+
+		t, e := time.Parse("2006-01-02", date)
+		if e != nil {
+			loggo.Error("delete Parse file fail %v %v %v", f.Name(), date, err)
+			return nil
+		}
+		tunix := t.Unix()
+		if nowunix-tunix > int64(hg.maxday)*24*3600 {
+			err := os.Remove(hg.path + "/htmlgen" + "/" + f.Name())
+			if e != nil {
+				loggo.Error("delete file fail %v %v", f.Name(), err)
+				return nil
+			}
+		}
+
+		return nil
+	})
+}
+
+type subtimepageData struct {
+	Name string
+}
+
+type timepage struct {
+	Name string
+	Data []subtimepageData
+}
+
+func (hg *HtmlGen) saveDayTime(now time.Time) error {
+	day := time.Now().Format("2006-01-02")
+
+	dp := &timepage{}
+	dp.Name = day
+
+	for i := 0; i < 24; i++ {
+		t := subtimepageData{}
+		t.Name = fmt.Sprintf("%02d", i)
+		dp.Data = append(dp.Data, t)
+	}
+
+	des := hg.path + "/htmlgen" + "/" + day + ".html"
+
+	src := hg.daypagetpl
+
+	return hg.savefile(dp, des, src)
+}
+
+func (hg *HtmlGen) saveHourTime(now time.Time) error {
+	hour := time.Now().Format("2006-01-02 15")
+
+	dp := &timepage{}
+	dp.Name = hour
+
+	for i := 0; i < 60; i++ {
+		t := subtimepageData{}
+		t.Name = fmt.Sprintf("%02d", i)
+		dp.Data = append(dp.Data, t)
+	}
+
+	des := hg.path + "/htmlgen" + "/" + hour + ".html"
+
+	src := hg.hourpagetpl
+
+	return hg.savefile(dp, des, src)
 }
