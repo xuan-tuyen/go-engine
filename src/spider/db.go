@@ -16,6 +16,7 @@ type DB struct {
 	gLastStmt   *sql.Stmt
 	gFindStmt   *sql.Stmt
 	gDeleteStmt *sql.Stmt
+	gSelectStmt *sql.Stmt
 	dsn         string
 	conn        int
 }
@@ -37,6 +38,14 @@ type DoneDB struct {
 	gSizeDoneStmt   *sql.Stmt
 	gDeleteDoneStmt *sql.Stmt
 	gHasDoneStmt    *sql.Stmt
+}
+
+func (db *DB) GetSqlDB() *sql.DB {
+	return db.gdb
+}
+
+func (db *DB) GetSelectStmt() *sql.Stmt {
+	return db.gSelectStmt
 }
 
 func Load(dsn string, conn int) *DB {
@@ -124,6 +133,13 @@ func Load(dsn string, conn int) *DB {
 		return nil
 	}
 	ret.gDeleteStmt = stmt
+
+	stmt, err = gdb.Prepare("SELECT * FROM spider.link_info LIMIT ?, ?")
+	if err != nil {
+		loggo.Error("Prepare mysql fail %v", err)
+		return nil
+	}
+	ret.gSelectStmt = stmt
 
 	loggo.Info("mysql Load Prepare stmt ok")
 
@@ -552,6 +568,33 @@ func Find(db *DB, str string, max int) []FindData {
 		err = rows.Scan(&title, &name, &url)
 		if err != nil {
 			loggo.Error("Find Scan sqlite3 fail %v", err)
+		}
+
+		ret = append(ret, FindData{title, name, url})
+	}
+
+	return ret
+}
+
+func Select(db *DB, offset int, count int) []FindData {
+
+	var ret []FindData
+
+	rows, err := db.gSelectStmt.Query(offset, count)
+	if err != nil {
+		loggo.Error("Select Query sqlite3 fail %v", err)
+		return ret
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+
+		var title string
+		var name string
+		var url string
+		err = rows.Scan(&title, &name, &url)
+		if err != nil {
+			loggo.Error("Select Scan sqlite3 fail %v", err)
 		}
 
 		ret = append(ret, FindData{title, name, url})
