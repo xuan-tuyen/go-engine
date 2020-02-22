@@ -134,7 +134,7 @@ func Load(dsn string, conn int) *DB {
 	}
 	ret.gDeleteStmt = stmt
 
-	stmt, err = gdb.Prepare("SELECT * FROM spider.link_info LIMIT ?, ?")
+	stmt, err = gdb.Prepare("SELECT title,name,url FROM spider.link_info LIMIT ?, ?")
 	if err != nil {
 		loggo.Error("Prepare mysql fail %v", err)
 		return nil
