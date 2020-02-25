@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"fmt"
 	"github.com/esrrhs/go-engine/src/common"
+	"github.com/esrrhs/go-engine/src/rbuffergo"
 	"testing"
 	"time"
 )
@@ -19,26 +20,21 @@ func Test0001(t *testing.T) {
 	rr := &Frame{}
 	lr.Id = 1
 	rr.Id = 4
-	fmt.Println("fm.compareId(lr, rr)  = ", fm.compareId(lr.Id, rr.Id))
 
 	lr.Id = 99
 	rr.Id = 8
-	fmt.Println("fm.compareId(lr, rr)  = ", fm.compareId(lr.Id, rr.Id))
 
 	fm.recvid = 9000
 	lr.Id = 9998
 	rr.Id = 9999
-	fmt.Println("fm.compareId(lr, rr)  = ", fm.compareId(lr.Id, rr.Id))
 
 	fm.recvid = 9000
 	lr.Id = 9998
 	rr.Id = 8
-	fmt.Println("fm.compareId(lr, rr)  = ", fm.compareId(lr.Id, rr.Id))
 
 	fm.recvid = 0
 	lr.Id = 9998
 	rr.Id = 8
-	fmt.Println("fm.compareId(lr, rr)  = ", fm.compareId(lr.Id, rr.Id))
 
 	fm.recvid = 0
 	fm.windowsize = 5
@@ -101,6 +97,6 @@ func Test0001(t *testing.T) {
 	fm.openstat = 1
 	fm.resetStat()
 	fm.sendwin = list.New()
-	fm.recvwin = list.New()
+	fm.recvwin = rbuffergo.NewROBuffer(100, 0, 100)
 	fm.printStat(time.Now().UnixNano())
 }
