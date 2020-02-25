@@ -1,7 +1,6 @@
 package frame
 
 import (
-	"container/list"
 	"fmt"
 	"github.com/esrrhs/go-engine/src/common"
 	"github.com/esrrhs/go-engine/src/rbuffergo"
@@ -96,7 +95,7 @@ func Test0001(t *testing.T) {
 	fmt.Println("fm.printStatMap  = ", mms)
 	fm.openstat = 1
 	fm.resetStat()
-	fm.sendwin = list.New()
-	fm.recvwin = rbuffergo.NewROBuffer(100, 0, 100)
+	fm.sendwin = rbuffergo.NewROBuffer(100, 0, 10000)
+	fm.recvwin = rbuffergo.NewROBuffer(100, 0, 10000)
 	fm.printStat(time.Now().UnixNano())
 }
