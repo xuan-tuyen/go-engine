@@ -50,7 +50,7 @@ type FrameMgr struct {
 	sendlist *list.List
 	sendid   int32
 
-	recvwin  *list.List
+	recvwin  *rbuffergo.ROBuffergo
 	recvlist *list.List
 	recvid   int32
 
@@ -91,7 +91,8 @@ func NewFrameMgr(frame_max_size int, frame_max_id int, buffersize int, windowsiz
 		recvlock:   &sync.Mutex{},
 		windowsize: int32(windowsize), resend_timems: resend_timems, compress: compress,
 		sendwin: list.New(), sendlist: list.New(), sendid: 0,
-		recvwin: list.New(), recvlist: list.New(), recvid: 0,
+		recvwin:  rbuffergo.NewROBuffer(windowsize, 0, frame_max_id),
+		recvlist: list.New(), recvid: 0,
 		close: false, remoteclosed: false, closesend: false,
 		lastPingTime: time.Now().UnixNano(), lastPongTime: time.Now().UnixNano(),
 		lastSendHBTime: time.Now().UnixNano(), lastRecvHBTime: time.Now().UnixNano(),
@@ -370,22 +371,11 @@ func (fm *FrameMgr) addToRecvWin(rf *Frame) bool {
 		return false
 	}
 
-	for e := fm.recvwin.Front(); e != nil; e = e.Next() {
-		f := e.Value.(*Frame)
-		if f.Id == rf.Id {
-			//loggo.Debug("debugid %v recv frame ignore %v %v", fm.debugid, f.Id, len(f.Data.Data))
-			return true
-		}
-		//loggo.Debug("debugid %v start insert recv win %v %v %v", fm.debugid, fm.recvid, rf.Id, f.Id)
-		if fm.compareId(rf.Id, f.Id) < 0 {
-			fm.recvwin.InsertBefore(rf, e)
-			//loggo.Debug("debugid %v insert recv win %v %v before %v", fm.debugid, rf.Id, len(rf.Data.Data), f.Id)
-			return true
-		}
+	err := fm.recvwin.Set(int(rf.Id), rf)
+	if err != nil {
+		loggo.Error("recvwin Set fail %v", err)
+		return false
 	}
-
-	fm.recvwin.PushBack(rf)
-	//loggo.Debug("debugid %v insert recv win last %v %v", fm.debugid, rf.Id, len(rf.Data.Data))
 	return true
 }
 
@@ -442,12 +432,16 @@ func (fm *FrameMgr) combineWindowToRecvBuffer(cur int64) {
 
 	for {
 		done := false
-		for e := fm.recvwin.Front(); e != nil; e = e.Next() {
-			f := e.Value.(*Frame)
+		err, value := fm.recvwin.Front()
+		if err == nil {
+			f := value.(*Frame)
 			if f.Id == fm.recvid {
 				delete(fm.reqmap, f.Id)
 				if fm.processRecvFrame(f) {
-					fm.recvwin.Remove(e)
+					err := fm.recvwin.PopFront()
+					if err != nil {
+						loggo.Error("recvwin PopFront fail %v ", err)
+					}
 					done = true
 					//loggo.Debug("debugid %v process recv frame ok %v %v", fm.debugid, f.Id, len(f.Data.Data))
 					break
@@ -466,7 +460,7 @@ func (fm *FrameMgr) combineWindowToRecvBuffer(cur int64) {
 	}
 
 	reqtmp := make(map[int32]int)
-	e := fm.recvwin.Front()
+	e := fm.recvwin.FrontInter()
 	id := fm.recvid
 	for len(reqtmp) < int(fm.windowsize) && len(reqtmp)*4 < fm.frame_max_size/2 && e != nil {
 		f := e.Value.(*Frame)
@@ -707,7 +701,7 @@ func (fm *FrameMgr) printStat(cur int64) {
 				fm.printStatMap(&fs.sendAckNumsMap), fm.printStatMap(&fs.recvAckNumsMap),
 				fs.sendping, fs.recvping,
 				fs.sendpong, fs.recvpong,
-				fm.sendwin.Len(), fm.recvwin.Len(),
+				fm.sendwin.Len(), fm.recvwin.Size(),
 				fs.recvOldNum, fs.recvOutWinNum,
 				time.Duration(fm.rttns).String())
 			fm.resetStat()
