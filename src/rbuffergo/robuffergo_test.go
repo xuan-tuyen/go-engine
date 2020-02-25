@@ -93,4 +93,37 @@ func TestNew1(t *testing.T) {
 	for e := rob.FrontInter(); e != nil; e = e.Next() {
 		fmt.Println(e.Value)
 	}
+	fmt.Println(rob.Full())
+}
+
+func TestNew2(t *testing.T) {
+	rob := NewROBuffer(10, 1, 20)
+	rob.Set(1, 1)
+	err, d := rob.Get(1)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(d)
+	err, d = rob.Get(11)
+	if err != nil {
+		fmt.Println(err)
+	}
+	err, d = rob.Get(2)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(d)
+	fmt.Println(rob.Full())
+}
+
+func TestNew3(t *testing.T) {
+	rob := NewROBuffer(5, 0, 10)
+	rob.Set(0, 0)
+	rob.Set(1, 1)
+	rob.Set(2, 2)
+	rob.Set(3, 3)
+	rob.Set(4, 4)
+	fmt.Println(rob.Full())
+	err := rob.Set(5, 5)
+	fmt.Println(err)
 }

@@ -61,7 +61,38 @@ func NewROBuffer(len int, startid int, maxid int) *ROBuffergo {
 	return buffer
 }
 
+func (b *ROBuffergo) Get(id int) (error, data interface{}) {
+	cur := b.id[b.begin]
+	if id >= b.maxid {
+		return fmt.Errorf("id out of range %d %d %d", id, cur, b.maxid), nil
+	}
+
+	index := 0
+	if id < cur {
+		index = (b.begin + (id + b.maxid - cur)) % b.len
+	} else {
+		index = (b.begin + (id - cur)) % b.len
+	}
+
+	if b.id[index] != id {
+		return fmt.Errorf("set id error %d %d %d", id, b.id[index], index), nil
+	}
+
+	if !b.flag[index] {
+		return nil, nil
+	}
+
+	if b.buffer[index] == nil {
+		return errors.New("data is nil"), nil
+	}
+
+	return nil, b.buffer[index]
+}
+
 func (b *ROBuffergo) Set(id int, data interface{}) error {
+	if data == nil {
+		return fmt.Errorf("data nil %d ", id)
+	}
 	cur := b.id[b.begin]
 	if id >= b.maxid {
 		return fmt.Errorf("id out of range %d %d %d", id, cur, b.maxid)
@@ -120,6 +151,10 @@ func (b *ROBuffergo) PopFront() error {
 
 func (b *ROBuffergo) Size() int {
 	return b.size
+}
+
+func (b *ROBuffergo) Full() bool {
+	return b.size == b.len
 }
 
 type ROBuffergoInter struct {
