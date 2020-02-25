@@ -444,7 +444,6 @@ func (fm *FrameMgr) combineWindowToRecvBuffer(cur int64) {
 					}
 					done = true
 					//loggo.Debug("debugid %v process recv frame ok %v %v", fm.debugid, f.Id, len(f.Data.Data))
-					break
 				}
 			}
 		}
