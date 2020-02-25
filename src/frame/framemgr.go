@@ -604,18 +604,6 @@ func (fm *FrameMgr) isIdInRange(id int32, maxid int32) bool {
 	return false
 }
 
-func (fm *FrameMgr) compareId(l int32, r int32) int32 {
-
-	if l < fm.recvid {
-		l += fm.frame_max_id
-	}
-	if r < fm.recvid {
-		r += fm.frame_max_id
-	}
-
-	return l - r
-}
-
 func (fm *FrameMgr) isIdOld(id int32, maxid int32) bool {
 	if id > fm.recvid {
 		return false
