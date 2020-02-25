@@ -129,9 +129,12 @@ func (b *RBuffergo) SkipRead(size int) {
 	if b.begin >= len(b.buffer) {
 		b.begin -= len(b.buffer)
 	}
-	if b.datasize == 0 {
-		b.begin = 0
-		b.end = 0
+
+	if b.lock == nil {
+		if b.datasize == 0 {
+			b.begin = 0
+			b.end = 0
+		}
 	}
 }
 
@@ -164,9 +167,11 @@ func (b *RBuffergo) Read(data []byte) bool {
 		b.begin -= len(b.buffer)
 	}
 
-	if b.datasize == 0 {
-		b.begin = 0
-		b.end = 0
+	if b.lock == nil {
+		if b.datasize == 0 {
+			b.begin = 0
+			b.end = 0
+		}
 	}
 
 	return true
@@ -215,11 +220,6 @@ func (b *RBuffergo) Size() int {
 }
 
 func (b *RBuffergo) Capacity() int {
-	if b.lock != nil {
-		b.lock.Lock()
-		defer b.lock.Unlock()
-	}
-
 	return len(b.buffer)
 }
 
@@ -229,7 +229,7 @@ func (b *RBuffergo) Empty() bool {
 		defer b.lock.Unlock()
 	}
 
-	return b.Size() == 0
+	return b.datasize == 0
 }
 
 func (b *RBuffergo) Full() bool {
@@ -238,7 +238,7 @@ func (b *RBuffergo) Full() bool {
 		defer b.lock.Unlock()
 	}
 
-	return b.Size() == b.Capacity()
+	return b.datasize == len(b.buffer)
 }
 
 func (b *RBuffergo) GetReadLineBuffer() []byte {
