@@ -39,6 +39,7 @@ type ROBuffergo struct {
 	len    int
 	maxid  int
 	begin  int
+	size   int
 }
 
 func NewROBuffer(len int, startid int, maxid int) *ROBuffergo {
@@ -77,6 +78,9 @@ func (b *ROBuffergo) Set(id int, data interface{}) error {
 		return fmt.Errorf("set id error %d %d %d", id, b.id[index], index)
 	}
 	b.buffer[index] = data
+	if !b.flag[index] {
+		b.size++
+	}
 	b.flag[index] = true
 	return nil
 }
@@ -110,5 +114,46 @@ func (b *ROBuffergo) PopFront() error {
 	if b.id[old] >= b.maxid {
 		b.id[old] %= b.maxid
 	}
+	b.size--
 	return nil
+}
+
+func (b *ROBuffergo) Size() int {
+	return b.size
+}
+
+type ROBuffergoInter struct {
+	startindex int
+	index      int
+	Value      interface{}
+	b          *ROBuffergo
+}
+
+func (b *ROBuffergo) FrontInter() *ROBuffergoInter {
+	if !b.flag[b.begin] {
+		return nil
+	}
+	return &ROBuffergoInter{
+		startindex: b.begin,
+		index:      b.begin,
+		Value:      b.buffer[b.begin],
+		b:          b,
+	}
+}
+
+func (bi *ROBuffergoInter) Next() *ROBuffergoInter {
+	for {
+		bi.index++
+		if bi.index >= bi.b.len {
+			bi.index %= bi.b.len
+		}
+		if bi.index == bi.startindex {
+			return nil
+		}
+		if bi.b.flag[bi.index] {
+			break
+		}
+	}
+	bi.Value = bi.b.buffer[bi.index]
+	return bi
 }
