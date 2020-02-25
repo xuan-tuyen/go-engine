@@ -331,7 +331,7 @@ func (fm *FrameMgr) processRecvList(tmpreq map[int32]int, tmpack map[int32]int, 
 		}
 	}
 
-	for {
+	for !fm.sendwin.Empty() {
 		err, value := fm.sendwin.Front()
 		if err != nil {
 			loggo.Error("sendwin get Front fail %s", err)
