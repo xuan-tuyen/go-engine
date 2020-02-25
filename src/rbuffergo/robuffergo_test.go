@@ -8,6 +8,7 @@ import (
 func TestNew1(t *testing.T) {
 	rob := NewROBuffer(10, 1, 20)
 	rob.Set(1, 1)
+	rob.Set(1, 1)
 	err := rob.Set(10, 10)
 	if err != nil {
 		fmt.Println(err)
@@ -24,6 +25,12 @@ func TestNew1(t *testing.T) {
 	if err != nil {
 		fmt.Println(err)
 	}
+
+	fmt.Println(rob.size)
+	for e := rob.FrontInter(); e != nil; e = e.Next() {
+		fmt.Println(e.Value)
+	}
+
 	err, d := rob.Front()
 	if err != nil {
 		fmt.Println(err)
@@ -68,6 +75,7 @@ func TestNew1(t *testing.T) {
 		fmt.Println(err)
 	}
 
+	fmt.Println(rob.size)
 	fmt.Println("---")
 	for i := 0; i < 100; i++ {
 		err, d := rob.Front()
@@ -80,5 +88,9 @@ func TestNew1(t *testing.T) {
 		if err != nil {
 			fmt.Println(err)
 		}
+	}
+	fmt.Println("---")
+	for e := rob.FrontInter(); e != nil; e = e.Next() {
+		fmt.Println(e.Value)
 	}
 }
