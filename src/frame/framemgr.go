@@ -292,7 +292,7 @@ func (fm *FrameMgr) processRecvList(tmpreq map[int32]int, tmpack map[int32]int, 
 	for id, num := range tmpreq {
 		err, value := fm.sendwin.Get(int(id))
 		if err != nil {
-			loggo.Error("sendwin get id fail %v", id)
+			loggo.Error("sendwin get id fail %v %v", id, err)
 			continue
 		}
 		if value == nil {
@@ -302,7 +302,9 @@ func (fm *FrameMgr) processRecvList(tmpreq map[int32]int, tmpack map[int32]int, 
 		if f.Id == id {
 			f.Resend = true
 			//loggo.Debug("debugid %v choose resend win %v %v", fm.debugid, f.Id, len(f.Data.Data))
-			break
+		} else {
+			loggo.Error("sendwin get id diff %v %v", id, f.Id)
+			continue
 		}
 		if fm.openstat > 0 {
 			fm.fs.recvReqNum += num
@@ -313,7 +315,7 @@ func (fm *FrameMgr) processRecvList(tmpreq map[int32]int, tmpack map[int32]int, 
 	for id, num := range tmpack {
 		err, value := fm.sendwin.Get(int(id))
 		if err != nil {
-			loggo.Error("sendwin get id fail %v", id)
+			loggo.Error("sendwin get id fail %v %v", id, err)
 			continue
 		}
 		if value == nil {
@@ -323,7 +325,9 @@ func (fm *FrameMgr) processRecvList(tmpreq map[int32]int, tmpack map[int32]int, 
 		if f.Id == id {
 			f.Acked = true
 			//loggo.Debug("debugid %v remove send win %v %v", fm.debugid, f.Id, len(f.Data.Data))
-			break
+		} else {
+			loggo.Error("sendwin get id diff %v %v", id, f.Id)
+			continue
 		}
 		if fm.openstat > 0 {
 			fm.fs.recvAckNum += num
