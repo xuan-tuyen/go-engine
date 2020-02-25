@@ -118,7 +118,7 @@ func (b *ROBuffergo) Set(id int, data interface{}) error {
 
 func (b *ROBuffergo) Front() (error, interface{}) {
 	if !b.flag[b.begin] {
-		return errors.New("no front data"), nil
+		return nil, nil
 	}
 	if b.buffer[b.begin] == nil {
 		return errors.New("front data is nil"), nil
