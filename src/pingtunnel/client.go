@@ -375,7 +375,7 @@ func (p *Client) AcceptTcpConn(conn *net.TCPConn, targetAddr string) {
 
 		left := common.MinOfInt(clientConn.fm.GetSendBufferLeft(), len(bytes))
 		if left > 0 {
-			conn.SetReadDeadline(time.Now().Add(time.Millisecond * 1))
+			conn.SetReadDeadline(time.Now())
 			n, err := conn.Read(bytes[0:left])
 			if err != nil {
 				nerr, ok := err.(net.Error)
@@ -418,7 +418,7 @@ func (p *Client) AcceptTcpConn(conn *net.TCPConn, targetAddr string) {
 		if clientConn.fm.GetRecvBufferSize() > 0 {
 			sleep = false
 			rr := clientConn.fm.GetRecvReadLineBuffer()
-			conn.SetWriteDeadline(time.Now().Add(time.Millisecond * 1))
+			conn.SetWriteDeadline(time.Now())
 			n, err := conn.Write(rr)
 			if err != nil {
 				nerr, ok := err.(net.Error)
