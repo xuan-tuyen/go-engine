@@ -41,12 +41,7 @@ func TestRBuffer_Write(t *testing.T) {
 		t.Error(rb.Size())
 	}
 	t.Log(rb.GetBuffer())
-	if len(rb.GetReadLineBuffer()) != 4 {
-		t.Error(len(rb.GetReadLineBuffer()))
-	}
-	if len(rb.GetWriteLineBuffer()) != 4 {
-		t.Error(len(rb.GetWriteLineBuffer()))
-	}
+
 	var tmp1 [6]byte
 	rb.Read(tmp1[0:])
 	t.Log(tmp1)
