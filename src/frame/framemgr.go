@@ -356,6 +356,7 @@ func (fm *FrameMgr) processRecvList(tmpreq map[int32]int, tmpack map[int32]int, 
 	}
 
 	if len(tmpackto) > 0 {
+		tmpsize := common.MinOfInt(len(tmpackto), fm.frame_max_size/2/4)
 		tmp := make([]int32, len(tmpackto))
 		index := 0
 		for id, rf := range tmpackto {
@@ -365,6 +366,14 @@ func (fm *FrameMgr) processRecvList(tmpreq map[int32]int, tmpack map[int32]int, 
 				if fm.openstat > 0 {
 					fm.fs.sendAckNum++
 					fm.fs.sendAckNumsMap[id]++
+				}
+				if index >= tmpsize {
+					f := &Frame{Type: (int32)(Frame_ACK), Resend: false, Sendtime: 0,
+						Id:     0,
+						Dataid: tmp[0:index]}
+					fm.sendlist.PushBack(f)
+					index = 0
+					//loggo.Debug("debugid %v send ack %v %v", fm.debugid, f.Id, common.Int32ArrayToString(f.Dataid, ","))
 				}
 				//loggo.Debug("debugid %v add data to win %v %v", fm.debugid, rf.Id, len(rf.Data.Data))
 			}
