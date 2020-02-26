@@ -435,7 +435,7 @@ func (p *Client) AcceptTcpConn(conn *net.TCPConn, targetAddr string) {
 		}
 
 		if sleep {
-			time.Sleep(time.Millisecond * 10)
+			//time.Sleep(time.Millisecond * 10)
 		}
 
 		diffrecv := now.Sub(clientConn.activeRecvTime)
