@@ -315,7 +315,6 @@ func (fm *FrameMgr) processRecvList(tmpreq map[int32]int, tmpack map[int32]int, 
 	for id, num := range tmpack {
 		err, value := fm.sendwin.Get(int(id))
 		if err != nil {
-			loggo.Error("sendwin get id fail %v %v", id, err)
 			continue
 		}
 		if value == nil {
