@@ -394,7 +394,7 @@ func (p *Server) RecvTCP(conn *ServerConn, id string, src *net.IPAddr) {
 		}
 
 		if sleep {
-			time.Sleep(time.Millisecond * 10)
+			//time.Sleep(time.Millisecond * 10)
 		}
 
 		diffrecv := now.Sub(conn.activeRecvTime)
