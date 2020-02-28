@@ -238,7 +238,7 @@ func (p *Client) Run() error {
 
 		for !p.exit {
 			p.updateServerAddr()
-			time.Sleep(time.Minute)
+			time.Sleep(time.Second)
 		}
 	}()
 
