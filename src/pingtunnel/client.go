@@ -4,9 +4,9 @@ import (
 	"github.com/esrrhs/go-engine/src/common"
 	"github.com/esrrhs/go-engine/src/frame"
 	"github.com/esrrhs/go-engine/src/loggo"
-	"github.com/esrrhs/go-engine/src/rbuffergo"
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/icmp"
+	"io"
 	"math"
 	"math/rand"
 	"net"
@@ -801,91 +801,24 @@ func (p *Client) AcceptDirectTcpConn(conn *net.TCPConn, targetAddr string) {
 		return
 	}
 
-	bytes := make([]byte, 10240)
-	sendb := rbuffergo.New(p.tcpmode_buffersize, false)
-	recvb := rbuffergo.New(p.tcpmode_buffersize, false)
+	go p.transfer(conn, targetconn, conn.RemoteAddr().String(), targetconn.RemoteAddr().String())
+	go p.transfer(targetconn, conn, targetconn.RemoteAddr().String(), conn.RemoteAddr().String())
 
-	for !p.exit {
-		sleep := true
-		{
-			left := common.MinOfInt(sendb.Capacity()-sendb.Size(), len(bytes))
-			if left > 0 {
-				conn.SetReadDeadline(time.Now().Add(time.Millisecond * 10))
-				n, err := conn.Read(bytes)
-				if err != nil {
-					nerr, ok := err.(net.Error)
-					if !ok || !nerr.Timeout() {
-						loggo.Info("Error read tcp %s %s", tcpsrcaddr.String(), err)
-						break
-					}
-				}
-				if n > 0 {
-					sendb.Write(bytes[:n])
-					sleep = false
-				}
-			}
+	loggo.Info("client accept new direct local tcp ok %s %s", tcpsrcaddr.String(), targetAddr)
+}
 
-			if sendb.Size() > 0 {
-				rr := sendb.GetReadLineBuffer()
-				targetconn.SetWriteDeadline(time.Now().Add(time.Millisecond * 10))
-				n, err := targetconn.Write(rr)
-				if err != nil {
-					nerr, ok := err.(net.Error)
-					if !ok || !nerr.Timeout() {
-						loggo.Info("Error write tcp %s %s", tcpaddrTarget.String(), err)
-						break
-					}
-				}
-				if n > 0 {
-					sendb.SkipRead(n)
-					sleep = false
-				}
-			}
-		}
+func (p *Client) transfer(destination io.WriteCloser, source io.ReadCloser, dst string, src string) {
 
-		{
-			left := common.MinOfInt(recvb.Capacity()-recvb.Size(), len(bytes))
-			if left > 0 {
-				targetconn.SetReadDeadline(time.Now().Add(time.Millisecond * 10))
-				n, err := targetconn.Read(bytes)
-				if err != nil {
-					nerr, ok := err.(net.Error)
-					if !ok || !nerr.Timeout() {
-						loggo.Info("Error read tcp %s %s", tcpaddrTarget.String(), err)
-						break
-					}
-				}
-				if n > 0 {
-					recvb.Write(bytes[:n])
-					sleep = false
-				}
-			}
+	defer common.CrashLog()
 
-			if recvb.Size() > 0 {
-				rr := recvb.GetReadLineBuffer()
-				conn.SetWriteDeadline(time.Now().Add(time.Millisecond * 10))
-				n, err := conn.Write(rr)
-				if err != nil {
-					nerr, ok := err.(net.Error)
-					if !ok || !nerr.Timeout() {
-						loggo.Info("Error write tcp %s %s", tcpsrcaddr.String(), err)
-						break
-					}
-				}
-				if n > 0 {
-					recvb.SkipRead(n)
-					sleep = false
-				}
-			}
-		}
-		if sleep {
-			time.Sleep(time.Millisecond * 100)
-		}
-	}
+	p.workResultLock.Add(1)
+	defer p.workResultLock.Done()
 
-	conn.Close()
-	targetconn.Close()
-	loggo.Info("client stop direct local tcp %s %s", tcpsrcaddr.String(), targetAddr)
+	defer destination.Close()
+	defer source.Close()
+	loggo.Info("client begin transfer from %s -> %s", src, dst)
+	io.Copy(destination, source)
+	loggo.Info("client end transfer from %s -> %s", src, dst)
 }
 
 func (p *Client) updateServerAddr() {
