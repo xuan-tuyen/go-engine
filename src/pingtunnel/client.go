@@ -811,9 +811,6 @@ func (p *Client) transfer(destination io.WriteCloser, source io.ReadCloser, dst 
 
 	defer common.CrashLog()
 
-	p.workResultLock.Add(1)
-	defer p.workResultLock.Done()
-
 	defer destination.Close()
 	defer source.Close()
 	loggo.Info("client begin transfer from %s -> %s", src, dst)
