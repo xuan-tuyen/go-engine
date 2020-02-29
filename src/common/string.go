@@ -174,3 +174,12 @@ func WrapString(s string, n int) string {
 	r := (n - len(s)) - l
 	return strings.Repeat(" ", l) + s + strings.Repeat(" ", r)
 }
+
+func StuctToTable(v interface{}) string {
+	t := StrTable{}
+	tl := StrTableLine{}
+	t.FromStruct(v, nil)
+	tl.FromStruct(&t, v, nil)
+	t.AddLine(tl)
+	return t.String("")
+}
