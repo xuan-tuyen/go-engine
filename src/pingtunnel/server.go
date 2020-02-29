@@ -184,7 +184,6 @@ func (p *Server) processDataPacketNewConn(id string, packet *Packet) *ServerConn
 
 		if packet.my.TcpmodeBuffersize <= 0 {
 			loggo.Info("tcpmod buffsize error, maybe old conn %s %s", id, addr)
-			p.remoteError(packet.echoId, packet.echoSeq, id, (int)(packet.my.Rproto), packet.src)
 			return nil
 		}
 
