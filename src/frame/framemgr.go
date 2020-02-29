@@ -173,7 +173,10 @@ func (fm *FrameMgr) cutSendBufferToWindow(cur int64) {
 			fm.sendid = 0
 		}
 
-		fm.sendwin.Set(int(f.Id), f)
+		err := fm.sendwin.Set(int(f.Id), f)
+		if err != nil {
+			loggo.Error("sendwin Set fail %v", err)
+		}
 		//loggo.Debug("debugid %v cut frame push to send win %v %v %v", fm.debugid, f.Id, fm.frame_max_size, fm.sendwin.Len())
 	}
 
@@ -199,7 +202,10 @@ func (fm *FrameMgr) cutSendBufferToWindow(cur int64) {
 			fm.sendid = 0
 		}
 
-		fm.sendwin.Set(int(f.Id), f)
+		err := fm.sendwin.Set(int(f.Id), f)
+		if err != nil {
+			loggo.Error("sendwin Set fail %v", err)
+		}
 		//loggo.Debug("debugid %v cut small frame push to send win %v %v %v", fm.debugid, f.Id, len(f.Data.Data), fm.sendwin.Len())
 	}
 
@@ -215,7 +221,10 @@ func (fm *FrameMgr) cutSendBufferToWindow(cur int64) {
 			fm.sendid = 0
 		}
 
-		fm.sendwin.Set(int(f.Id), f)
+		err := fm.sendwin.Set(int(f.Id), f)
+		if err != nil {
+			loggo.Error("sendwin Set fail %v", err)
+		}
 		fm.closesend = true
 		//loggo.Debug("debugid %v close frame push to send win %v %v", fm.debugid, f.Id, fm.sendwin.Len())
 	}
@@ -580,7 +589,7 @@ func (fm *FrameMgr) ping() {
 
 func (fm *FrameMgr) hb() {
 	cur := time.Now().UnixNano()
-	if cur-fm.lastSendHBTime > (int64)(time.Second) {
+	if cur-fm.lastSendHBTime > (int64)(time.Second) && fm.sendwin.Size() < int(fm.windowsize) {
 		fm.lastSendHBTime = cur
 
 		fd := &FrameData{Type: (int32)(FrameData_HB)}
@@ -594,7 +603,10 @@ func (fm *FrameMgr) hb() {
 			fm.sendid = 0
 		}
 
-		fm.sendwin.Set(int(f.Id), f)
+		err := fm.sendwin.Set(int(f.Id), f)
+		if err != nil {
+			loggo.Error("sendwin Set fail %v", err)
+		}
 	}
 }
 
@@ -661,35 +673,49 @@ func (fm *FrameMgr) IsConnected() bool {
 }
 
 func (fm *FrameMgr) Connect() {
-	fd := &FrameData{Type: (int32)(FrameData_CONN)}
+	if fm.sendwin.Size() < int(fm.windowsize) {
+		fd := &FrameData{Type: (int32)(FrameData_CONN)}
 
-	f := &Frame{Type: (int32)(Frame_DATA),
-		Id:   fm.sendid,
-		Data: fd}
+		f := &Frame{Type: (int32)(Frame_DATA),
+			Id:   fm.sendid,
+			Data: fd}
 
-	fm.sendid++
-	if fm.sendid >= fm.frame_max_id {
-		fm.sendid = 0
+		fm.sendid++
+		if fm.sendid >= fm.frame_max_id {
+			fm.sendid = 0
+		}
+
+		err := fm.sendwin.Set(int(f.Id), f)
+		if err != nil {
+			loggo.Error("sendwin Set fail %v", err)
+		}
+		//loggo.Debug("debugid %v start connect", fm.debugid)
+	} else {
+		loggo.Error("Connect fail ")
 	}
-
-	fm.sendwin.Set(int(f.Id), f)
-	//loggo.Debug("debugid %v start connect", fm.debugid)
 }
 
 func (fm *FrameMgr) sendConnectRsp() {
-	fd := &FrameData{Type: (int32)(FrameData_CONNRSP)}
+	if fm.sendwin.Size() < int(fm.windowsize) {
+		fd := &FrameData{Type: (int32)(FrameData_CONNRSP)}
 
-	f := &Frame{Type: (int32)(Frame_DATA),
-		Id:   fm.sendid,
-		Data: fd}
+		f := &Frame{Type: (int32)(Frame_DATA),
+			Id:   fm.sendid,
+			Data: fd}
 
-	fm.sendid++
-	if fm.sendid >= fm.frame_max_id {
-		fm.sendid = 0
+		fm.sendid++
+		if fm.sendid >= fm.frame_max_id {
+			fm.sendid = 0
+		}
+
+		err := fm.sendwin.Set(int(f.Id), f)
+		if err != nil {
+			loggo.Error("sendwin Set fail %v", err)
+		}
+		//loggo.Debug("debugid %v send connect rsp", fm.debugid)
+	} else {
+		loggo.Error("sendConnectRsp fail ")
 	}
-
-	fm.sendwin.Set(int(f.Id), f)
-	//loggo.Debug("debugid %v send connect rsp", fm.debugid)
 }
 
 func (fm *FrameMgr) resetStat() {

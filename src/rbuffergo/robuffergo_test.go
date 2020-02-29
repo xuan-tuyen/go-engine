@@ -127,3 +127,34 @@ func TestNew3(t *testing.T) {
 	err := rob.Set(5, 5)
 	fmt.Println(err)
 }
+
+func TestNew4(t *testing.T) {
+	rob := NewROBuffer(5, 0, 10)
+	id := 0
+	index := 0
+	for i := 0; i < 100; i++ {
+		for rob.Size() < 5 {
+			err := rob.Set(id, index)
+			index++
+			if err != nil {
+				fmt.Println(err)
+			}
+			id++
+			if id >= 10 {
+				id = 0
+			}
+		}
+
+		for !rob.Empty() {
+			err, value := rob.Front()
+			if err != nil {
+				fmt.Println(err)
+			}
+			fmt.Println(value)
+			err = rob.PopFront()
+			if err != nil {
+				fmt.Println(err)
+			}
+		}
+	}
+}
