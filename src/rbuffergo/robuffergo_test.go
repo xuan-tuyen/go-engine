@@ -158,3 +158,56 @@ func TestNew4(t *testing.T) {
 		}
 	}
 }
+
+func TestNew5(t *testing.T) {
+	for i := 0; i < 100; i++ {
+		fmt.Printf("%d inrange %v isold %v\n", i,
+			isIdInRange(0, 10, i, 100),
+			isIdOld(0, 10, i, 100))
+	}
+}
+
+func TestNew6(t *testing.T) {
+	for i := 0; i < 100; i++ {
+		fmt.Printf("%d inrange %v isold %v\n", i,
+			isIdInRange(95, 10, i, 100),
+			isIdOld(95, 10, i, 100))
+	}
+}
+
+func TestNew7(t *testing.T) {
+	for i := 0; i < 100; i++ {
+		fmt.Printf("%d inrange %v isold %v\n", i,
+			isIdInRange(55, 10, i, 100),
+			isIdOld(55, 10, i, 100))
+	}
+}
+
+func isIdInRange(recvid int, windowsize int, id int, maxid int) bool {
+	begin := recvid
+	end := recvid + windowsize
+	if end >= maxid {
+		if id >= 0 && id < end-maxid {
+			return true
+		}
+		end = maxid
+	}
+	if id >= begin && id < end {
+		return true
+	}
+	return false
+}
+
+func isIdOld(recvid int, windowsize int, id int, maxid int) bool {
+	begin := recvid - windowsize
+	if begin < 0 {
+		begin += maxid
+	}
+	end := recvid
+
+	if begin < end {
+		return id >= begin && id < end
+	} else {
+		return (id >= begin && id < maxid) || (id >= 0 && id < end)
+	}
+}
