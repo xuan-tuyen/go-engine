@@ -172,6 +172,9 @@ type ROBuffergoInter struct {
 }
 
 func (b *ROBuffergo) FrontInter() *ROBuffergoInter {
+	if b.begin >= len(b.flag) {
+		return nil
+	}
 	if !b.flag[b.begin] {
 		return nil
 	}
