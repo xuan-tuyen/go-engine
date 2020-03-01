@@ -62,6 +62,9 @@ func NewROBuffer(len int, startid int, maxid int) *ROBuffergo {
 }
 
 func (b *ROBuffergo) Get(id int) (error, data interface{}) {
+	if b.begin >= len(b.flag) {
+		return fmt.Errorf("not init"), nil
+	}
 	cur := b.id[b.begin]
 	if id >= b.maxid {
 		return fmt.Errorf("id out of range %d %d %d", id, cur, b.maxid), nil
@@ -92,6 +95,9 @@ func (b *ROBuffergo) Get(id int) (error, data interface{}) {
 func (b *ROBuffergo) Set(id int, data interface{}) error {
 	if data == nil {
 		return fmt.Errorf("data nil %d ", id)
+	}
+	if b.begin >= len(b.flag) {
+		return fmt.Errorf("not init")
 	}
 	cur := b.id[b.begin]
 	if id >= b.maxid {
