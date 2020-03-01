@@ -182,6 +182,13 @@ func (p *Server) processDataPacketNewConn(id string, packet *Packet) *ServerConn
 
 	if packet.my.Tcpmode > 0 {
 
+		if packet.my.TcpmodeBuffersize == 0 ||
+			packet.my.TcpmodeMaxwin == 0 ||
+			packet.my.TcpmodeResendTimems == 0 {
+			loggo.Info("no tcp param, may be old conn : %s", id)
+			return nil
+		}
+
 		c, err := net.DialTimeout("tcp", addr, time.Millisecond*time.Duration(p.connecttmeout))
 		if err != nil {
 			loggo.Error("Error listening for tcp packets: %s %s", id, err.Error())
