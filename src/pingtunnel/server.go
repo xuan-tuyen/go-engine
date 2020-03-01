@@ -183,8 +183,7 @@ func (p *Server) processDataPacketNewConn(id string, packet *Packet) *ServerConn
 	if packet.my.Tcpmode > 0 {
 
 		if packet.my.TcpmodeBuffersize == 0 ||
-			packet.my.TcpmodeMaxwin == 0 ||
-			packet.my.TcpmodeResendTimems == 0 {
+			packet.my.TcpmodeMaxwin == 0 {
 			loggo.Info("no tcp param, may be old conn : %s", id)
 			return nil
 		}
