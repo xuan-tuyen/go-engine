@@ -650,22 +650,17 @@ func (fm *FrameMgr) isIdInRange(id int32, maxid int32) bool {
 }
 
 func (fm *FrameMgr) isIdOld(id int32, maxid int32) bool {
-	if id > fm.recvid {
-		return false
+	begin := fm.recvid - fm.windowsize
+	if begin < 0 {
+		begin += maxid
 	}
+	end := fm.recvid
 
-	end := fm.recvid + fm.windowsize*2
-	if end >= maxid {
-		if id >= end-maxid && id < fm.recvid {
-			return true
-		}
+	if begin < end {
+		return id >= begin && id < end
 	} else {
-		if id < fm.recvid {
-			return true
-		}
+		return (id >= begin && id < maxid) || (id >= 0 && id < end)
 	}
-
-	return false
 }
 
 func (fm *FrameMgr) IsConnected() bool {
