@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"strconv"
+	"time"
 )
 
 const (
@@ -29,17 +30,23 @@ var socks5Errors = []string{
 	"address type not supported",
 }
 
-func Sock5Handshake(conn *net.TCPConn) (err error) {
+func Sock5Handshake(conn *net.TCPConn, timeoutms int) (err error) {
 
 	buf := make([]byte, 0)
 	buf = append(buf, socksVer5)
 	buf = append(buf, 1)
 	buf = append(buf, socks5AuthNone)
 
+	if timeoutms > 0 {
+		conn.SetDeadline(time.Now().Add(time.Duration(timeoutms) * time.Millisecond))
+	}
 	if _, err := conn.Write(buf); err != nil {
 		return errors.New("proxy: failed to write greeting to SOCKS5 proxy at " + conn.RemoteAddr().String() + ": " + err.Error())
 	}
 
+	if timeoutms > 0 {
+		conn.SetDeadline(time.Now().Add(time.Duration(timeoutms) * time.Millisecond))
+	}
 	if _, err := io.ReadFull(conn, buf[:2]); err != nil {
 		return errors.New("proxy: failed to read greeting from SOCKS5 proxy at " + conn.RemoteAddr().String() + ": " + err.Error())
 	}
@@ -53,7 +60,7 @@ func Sock5Handshake(conn *net.TCPConn) (err error) {
 	return nil
 }
 
-func Sock5SetRequest(conn *net.TCPConn, host string, port int) (err error) {
+func Sock5SetRequest(conn *net.TCPConn, host string, port int, timeoutms int) (err error) {
 
 	buf := make([]byte, 0)
 
@@ -78,10 +85,16 @@ func Sock5SetRequest(conn *net.TCPConn, host string, port int) (err error) {
 	}
 	buf = append(buf, byte(port>>8), byte(port))
 
+	if timeoutms > 0 {
+		conn.SetDeadline(time.Now().Add(time.Duration(timeoutms) * time.Millisecond))
+	}
 	if _, err = conn.Write(buf); err != nil {
 		return errors.New("proxy: failed to write connect request to SOCKS5 proxy: " + err.Error())
 	}
 
+	if timeoutms > 0 {
+		conn.SetDeadline(time.Now().Add(time.Duration(timeoutms) * time.Millisecond))
+	}
 	if _, err = io.ReadFull(conn, buf[:4]); err != nil {
 		return errors.New("proxy: failed to read connect reply from SOCKS5 proxy: " + err.Error())
 	}
@@ -96,12 +109,18 @@ func Sock5SetRequest(conn *net.TCPConn, host string, port int) (err error) {
 		return
 	}
 
+	if timeoutms > 0 {
+		conn.SetDeadline(time.Now().Add(time.Duration(timeoutms) * time.Millisecond))
+	}
 	hostType := buf[3]
 	_, err = readSocksHost(conn, hostType)
 	if err != nil {
 		return fmt.Errorf("proxy: invalid request: fail to read dst host: %s", err)
 	}
 
+	if timeoutms > 0 {
+		conn.SetDeadline(time.Now().Add(time.Duration(timeoutms) * time.Millisecond))
+	}
 	_, err = readSocksPort(conn)
 	if err != nil {
 		return fmt.Errorf("proxy: invalid request: fail to read dst port: %s", err)
