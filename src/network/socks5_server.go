@@ -1,4 +1,4 @@
-package pingtunnel
+package network
 
 import (
 	"encoding/binary"
@@ -18,11 +18,10 @@ var (
 )
 
 const (
-	socksVer5       = 5
 	socksCmdConnect = 1
 )
 
-func sock5Handshake(conn net.Conn) (err error) {
+func Sock5HandshakeBy(conn net.Conn) (err error) {
 	const (
 		idVer     = 0
 		idNmethod = 1
@@ -58,7 +57,7 @@ func sock5Handshake(conn net.Conn) (err error) {
 	return
 }
 
-func sock5GetRequest(conn net.Conn) (rawaddr []byte, host string, err error) {
+func Sock5GetRequest(conn net.Conn) (rawaddr []byte, host string, err error) {
 	const (
 		idVer   = 0
 		idCmd   = 1
