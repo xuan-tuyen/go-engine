@@ -4,6 +4,7 @@ import (
 	"github.com/esrrhs/go-engine/src/common"
 	"github.com/esrrhs/go-engine/src/frame"
 	"github.com/esrrhs/go-engine/src/loggo"
+	"github.com/esrrhs/go-engine/src/network"
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/net/icmp"
 	"io"
@@ -710,12 +711,12 @@ func (p *Client) AcceptSock5Conn(conn *net.TCPConn) {
 	defer p.workResultLock.Done()
 
 	var err error = nil
-	if err = sock5Handshake(conn); err != nil {
+	if err = network.Sock5HandshakeBy(conn); err != nil {
 		loggo.Error("socks handshake: %s", err)
 		conn.Close()
 		return
 	}
-	_, addr, err := sock5GetRequest(conn)
+	_, addr, err := network.Sock5GetRequest(conn)
 	if err != nil {
 		loggo.Error("error getting request: %s", err)
 		conn.Close()
