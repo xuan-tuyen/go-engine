@@ -104,4 +104,10 @@ func Test0002(t *testing.T) {
 	})
 	st.AddLine(stl)
 	fmt.Println(st.String(""))
+
+	SaveJson("test.json", &ts)
+	ts1 := TestStruct{}
+	err := LoadJson("test.json", &ts1)
+	fmt.Println(err)
+	fmt.Println(ts1.C)
 }
