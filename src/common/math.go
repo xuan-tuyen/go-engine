@@ -10,10 +10,8 @@ import (
 	"time"
 )
 
-var gseededRand *mrand.Rand
-
 func init() {
-	gseededRand = mrand.New(mrand.NewSource(time.Now().UnixNano()))
+	mrand.Seed(time.Now().UnixNano())
 }
 
 func MinOfInt(vars ...int) int {
@@ -101,17 +99,17 @@ func UniqueId() string {
 }
 
 func RandInt31n(n int) int32 {
-	ret := gseededRand.Int31n((int32)(n))
+	ret := mrand.Int31n((int32)(n))
 	return int32(ret)
 }
 
 func RandInt() int32 {
-	ret := gseededRand.Int()
+	ret := mrand.Int()
 	return int32(ret)
 }
 
 func Shuffle(n int, swap func(i, j int)) {
-	gseededRand.Shuffle(n, swap)
+	mrand.Shuffle(n, swap)
 }
 
 func MAKEINT64(high int32, low int32) int64 {

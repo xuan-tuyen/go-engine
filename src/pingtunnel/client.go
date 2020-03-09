@@ -45,11 +45,11 @@ func NewClient(addr string, server string, target string, timeout int, key int,
 		return nil, err
 	}
 
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	rand.Seed(time.Now().UnixNano())
 	return &Client{
 		exit:                  false,
 		rtt:                   0,
-		id:                    r.Intn(math.MaxInt16),
+		id:                    rand.Intn(math.MaxInt16),
 		ipaddr:                ipaddr,
 		tcpaddr:               tcpaddr,
 		addr:                  addr,
