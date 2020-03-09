@@ -143,11 +143,7 @@ func Load(dsn string, conn int) *DB {
 
 	loggo.Info("mysql Load Prepare stmt ok")
 
-	////
 	go DeleteOldSpider(ret)
-
-	num := GetSize(ret)
-	loggo.Info("mysql size %v", num)
 
 	return ret
 }
