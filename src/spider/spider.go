@@ -395,6 +395,14 @@ func Parser(running *int32, group *sync.WaitGroup, jbd *JobDB, dbd *DoneDB, conf
 					}
 				}
 
+				for {
+					new := strings.Replace(sonurl, "/./", "/", -1)
+					if new == sonurl {
+						break
+					}
+					sonurl = new
+				}
+
 				_, err := url.Parse(sonurl)
 				if err != nil {
 					continue
