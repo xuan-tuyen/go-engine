@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"math"
 	"reflect"
 	"strconv"
 	"strings"
@@ -182,4 +183,31 @@ func StructToTable(v interface{}) string {
 	tl.FromStruct(&t, v, nil)
 	t.AddLine(tl)
 	return t.String("")
+}
+
+const num2char string = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+const (
+	LITTLE_LETTERS = 36
+	FULL_LETTERS   = 62
+)
+
+func NumToHex(num, n int) string {
+	num_str := ""
+	for num != 0 {
+		yu := num % n
+		num_str = string(num2char[yu]) + num_str
+		num = num / n
+	}
+	return strings.ToUpper(num_str)
+}
+
+func Hex2Num(str string, n int) int {
+	v := 0.0
+	length := len(str)
+	for i := 0; i < length; i++ {
+		s := string(str[i])
+		index := strings.Index(num2char, s)
+		v += float64(index) * math.Pow(float64(n), float64(length-1-i))
+	}
+	return int(v)
 }

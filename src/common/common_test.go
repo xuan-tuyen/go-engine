@@ -111,3 +111,12 @@ func Test0002(t *testing.T) {
 	fmt.Println(err)
 	fmt.Println(ts1.C)
 }
+
+func Test0003(t *testing.T) {
+	a := NumToHex(12345745643, LITTLE_LETTERS)
+	b := NumToHex(12345745643, FULL_LETTERS)
+	fmt.Println(a)
+	fmt.Println(b)
+	fmt.Println(Hex2Num(a, LITTLE_LETTERS))
+	fmt.Println(Hex2Num(b, FULL_LETTERS))
+}
