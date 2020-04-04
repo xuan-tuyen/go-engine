@@ -132,3 +132,14 @@ func Test0003(t *testing.T) {
 	fmt.Println(dd)
 	fmt.Println(NumToHex(dd, FULL_LETTERS))
 }
+
+type TestStruct1 struct {
+	TestStruct
+	D int64
+}
+
+func Test0004(t *testing.T) {
+	ts := TestStruct{1, 2, "3"}
+	ts1 := TestStruct1{ts, 3}
+	fmt.Println(StructToTable(&ts1))
+}
