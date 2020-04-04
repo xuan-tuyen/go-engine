@@ -119,4 +119,12 @@ func Test0003(t *testing.T) {
 	fmt.Println(b)
 	fmt.Println(Hex2Num(a, LITTLE_LETTERS))
 	fmt.Println(Hex2Num(b, FULL_LETTERS))
+	aa := NumToHex(37, LITTLE_LETTERS)
+	bb := NumToHex(37, FULL_LETTERS)
+	fmt.Println(aa)
+	fmt.Println(bb)
+	cc := Hex2Num("1i39pJZR", FULL_LETTERS)
+	fmt.Println(cc)
+	fmt.Println(NumToHex(cc, FULL_LETTERS))
+	fmt.Println(NumToHex(cc+1, FULL_LETTERS))
 }

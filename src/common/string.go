@@ -198,7 +198,7 @@ func NumToHex(num, n int) string {
 		num_str = string(num2char[yu]) + num_str
 		num = num / n
 	}
-	return strings.ToUpper(num_str)
+	return num_str
 }
 
 func Hex2Num(str string, n int) int {
