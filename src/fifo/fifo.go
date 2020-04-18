@@ -138,7 +138,7 @@ func (f *FiFo) Write(data string) error {
 
 	_, err := f.insertJobStmt.Exec(data)
 	if err != nil {
-		loggo.Error("Write fail %v", err)
+		loggo.Info("Write fail %v", err)
 		return err
 	}
 	//loggo.Info("Write ok %s", data)
@@ -154,7 +154,7 @@ func (f *FiFo) Read(n int) ([]string, error) {
 	for _, id := range ids {
 		_, err = f.deleteJobStmt.Exec(id)
 		if err != nil {
-			loggo.Error("Read delete fail %v", err)
+			loggo.Info("Read delete fail %v", err)
 			return nil, err
 		}
 	}
@@ -169,7 +169,7 @@ func (f *FiFo) read(n int) ([]int, []string, error) {
 	var datas []string
 	rows, err := f.getJobStmt.Query(n)
 	if err != nil {
-		//loggo.Error("Read Scan fail %v", err)
+		//loggo.Info("Read Scan fail %v", err)
 		return nil, nil, err
 	}
 	defer rows.Close()
@@ -180,7 +180,7 @@ func (f *FiFo) read(n int) ([]int, []string, error) {
 		var data string
 		err := rows.Scan(&id, &data)
 		if err != nil {
-			loggo.Error("Scan sqlite3 fail %v", err)
+			loggo.Info("Scan sqlite3 fail %v", err)
 			return nil, nil, err
 		}
 
@@ -195,7 +195,7 @@ func (f *FiFo) GetSize() int {
 	var ret int
 	err := f.sizeDoneStmt.QueryRow().Scan(&ret)
 	if err != nil {
-		loggo.Error("GetSize fail %v", err)
+		loggo.Info("GetSize fail %v", err)
 		return 0
 	}
 	return ret
