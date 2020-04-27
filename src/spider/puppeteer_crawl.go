@@ -22,7 +22,7 @@ func puppeteercrawl(ui *URLInfo, crawlTimeout int) *PageInfo {
 
 	ret := node.Run(tmp, true, crawlTimeout, url, gSpiderData.chromeWSEndpoint)
 	if len(ret) <= 0 {
-		loggo.Warn("puppeteer crawl http fail %v %v", url, gSpiderData.chromeWSEndpoint)
+		loggo.Info("puppeteer crawl http fail %v %v", url, gSpiderData.chromeWSEndpoint)
 		return nil
 	}
 
@@ -30,7 +30,7 @@ func puppeteercrawl(ui *URLInfo, crawlTimeout int) *PageInfo {
 
 	root, err := html.Parse(r)
 	if err != nil {
-		loggo.Warn("puppeteer crawl html Parse fail %v %v", url, err)
+		loggo.Info("puppeteer crawl html Parse fail %v %v", url, err)
 		return nil
 	}
 
@@ -86,7 +86,7 @@ func puppeteercrawl(ui *URLInfo, crawlTimeout int) *PageInfo {
 
 	//if len(pg.Son) == 0 {
 	//	html, _ := doc.Html()
-	//	loggo.Warn("puppeteer crawl no link %v html:\n%v", url, html)
+	//	loggo.Info("puppeteer crawl no link %v html:\n%v", url, html)
 	//}
 
 	return &pg
