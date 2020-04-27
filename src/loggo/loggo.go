@@ -321,7 +321,7 @@ func loopCheck(config Config) {
 	defer crashLog()
 	for {
 		checkDate(config)
-		time.Sleep(time.Minute)
+		time.Sleep(time.Hour)
 	}
 }
 
