@@ -26,20 +26,20 @@ func simplecrawl(ui *URLInfo, crawlTimeout int) *PageInfo {
 
 	res, err := client.Get(url)
 	if err != nil {
-		loggo.Warn("simple crawl http Get fail %v %v", url, err)
+		loggo.Info("simple crawl http Get fail %v %v", url, err)
 		return nil
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode != 200 {
-		loggo.Warn("simple crawl http StatusCode fail %v %v", url, res.StatusCode)
+		loggo.Info("simple crawl http StatusCode fail %v %v", url, res.StatusCode)
 		return nil
 	}
 
 	// Load the HTML document
 	doc, err := goquery.NewDocumentFromReader(res.Body)
 	if err != nil {
-		loggo.Warn("simple crawl http NewDocumentFromReader fail %v %v", url, err)
+		loggo.Info("simple crawl http NewDocumentFromReader fail %v %v", url, err)
 		return nil
 	}
 
@@ -92,7 +92,7 @@ func simplecrawl(ui *URLInfo, crawlTimeout int) *PageInfo {
 
 	//if len(pg.Son) == 0 {
 	//	html, _ := doc.Html()
-	//	loggo.Warn("simple simple crawl no link %v html:\n%v", url, html)
+	//	loggo.Info("simple simple crawl no link %v html:\n%v", url, html)
 	//}
 
 	return &pg
