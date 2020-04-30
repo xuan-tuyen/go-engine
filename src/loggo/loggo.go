@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/esrrhs/go-engine/src/termcolor"
+	"io/ioutil"
 	"os"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -253,23 +253,30 @@ func checkDate(config Config) {
 	now := time.Now().Format("2006-01-02")
 	nowt, _ := time.Parse("2006-01-02", now)
 	nowunix := nowt.Unix()
-	filepath.Walk("./", func(path string, f os.FileInfo, err error) error {
+
+	files, err := ioutil.ReadDir("./")
+	if err != nil {
+		Error("loggo checkDate ReadDir fail %v ", err)
+		return
+	}
+
+	for _, f := range files {
 
 		if f == nil || f.IsDir() {
-			return nil
+			continue
 		}
 
 		if !strings.HasSuffix(f.Name(), ".log") {
-			return nil
+			continue
 		}
 
 		strs := strings.Split(f.Name(), "_")
 		if strs == nil || len(strs) < 3 {
-			return nil
+			continue
 		}
 
 		if strs[0] != config.Prefix {
-			return nil
+			continue
 		}
 
 		date := strs[2]
@@ -278,19 +285,17 @@ func checkDate(config Config) {
 		t, e := time.Parse("2006-01-02", date)
 		if e != nil {
 			Error("loggo delete Parse file fail %v %v %v", f.Name(), date, err)
-			return nil
+			continue
 		}
 		tunix := t.Unix()
 		if nowunix-tunix > int64(config.MaxDay)*24*3600 {
 			err := os.Remove(f.Name())
 			if e != nil {
 				Error("loggo delete log file fail %v %v", f.Name(), err)
-				return nil
+				continue
 			}
 		}
-
-		return nil
-	})
+	}
 }
 
 func crashLog() {
