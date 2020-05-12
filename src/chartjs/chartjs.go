@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"encoding/json"
 	"github.com/esrrhs/go-engine/src/loggo"
+	"time"
 )
 
 const (
@@ -28,6 +29,7 @@ type LineData struct {
 	ele             list.List
 	fill            bool
 	max             int
+	value           int
 }
 
 type LineDataExportSet struct {
@@ -58,6 +60,16 @@ func (ld *LineData) Add(x string, y int) {
 	if ld.ele.Len() > ld.max {
 		ld.ele.Remove(ld.ele.Front())
 	}
+}
+
+func (ld *LineData) AutoAdd() {
+	now := time.Now().Format("2006-01-02 15:04:05")
+	ld.Add(now, ld.value)
+	ld.value = 0
+}
+
+func (ld *LineData) AddValue(v int) {
+	ld.value += v
 }
 
 func (ld *LineData) Export() string {
