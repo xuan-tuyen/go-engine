@@ -30,6 +30,7 @@ go语言开发通用代码库
 * ICMP隧道
 * P2P网络
 * HTML生成
+* chartjs适配
 #### 第三方
 * IP查询
 
