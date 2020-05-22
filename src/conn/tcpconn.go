@@ -2,6 +2,7 @@ package conn
 
 import (
 	"net"
+	"time"
 )
 
 type tcpConn struct {
@@ -24,17 +25,14 @@ func (c *tcpConn) Write(p []byte) (n int, err error) {
 func (c *tcpConn) Close() error {
 	if c.conn != nil {
 		return c.conn.Close()
-	} else {
+	} else if c.listener != nil {
 		return c.listener.Close()
 	}
+	return nil
 }
 
-func (c *tcpConn) LocalAddr() string {
-	return c.conn.LocalAddr().String()
-}
-
-func (c *tcpConn) RemoteAddr() string {
-	return c.conn.RemoteAddr().String()
+func (c *tcpConn) Info() string {
+	return c.conn.LocalAddr().String() + "->" + c.conn.RemoteAddr().String()
 }
 
 func (c *tcpConn) Dial(dst string) (Conn, error) {
@@ -62,6 +60,7 @@ func (c *tcpConn) Listen(dst string) (Conn, error) {
 }
 
 func (c *tcpConn) Accept() (Conn, error) {
+	c.listener.SetDeadline(time.Now().Add(time.Second))
 	conn, err := c.listener.Accept()
 	if err != nil {
 		return nil, err

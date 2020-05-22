@@ -9,9 +9,13 @@ enum PROXY_PROTO {
 }
 
 enum CLIENT_TYPE {
+    // client fromaddr -> server toaddr
     PROXY = 0;
+    // server fromaddr -> client toaddr
     REVERSE_PROXY = 1;
+    // client fromaddr -> server
     SOCKS5 = 2;
+    // server fromaddr -> client
     REVERSE_SOCKS5 = 3;
 }
 
@@ -20,8 +24,8 @@ message LoginFrame {
     CLIENT_TYPE clienttype = 2;
     string fromaddr = 3;
     string toaddr = 4;
-    bool compress = 5;
-    bool encrypt = 6;
+    string name = 5;
+    string key = 6;
 }
 
 message LoginRspFrame {
@@ -54,7 +58,6 @@ message CloseFrame {
 message DataFrame {
     string id = 1;
     bool compress = 2;
-    bool encrypt = 3;
     bytes data = 4;
 }
 
