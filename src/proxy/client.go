@@ -9,6 +9,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"net"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -49,11 +50,13 @@ func NewClient(config *Config, server string, name string, clienttypestr string,
 		return nil, err
 	}
 
+	clienttypestr = strings.ToUpper(clienttypestr)
 	clienttype, ok := CLIENT_TYPE_value[clienttypestr]
 	if !ok {
 		return nil, errors.New("no CLIENT_TYPE " + clienttypestr)
 	}
 
+	proxyprotostr = strings.ToUpper(proxyprotostr)
 	proxyproto, ok := PROXY_PROTO_value[proxyprotostr]
 	if !ok {
 		return nil, errors.New("no PROXY_PROTO " + proxyprotostr)
