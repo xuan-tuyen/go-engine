@@ -30,16 +30,18 @@ type Config struct {
 	Compress           int
 }
 
-var DefaultConfig = Config{
-	MaxMsgSize:         1024 * 1024,
-	MainBuffer:         1024 * 1024,
-	ConnBuffer:         1024,
-	EstablishedTimeout: 10,
-	PingInter:          1,
-	PingTimeoutInter:   5,
-	ConnTimeout:        300,
-	ConnectTimeout:     10,
-	Proto:              "tcp",
+func DefaultConfig() *Config {
+	return &Config{
+		MaxMsgSize:         1024 * 1024,
+		MainBuffer:         1024 * 1024,
+		ConnBuffer:         1024,
+		EstablishedTimeout: 10,
+		PingInter:          1,
+		PingTimeoutInter:   5,
+		ConnTimeout:        300,
+		ConnectTimeout:     10,
+		Proto:              "tcp",
+	}
 }
 
 type ProxyConn struct {

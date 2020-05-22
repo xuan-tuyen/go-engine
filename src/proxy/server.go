@@ -46,7 +46,7 @@ type Server struct {
 func NewServer(config *Config, listenaddr string) (*Server, error) {
 
 	if config == nil {
-		config = &DefaultConfig
+		config = DefaultConfig()
 	}
 
 	conn, err := conn.NewConn(config.Proto)

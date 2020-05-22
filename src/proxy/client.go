@@ -41,7 +41,7 @@ type Client struct {
 func NewClient(config *Config, server string, name string, clienttypestr string, proxyprotostr string, fromaddr string, toaddr string) (*Client, error) {
 
 	if config == nil {
-		config = &DefaultConfig
+		config = DefaultConfig()
 	}
 
 	conn, err := conn.NewConn(config.Proto)
