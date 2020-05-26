@@ -108,7 +108,7 @@ func MarshalSrpFrame(f *ProxyFrame, compress int, encrpyt string) ([]byte, error
 		return nil, err
 	}
 
-	if f.Type == FRAME_TYPE_DATA && compress > 0 && len(f.DataFrame.Data) > compress {
+	if f.Type == FRAME_TYPE_DATA && compress > 0 && len(f.DataFrame.Data) > compress && !f.DataFrame.Compress {
 		newb := common.CompressData(f.DataFrame.Data)
 		if len(newb) < len(f.DataFrame.Data) {
 			f.DataFrame.Data = newb
@@ -242,6 +242,54 @@ func sendTo(ctx context.Context, sendch <-chan *ProxyFrame, conn conn.Conn, comp
 	}
 }
 
+func recvFromSonny(ctx context.Context, recvch chan<- *ProxyFrame, conn conn.Conn, maxmsgsize int) error {
+	defer common.CrashLog()
+
+	ds := make([]byte, maxmsgsize)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+			len, err := conn.Read(ds)
+			if err != nil {
+				loggo.Error("recvFromSonny Read fail: %s %s", conn.Info(), err.Error())
+				return err
+			}
+
+			f := &ProxyFrame{}
+			f.DataFrame = &DataFrame{}
+			f.DataFrame.Data = ds[0:len]
+			f.DataFrame.Compress = false
+
+			recvch <- f
+		}
+	}
+}
+
+func sendToSonny(ctx context.Context, sendch <-chan *ProxyFrame, conn conn.Conn) error {
+	defer common.CrashLog()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case f := <-sendch:
+			if f.DataFrame.Compress {
+				loggo.Error("sendToSonny Compress error: %s", conn.Info())
+				return errors.New("msg compress error")
+			}
+
+			_, err := conn.Write(f.DataFrame.Data)
+			if err != nil {
+				loggo.Error("sendToSonny Write fail: %s %s", conn.Info(), err.Error())
+				return err
+			}
+		}
+	}
+}
+
 func checkPingActive(ctx context.Context, sendch chan<- *ProxyFrame, recvch <-chan *ProxyFrame, proxyconn *ProxyConn,
 	estimeout int, pinginter int, pingintertimeout int, showping bool) error {
 	defer common.CrashLog()
@@ -358,6 +406,11 @@ func copySonnyRecv(ctx context.Context, recvch <-chan *ProxyFrame, proxyConn *Pr
 		case <-ctx.Done():
 			return nil
 		case f := <-recvch:
+			if f.Type != FRAME_TYPE_DATA {
+				loggo.Error("copySonnyRecv type error %s %d", proxyConn.conn.Info(), f.Type)
+				return errors.New("conn type error")
+			}
+			f.DataFrame.Id = proxyConn.id
 			proxyConn.sendch <- f
 			proxyConn.actived++
 		}
@@ -482,11 +535,11 @@ func (i *Inputer) processProxyConn(fctx context.Context, proxyConn *ProxyConn) {
 	i.openConn(ctx, proxyConn)
 
 	wg.Go(func() error {
-		return recvFrom(ctx, recvch, proxyConn.conn, i.config.MaxMsgSize, i.config.Encrypt)
+		return recvFromSonny(ctx, recvch, proxyConn.conn, i.config.MaxMsgSize)
 	})
 
 	wg.Go(func() error {
-		return sendTo(ctx, sendch, proxyConn.conn, i.config.Compress, i.config.MaxMsgSize, i.config.Encrypt)
+		return sendToSonny(ctx, sendch, proxyConn.conn)
 	})
 
 	wg.Go(func() error {
@@ -609,11 +662,11 @@ func (o *Outputer) processProxyConn(fctx context.Context, proxyConn *ProxyConn) 
 	wg, ctx := errgroup.WithContext(fctx)
 
 	wg.Go(func() error {
-		return recvFrom(ctx, recvch, proxyConn.conn, o.config.MaxMsgSize, o.config.Encrypt)
+		return recvFromSonny(ctx, recvch, proxyConn.conn, o.config.MaxMsgSize)
 	})
 
 	wg.Go(func() error {
-		return sendTo(ctx, sendch, proxyConn.conn, o.config.Compress, o.config.MaxMsgSize, o.config.Encrypt)
+		return sendToSonny(ctx, sendch, proxyConn.conn)
 	})
 
 	wg.Go(func() error {
@@ -634,5 +687,5 @@ func (o *Outputer) processProxyConn(fctx context.Context, proxyConn *ProxyConn) 
 	close(sendch)
 	close(recvch)
 
-	loggo.Info("Inputer processProxyConn end %s %s", proxyConn.id, proxyConn.conn.Info())
+	loggo.Info("Outputer processProxyConn end %s %s", proxyConn.id, proxyConn.conn.Info())
 }
