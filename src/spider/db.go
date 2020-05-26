@@ -5,6 +5,7 @@ import (
 	"github.com/esrrhs/go-engine/src/common"
 	"github.com/esrrhs/go-engine/src/loggo"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -17,8 +18,6 @@ type DB struct {
 	gFindStmt   *sql.Stmt
 	gDeleteStmt *sql.Stmt
 	gSelectStmt *sql.Stmt
-	dsn         string
-	conn        int
 }
 
 type JobDB struct {
@@ -40,17 +39,16 @@ type DoneDB struct {
 	gHasDoneStmt    *sql.Stmt
 }
 
-func (db *DB) GetSqlDB() *sql.DB {
-	return db.gdb
+type DBLinkInfo struct {
+	Host  string
+	Title string
+	Name  string
+	Url   string
 }
 
-func (db *DB) GetSelectStmt() *sql.Stmt {
-	return db.gSelectStmt
-}
+func Load(dsn string, conn int, name string, expireday int) *DB {
 
-func Load(dsn string, conn int) *DB {
-
-	loggo.Info("mysql Load start")
+	loggo.Info("mysql Load start %s", name)
 
 	gdb, err := sql.Open("mysql", dsn)
 	if err != nil {
@@ -74,17 +72,15 @@ func Load(dsn string, conn int) *DB {
 
 	ret := new(DB)
 
-	ret.dsn = dsn
-	ret.conn = conn
 	ret.gdb = gdb
 
-	_, err = gdb.Exec("CREATE DATABASE IF NOT EXISTS spider")
+	_, err = gdb.Exec("CREATE DATABASE IF NOT EXISTS " + name + " ")
 	if err != nil {
 		loggo.Error("CREATE DATABASE fail %v", err)
 		return nil
 	}
 
-	_, err = gdb.Exec("CREATE TABLE  IF NOT EXISTS spider.link_info(" +
+	_, err = gdb.Exec("CREATE TABLE  IF NOT EXISTS " + name + ".link_info(" +
 		"url VARCHAR(200)  NOT NULL ," +
 		"title VARCHAR(200) NOT NULL," +
 		"name VARCHAR(200) NOT NULL," +
@@ -99,42 +95,42 @@ func Load(dsn string, conn int) *DB {
 
 	loggo.Info("mysql Load CREATE TABLE ok")
 
-	stmt, err := gdb.Prepare("insert IGNORE  into spider.link_info(title, name, url, time) values(?, ?, ?, NOW())")
+	stmt, err := gdb.Prepare("insert IGNORE  into " + name + ".link_info(title, name, url, time) values(?, ?, ?, NOW())")
 	if err != nil {
 		loggo.Error("Prepare mysql fail %v", err)
 		return nil
 	}
 	ret.gInsertStmt = stmt
 
-	stmt, err = gdb.Prepare("select count(*) as ret from spider.link_info")
+	stmt, err = gdb.Prepare("select count(*) as ret from " + name + ".link_info")
 	if err != nil {
-		loggo.Error("HasDone Prepare mysql fail %v", err)
+		loggo.Error("hasDone Prepare mysql fail %v", err)
 		return nil
 	}
 	ret.gSizeStmt = stmt
 
-	stmt, err = gdb.Prepare("select title,name,url from spider.link_info order by time desc limit 0, ?")
+	stmt, err = gdb.Prepare("select title,name,url from " + name + ".link_info order by time desc limit 0, ?")
 	if err != nil {
 		loggo.Error("Prepare mysql fail %v", err)
 		return nil
 	}
 	ret.gLastStmt = stmt
 
-	stmt, err = gdb.Prepare("select title,name,url from (select title,name,url,time from spider.link_info where name like ? or title like ?  limit 0,?) as A  order by time desc ")
+	stmt, err = gdb.Prepare("select title,name,url from (select title,name,url,time from " + name + ".link_info where name like ? or title like ?  limit 0,?) as A  order by time desc ")
 	if err != nil {
 		loggo.Error("Prepare mysql fail %v", err)
 		return nil
 	}
 	ret.gFindStmt = stmt
 
-	stmt, err = gdb.Prepare("delete from spider.link_info where (TO_DAYS(NOW()) - TO_DAYS(time))>=30")
+	stmt, err = gdb.Prepare("delete from " + name + ".link_info where (TO_DAYS(NOW()) - TO_DAYS(time))>=" + strconv.Itoa(expireday))
 	if err != nil {
 		loggo.Error("Prepare mysql fail %v", err)
 		return nil
 	}
 	ret.gDeleteStmt = stmt
 
-	stmt, err = gdb.Prepare("SELECT title,name,url FROM spider.link_info LIMIT ?, ?")
+	stmt, err = gdb.Prepare("SELECT title,name,url FROM " + name + ".link_info LIMIT ?, ?")
 	if err != nil {
 		loggo.Error("Prepare mysql fail %v", err)
 		return nil
@@ -143,12 +139,12 @@ func Load(dsn string, conn int) *DB {
 
 	loggo.Info("mysql Load Prepare stmt ok")
 
-	go DeleteOldSpider(ret)
+	go deleteOldSpider(ret)
 
 	return ret
 }
 
-func CloseJob(db *JobDB) {
+func closeJob(db *JobDB) {
 	db.gInsertJobStmt.Close()
 	db.gSizeJobStmt.Close()
 	db.gPeekJobStmt.Close()
@@ -157,7 +153,7 @@ func CloseJob(db *JobDB) {
 	db.gdb.Close()
 }
 
-func LoadJob(dsn string, conn int, src string) *JobDB {
+func loadJob(dsn string, conn int, src string) *JobDB {
 
 	loggo.Info("Load Job start %v", src)
 
@@ -213,7 +209,7 @@ func LoadJob(dsn string, conn int, src string) *JobDB {
 
 	stmt, err = gdb.Prepare("select count(*) from spiderjob." + host + " where src = ?")
 	if err != nil {
-		loggo.Error("HasDone Job Prepare fail %v", err)
+		loggo.Error("hasDone Job Prepare fail %v", err)
 		return nil
 	}
 	ret.gSizeJobStmt = stmt
@@ -239,13 +235,13 @@ func LoadJob(dsn string, conn int, src string) *JobDB {
 	}
 	ret.gHasJobStmt = stmt
 
-	num := GetJobSize(ret)
+	num := getJobSize(ret)
 	loggo.Info("Job size %v %v", src, num)
 
 	return ret
 }
 
-func CloseDone(db *DoneDB) {
+func closeDone(db *DoneDB) {
 	db.gInsertDoneStmt.Close()
 	db.gSizeDoneStmt.Close()
 	db.gDeleteDoneStmt.Close()
@@ -253,7 +249,7 @@ func CloseDone(db *DoneDB) {
 	db.gdb.Close()
 }
 
-func LoadDone(dsn string, conn int, src string) *DoneDB {
+func loadDone(dsn string, conn int, src string) *DoneDB {
 
 	loggo.Info("Load Done start %v", src)
 
@@ -309,7 +305,7 @@ func LoadDone(dsn string, conn int, src string) *DoneDB {
 
 	stmt, err = gdb.Prepare("select count(*) from spiderdone." + host + " where src = ?")
 	if err != nil {
-		loggo.Error("HasDone Prepare fail %v", err)
+		loggo.Error("hasDone Prepare fail %v", err)
 		return nil
 	}
 	ret.gSizeDoneStmt = stmt
@@ -330,13 +326,13 @@ func LoadDone(dsn string, conn int, src string) *DoneDB {
 
 	////
 
-	num := GetDoneSize(ret)
+	num := getDoneSize(ret)
 	loggo.Info("size %v %v", src, num)
 
 	return ret
 }
 
-func PopSpiderJob(db *JobDB, n int, stat *Stat) ([]string, []int) {
+func popSpiderJob(db *JobDB, n int, stat *Stat) ([]string, []int) {
 
 	defer common.Elapsed(func(d time.Duration) {
 		stat.JobPopNum++
@@ -350,7 +346,7 @@ func PopSpiderJob(db *JobDB, n int, stat *Stat) ([]string, []int) {
 
 	rows, err := db.gPeekJobStmt.Query(db.src, n)
 	if err != nil {
-		loggo.Error("PopSpiderJob Query sqlite3 fail %v %v", db.src, err)
+		loggo.Error("popSpiderJob Query sqlite3 fail %v %v", db.src, err)
 		return ret, retdeps
 	}
 	defer rows.Close()
@@ -361,7 +357,7 @@ func PopSpiderJob(db *JobDB, n int, stat *Stat) ([]string, []int) {
 		var deps int
 		err = rows.Scan(&url, &deps)
 		if err != nil {
-			loggo.Error("PopSpiderJob Scan sqlite3 fail %v %v", db.src, err)
+			loggo.Error("popSpiderJob Scan sqlite3 fail %v %v", db.src, err)
 		}
 
 		ret = append(ret, url)
@@ -370,17 +366,17 @@ func PopSpiderJob(db *JobDB, n int, stat *Stat) ([]string, []int) {
 
 	for i, url := range ret {
 		db.gDeleteJobStmt.Exec(db.src, url)
-		loggo.Info("PopSpiderJob %v %v %v %s", db.src, url, retdeps[i], time.Now().Sub(b).String())
+		loggo.Info("popSpiderJob %v %v %v %s", db.src, url, retdeps[i], time.Now().Sub(b).String())
 	}
 
 	return ret, retdeps
 }
 
-func DeleteSpiderDone(db *DoneDB) {
+func deleteSpiderDone(db *DoneDB) {
 	db.gDeleteDoneStmt.Exec(db.src)
 }
 
-func InsertSpiderJob(db *JobDB, url string, deps int, stat *Stat) {
+func insertSpiderJob(db *JobDB, url string, deps int, stat *Stat) {
 
 	defer common.Elapsed(func(d time.Duration) {
 		stat.JobInsertNum++
@@ -391,13 +387,13 @@ func InsertSpiderJob(db *JobDB, url string, deps int, stat *Stat) {
 
 	_, err := db.gInsertJobStmt.Exec(db.src, url, deps)
 	if err != nil {
-		loggo.Error("InsertSpiderJob insert sqlite3 fail %v %v", url, err)
+		loggo.Error("insertSpiderJob insert sqlite3 fail %v %v", url, err)
 	}
 
-	loggo.Info("InsertSpiderJob %v %s", url, time.Now().Sub(b).String())
+	loggo.Info("insertSpiderJob %v %s", url, time.Now().Sub(b).String())
 }
 
-func InsertSpiderDone(db *DoneDB, url string, stat *Stat) {
+func insertSpiderDone(db *DoneDB, url string, stat *Stat) {
 
 	defer common.Elapsed(func(d time.Duration) {
 		stat.DoneInsertNum++
@@ -408,13 +404,13 @@ func InsertSpiderDone(db *DoneDB, url string, stat *Stat) {
 
 	_, err := db.gInsertDoneStmt.Exec(db.src, url)
 	if err != nil {
-		loggo.Error("InsertSpiderDone insert sqlite3 fail %v %v", url, err)
+		loggo.Error("insertSpiderDone insert sqlite3 fail %v %v", url, err)
 	}
 
-	loggo.Info("InsertSpiderDone %v %s", url, time.Now().Sub(b).String())
+	loggo.Info("insertSpiderDone %v %s", url, time.Now().Sub(b).String())
 }
 
-func DeleteOldSpider(db *DB) {
+func deleteOldSpider(db *DB) {
 	defer common.CrashLog()
 
 	for {
@@ -422,34 +418,23 @@ func DeleteOldSpider(db *DB) {
 
 		db.gDeleteStmt.Exec()
 
-		loggo.Info("DeleteOldSpider %v %s", GetSize(db), time.Now().Sub(b).String())
+		loggo.Info("deleteOldSpider %v %s", GetSize(db), time.Now().Sub(b).String())
 
 		time.Sleep(time.Hour)
 	}
 }
 
-func InsertSpider(db *DB, title string, name string, url string, host string, stat *Stat) {
+func InsertSpider(db *DB, title string, name string, url string) {
 
-	stat.InsertNum++
-
-	b := time.Now()
 	_, err := db.gInsertStmt.Exec(title, name, url)
 	if err != nil {
 		loggo.Error("InsertSpider insert sqlite3 fail %v %v", url, err)
 	}
-	stat.InsertTotalTime += int64(time.Since(b))
 
-	bb := time.Now()
-	if gcb != nil {
-		gcb(host, title, name, url)
-	}
-	stat.InsertCBTotalTime += int64(time.Since(bb))
-
-	loggo.Info("InsertSpider %v %v %v %s %s", title, name, url,
-		time.Now().Sub(bb).String(), time.Now().Sub(b).String())
+	loggo.Info("InsertSpider %v %v %v", title, name, url)
 }
 
-func HasJob(db *JobDB, url string, stat *Stat) bool {
+func hasJob(db *JobDB, url string, stat *Stat) bool {
 	defer common.Elapsed(func(d time.Duration) {
 		stat.JobHasNum++
 		stat.JobHasTotalTime += int64(d)
@@ -463,7 +448,7 @@ func HasJob(db *JobDB, url string, stat *Stat) bool {
 	return true
 }
 
-func HasDone(db *DoneDB, url string, stat *Stat) bool {
+func hasDone(db *DoneDB, url string, stat *Stat) bool {
 	defer common.Elapsed(func(d time.Duration) {
 		stat.DoneHasNum++
 		stat.DoneHasTotalTime += int64(d)
@@ -486,20 +471,20 @@ func GetSize(db *DB) int {
 	return ret
 }
 
-func GetJobSize(db *JobDB) int {
+func getJobSize(db *JobDB) int {
 	var ret int
 	err := db.gSizeJobStmt.QueryRow(db.src).Scan(&ret)
 	if err != nil {
-		loggo.Error("GetJobSize fail %v %v", db.src, err)
+		loggo.Error("getJobSize fail %v %v", db.src, err)
 	}
 	return ret
 }
 
-func GetDoneSize(db *DoneDB) int {
+func getDoneSize(db *DoneDB) int {
 	var ret int
 	err := db.gSizeDoneStmt.QueryRow(db.src).Scan(&ret)
 	if err != nil {
-		loggo.Error("GetDoneSize fail %v %v", db.src, err)
+		loggo.Error("getDoneSize fail %v %v", db.src, err)
 	}
 	return ret
 }

@@ -1,6 +1,7 @@
 package spider
 
 import (
+	"github.com/PuerkitoBio/goquery"
 	"github.com/esrrhs/go-engine/src/common"
 	"github.com/esrrhs/go-engine/src/loggo"
 	"github.com/esrrhs/go-engine/src/shell"
@@ -23,22 +24,16 @@ type Config struct {
 	CrawlRetry   int
 }
 
-type DBInfo struct {
-	Host  string
-	Title string
-	Name  string
-	Url   string
-}
-
 type PageLinkInfo struct {
 	UI   URLInfo
 	Name string
 }
 
 type PageInfo struct {
-	UI    URLInfo
-	Title string
-	Son   []PageLinkInfo
+	UI       URLInfo
+	Title    string
+	Son      []PageLinkInfo
+	Document *goquery.Document
 }
 
 type URLInfo struct {
@@ -46,7 +41,13 @@ type URLInfo struct {
 	Deps int
 }
 
+var gonce sync.Once
+
 func Ini() {
+	gonce.Do(ini)
+}
+
+func ini() {
 	if runtime.GOOS == "linux" {
 		go startChrome()
 		go getChrome()
@@ -70,8 +71,6 @@ type SpiderData struct {
 }
 
 var gSpiderData SpiderData
-
-var gcb func(host string, title string, name string, url string)
 
 func GetChromeWSEndpoint() string {
 	return gSpiderData.chromeWSEndpoint
@@ -104,10 +103,6 @@ func startChrome() {
 	}
 }
 
-func SetCallback(cb func(host string, title string, name string, url string)) {
-	gcb = cb
-}
-
 type Stat struct {
 	CrawBePushJobNum int
 
@@ -131,11 +126,9 @@ type Stat struct {
 	SaveChannelNum int
 	SaveNum        int
 
-	InsertNum         int64
-	InsertTotalTime   int64
-	InsertCBTotalTime int64
-	InsertAvgTime     int64
-	InsertCBAvgTime   int64
+	InsertNum       int64
+	InsertTotalTime int64
+	InsertAvgTime   int64
 
 	JobInsertNum       int64
 	JobInsertTotalTime int64
@@ -155,30 +148,37 @@ type Stat struct {
 	DoneHasAvgTime      int64
 }
 
-func Start(db *DB, config Config, url string, stat *Stat) {
+type Content struct {
+	Dsn       string
+	Conn      int
+	ParsePage func(hosturl string, pg *PageInfo, save chan<- interface{}) bool
+	Save      func(result interface{})
+}
+
+func Start(ctx *Content, config Config, url string, stat *Stat) {
 	loggo.Info("Spider Start  %v", url)
 
-	dsn := db.dsn
-	conn := db.conn
+	dsn := ctx.Dsn
+	conn := ctx.Conn
 
-	jbd := LoadJob(dsn, conn, url)
+	jbd := loadJob(dsn, conn, url)
 	if jbd == nil {
-		loggo.Error("Spider job LoadJob fail %v", url)
+		loggo.Error("Spider job loadJob fail %v", url)
 		return
 	}
-	dbd := LoadDone(dsn, conn, url)
+	dbd := loadDone(dsn, conn, url)
 	if dbd == nil {
-		loggo.Error("Spider job LoadDone fail %v", url)
+		loggo.Error("Spider job loadDone fail %v", url)
 		return
 	}
 
-	old := GetJobSize(jbd)
+	old := getJobSize(jbd)
 	if old == 0 {
-		InsertSpiderJob(jbd, url, 0, stat)
-		DeleteSpiderDone(dbd)
+		insertSpiderJob(jbd, url, 0, stat)
+		deleteSpiderDone(dbd)
 	}
 
-	old = GetJobSize(jbd)
+	old = getJobSize(jbd)
 	if old == 0 {
 		loggo.Error("Spider job no jobs %v", url)
 		return
@@ -186,9 +186,9 @@ func Start(db *DB, config Config, url string, stat *Stat) {
 
 	crawl := make(chan *URLInfo, config.Buffersize)
 	parse := make(chan *PageInfo, config.Buffersize)
-	save := make(chan *DBInfo, config.Buffersize)
+	save := make(chan interface{}, config.Buffersize)
 
-	entry, deps := PopSpiderJob(jbd, int(math.Min(float64(old), float64(config.Buffersize))), stat)
+	entry, deps := popSpiderJob(jbd, int(math.Min(float64(old), float64(config.Buffersize))), stat)
 	if len(entry) == 0 {
 		loggo.Error("Spider job no jobs %v", url)
 		return
@@ -207,19 +207,19 @@ func Start(db *DB, config Config, url string, stat *Stat) {
 	for i := 0; i < config.Threadnum; i++ {
 		wg.Add(3)
 		go Crawler(&running, &wg, jbd, dbd, config, crawl, parse, &jobsCrawlerTotal, &jobsCrawlerFail,
-			config.Crawlfunc, config.CrawlTimeout, config.CrawlRetry, stat)
-		go Parser(&running, &wg, jbd, dbd, config, crawl, parse, save, url, stat)
-		go Saver(&running, &wg, db, save, stat)
+			config.Crawlfunc, config.CrawlTimeout, config.CrawlRetry, stat, ctx)
+		go Parser(&running, &wg, jbd, dbd, config, crawl, parse, save, url, stat, ctx)
+		go Saver(&running, &wg, save, stat, ctx)
 	}
 
 	for {
-		tmpurls, tmpdeps := PopSpiderJob(jbd, config.Buffersize, stat)
+		tmpurls, tmpdeps := popSpiderJob(jbd, config.Buffersize, stat)
 		if len(tmpurls) == 0 {
 			time.Sleep(time.Second)
 			run := atomic.LoadInt32(&running)
 			if run == 0 {
 				time.Sleep(time.Second)
-				tmpurls, tmpdeps = PopSpiderJob(jbd, config.Buffersize, stat)
+				tmpurls, tmpdeps = popSpiderJob(jbd, config.Buffersize, stat)
 				if len(tmpurls) == 0 && run == 0 &&
 					len(crawl) == 0 && len(parse) == 0 && len(save) == 0 {
 					break
@@ -244,13 +244,14 @@ func Start(db *DB, config Config, url string, stat *Stat) {
 	close(parse)
 	close(save)
 
-	loggo.Info("Spider end %v %v %v", url, GetSize(db), GetDoneSize(dbd))
+	loggo.Info("Spider end %v %v", url, getDoneSize(dbd))
 
-	CloseJob(jbd)
-	CloseDone(dbd)
+	closeJob(jbd)
+	closeDone(dbd)
 }
 
-func Crawler(running *int32, group *sync.WaitGroup, jbd *JobDB, dbd *DoneDB, config Config, crawl <-chan *URLInfo, parse chan<- *PageInfo, jobsCrawlerTotal *int32, jobsCrawlerTotalFail *int32, crawlfunc string, crawlTimeout int, crawlRetry int, stat *Stat) {
+func Crawler(running *int32, group *sync.WaitGroup, jbd *JobDB, dbd *DoneDB, config Config, crawl <-chan *URLInfo, parse chan<- *PageInfo,
+	jobsCrawlerTotal *int32, jobsCrawlerTotalFail *int32, crawlfunc string, crawlTimeout int, crawlRetry int, stat *Stat, ctx *Content) {
 	defer common.CrashLog()
 
 	defer group.Done()
@@ -265,9 +266,9 @@ func Crawler(running *int32, group *sync.WaitGroup, jbd *JobDB, dbd *DoneDB, con
 		stat.CrawChannelNum = len(crawl)
 		//loggo.Info("receive crawl job %v", job)
 
-		ok := HasDone(dbd, job.Url, stat)
+		ok := hasDone(dbd, job.Url, stat)
 		if !ok {
-			InsertSpiderDone(dbd, job.Url, stat)
+			insertSpiderDone(dbd, job.Url, stat)
 			if job.Deps < config.Deps {
 				atomic.AddInt32(jobsCrawlerTotal, 1)
 				var pg *PageInfo
@@ -302,7 +303,8 @@ func Crawler(running *int32, group *sync.WaitGroup, jbd *JobDB, dbd *DoneDB, con
 	loggo.Info("Crawler end")
 }
 
-func Parser(running *int32, group *sync.WaitGroup, jbd *JobDB, dbd *DoneDB, config Config, crawl chan<- *URLInfo, parse <-chan *PageInfo, save chan<- *DBInfo, hosturl string, stat *Stat) {
+func Parser(running *int32, group *sync.WaitGroup, jbd *JobDB, dbd *DoneDB, config Config, crawl chan<- *URLInfo, parse <-chan *PageInfo, save chan<- interface{},
+	hosturl string, stat *Stat, ctx *Content) {
 	defer common.CrashLog()
 
 	defer group.Done()
@@ -328,6 +330,11 @@ func Parser(running *int32, group *sync.WaitGroup, jbd *JobDB, dbd *DoneDB, conf
 
 		stat.ParseValidNum++
 
+		ok := ctx.ParsePage(hosturl, job, save)
+		if ok {
+			stat.ParseFinishNum++
+		}
+
 		for _, s := range job.Son {
 			sonurl := s.UI.Url
 
@@ -347,98 +354,75 @@ func Parser(running *int32, group *sync.WaitGroup, jbd *JobDB, dbd *DoneDB, conf
 
 			ss := strings.ToLower(sonurl)
 
-			ok := false
-			if strings.HasPrefix(ss, "thunder://") || strings.HasPrefix(ss, "magnet:?") ||
-				strings.HasPrefix(ss, "ed2k://") {
-				ok = true
+			if s.UI.Deps >= config.Deps {
+				stat.ParseTooDeepNum++
+				continue
 			}
 
-			if strings.HasSuffix(ss, ".mp4") || strings.HasSuffix(ss, ".rmvb") || strings.HasSuffix(ss, ".mkv") ||
-				strings.HasSuffix(ss, ".avi") || strings.HasSuffix(ss, ".mpg") || strings.HasSuffix(ss, ".mpeg") ||
-				strings.HasSuffix(ss, ".wmv") ||
-				strings.HasSuffix(ss, ".torrent") {
-				ok = true
-			}
+			if strings.HasPrefix(ss, "http://") || strings.HasPrefix(ss, "https://") {
 
-			if ok {
-				stat.ParseFinishNum++
-
-				di := DBInfo{hosturl, job.Title, s.Name, sonurl}
-				save <- &di
-
-				//loggo.Info("receive parse ok %v %v %v", job.Title, s.Name, sonurl)
+			} else if strings.HasPrefix(ss, "/") {
+				sonurl = srcURL.Scheme + "://" + srcURL.Host + sonurl
 			} else {
+				dir := srcURL.Path
 
-				if s.UI.Deps >= config.Deps {
-					stat.ParseTooDeepNum++
-					continue
-				}
-
-				if strings.HasPrefix(ss, "http://") || strings.HasPrefix(ss, "https://") {
-
-				} else if strings.HasPrefix(ss, "/") {
-					sonurl = srcURL.Scheme + "://" + srcURL.Host + sonurl
+				dirIndex := strings.LastIndex(dir, "/")
+				if dirIndex >= 0 {
+					dir = dir[0:dirIndex]
 				} else {
-					dir := srcURL.Path
-
-					dirIndex := strings.LastIndex(dir, "/")
-					if dirIndex >= 0 {
-						dir = dir[0:dirIndex]
-					} else {
-						dir = ""
-					}
-					sonurl = srcURL.Scheme + "://" + srcURL.Host + dir + "/" + sonurl
-
-					mIndex := strings.Index(sonurl, "#")
-					if mIndex >= 0 {
-						sonurl = sonurl[0:mIndex]
-					}
+					dir = ""
 				}
+				sonurl = srcURL.Scheme + "://" + srcURL.Host + dir + "/" + sonurl
 
-				for {
-					new := strings.Replace(sonurl, "/./", "/", -1)
-					if new == sonurl {
-						break
-					}
-					sonurl = new
+				mIndex := strings.Index(sonurl, "#")
+				if mIndex >= 0 {
+					sonurl = sonurl[0:mIndex]
 				}
+			}
 
-				_, err := url.Parse(sonurl)
-				if err != nil {
-					continue
+			for {
+				new := strings.Replace(sonurl, "/./", "/", -1)
+				if new == sonurl {
+					break
 				}
+				sonurl = new
+			}
 
-				var tmp *URLInfo
+			_, err := url.Parse(sonurl)
+			if err != nil {
+				continue
+			}
 
-				finded := HasDone(dbd, sonurl, stat)
-				if !finded {
-					if config.FocusSpider {
-						dstURL, dsterr := url.Parse(sonurl)
+			var tmp *URLInfo
 
-						if dsterr == nil {
-							dstParams := strings.Split(dstURL.Host, ".")
-							srcParams := strings.Split(srcURL.Host, ".")
+			finded := hasDone(dbd, sonurl, stat)
+			if !finded {
+				if config.FocusSpider {
+					dstURL, dsterr := url.Parse(sonurl)
 
-							if len(dstParams) >= 2 && len(srcParams) >= 2 &&
-								dstParams[len(dstParams)-1] == srcParams[len(srcParams)-1] &&
-								dstParams[len(dstParams)-2] == srcParams[len(srcParams)-2] {
-								tmp = &URLInfo{sonurl, s.UI.Deps}
-							}
+					if dsterr == nil {
+						dstParams := strings.Split(dstURL.Host, ".")
+						srcParams := strings.Split(srcURL.Host, ".")
+
+						if len(dstParams) >= 2 && len(srcParams) >= 2 &&
+							dstParams[len(dstParams)-1] == srcParams[len(srcParams)-1] &&
+							dstParams[len(dstParams)-2] == srcParams[len(srcParams)-2] {
+							tmp = &URLInfo{sonurl, s.UI.Deps}
 						}
-					} else {
-						tmp = &URLInfo{sonurl, s.UI.Deps}
 					}
+				} else {
+					tmp = &URLInfo{sonurl, s.UI.Deps}
 				}
+			}
 
-				if tmp != nil {
-					hasJob := HasJob(jbd, tmp.Url, stat)
-					if !hasJob {
-						stat.ParseJobNum++
+			if tmp != nil {
+				hasJob := hasJob(jbd, tmp.Url, stat)
+				if !hasJob {
+					stat.ParseJobNum++
 
-						InsertSpiderJob(jbd, tmp.Url, tmp.Deps, stat)
+					insertSpiderJob(jbd, tmp.Url, tmp.Deps, stat)
 
-						//loggo.Info("parse spawn job %v %v %v", job.UI.Url, sonurl, GetJobSize(src))
-					}
+					//loggo.Info("parse spawn job %v %v %v", job.UI.Url, sonurl, getJobSize(src))
 				}
 			}
 		}
@@ -447,7 +431,7 @@ func Parser(running *int32, group *sync.WaitGroup, jbd *JobDB, dbd *DoneDB, conf
 	loggo.Info("Parser end")
 }
 
-func Saver(running *int32, group *sync.WaitGroup, db *DB, save <-chan *DBInfo, stat *Stat) {
+func Saver(running *int32, group *sync.WaitGroup, save <-chan interface{}, stat *Stat, ctx *Content) {
 	defer common.CrashLog()
 
 	defer group.Done()
@@ -464,7 +448,11 @@ func Saver(running *int32, group *sync.WaitGroup, db *DB, save <-chan *DBInfo, s
 		//loggo.Info("receive save job %v %v %v", job.Title, job.Name, job.Url)
 
 		stat.SaveNum++
-		InsertSpider(db, job.Title, job.Name, job.Url, job.Host, stat)
+
+		stat.InsertNum++
+		b := time.Now()
+		ctx.Save(job)
+		stat.InsertTotalTime += int64(time.Since(b))
 
 		atomic.AddInt32(running, -1)
 	}

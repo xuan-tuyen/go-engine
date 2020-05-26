@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -18,12 +19,18 @@ var gNodeDir string
 var gDataDir string
 var gSrcDir string
 
+var gonce sync.Once
+
 // 引擎全局的初始化
 // 如：引擎各个目录的实际地址
 // 如：执行引擎初始化脚本
 // 如：解压引擎数据文件
 // 其他各个模块的初始化代码放到各自模块init中
 func Ini() {
+	gonce.Do(ini)
+}
+
+func ini() {
 
 	var GOPATH string
 	for i := 0; i < 100; i++ {

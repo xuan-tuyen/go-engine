@@ -90,6 +90,8 @@ func simplecrawl(ui *URLInfo, crawlTimeout int) *PageInfo {
 		}
 	})
 
+	pg.Document = doc
+
 	//if len(pg.Son) == 0 {
 	//	html, _ := doc.Html()
 	//	loggo.Info("simple simple crawl no link %v html:\n%v", url, html)
