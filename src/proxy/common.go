@@ -638,6 +638,10 @@ func (o *Outputer) processOpenFrame(ctx context.Context, f *ProxyFrame) {
 		return
 	}
 
+	rf.OpenRspFrame.Ret = true
+	rf.OpenRspFrame.Msg = "ok"
+	o.father.sendch <- rf
+
 	proxyconn := &ProxyConn{id: id, conn: conn, established: true}
 	go o.processProxyConn(ctx, proxyconn)
 }
