@@ -259,6 +259,7 @@ func recvFromSonny(ctx context.Context, recvch chan<- *ProxyFrame, conn conn.Con
 			}
 
 			f := &ProxyFrame{}
+			f.Type = FRAME_TYPE_DATA
 			f.DataFrame = &DataFrame{}
 			f.DataFrame.Data = ds[0:len]
 			f.DataFrame.Compress = false
