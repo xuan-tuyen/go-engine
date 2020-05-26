@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-func puppeteercrawl(ui *URLInfo, crawlTimeout int) *PageInfo {
+func puppeteercrawl(ui *URLInfo, crawlTimeout int, ctx *Content) *PageInfo {
 
 	url := ui.Url
 	loggo.Info("start puppeteer crawl %v %v", url, gSpiderData.chromeWSEndpoint)
@@ -47,7 +47,7 @@ func puppeteercrawl(ui *URLInfo, crawlTimeout int) *PageInfo {
 		}
 	})
 
-	pg := PageInfo{}
+	pg := &PageInfo{}
 	pg.UI = *ui
 	doc.Find("title").Each(func(i int, s *goquery.Selection) {
 		if pg.Title == "" {
@@ -84,12 +84,12 @@ func puppeteercrawl(ui *URLInfo, crawlTimeout int) *PageInfo {
 		}
 	})
 
-	pg.Document = doc
+	pg = ctx.Crawl(pg, doc)
 
 	//if len(pg.Son) == 0 {
 	//	html, _ := doc.Html()
 	//	loggo.Info("puppeteer crawl no link %v html:\n%v", url, html)
 	//}
 
-	return &pg
+	return pg
 }

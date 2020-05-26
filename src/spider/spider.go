@@ -30,10 +30,9 @@ type PageLinkInfo struct {
 }
 
 type PageInfo struct {
-	UI       URLInfo
-	Title    string
-	Son      []PageLinkInfo
-	Document *goquery.Document
+	UI    URLInfo
+	Title string
+	Son   []PageLinkInfo
 }
 
 type URLInfo struct {
@@ -149,10 +148,11 @@ type Stat struct {
 }
 
 type Content struct {
-	Dsn       string
-	Conn      int
-	ParsePage func(hosturl string, pg *PageInfo, save chan<- interface{}) bool
-	Save      func(result interface{})
+	Dsn   string
+	Conn  int
+	Crawl func(pg *PageInfo, doc *goquery.Document) *PageInfo
+	Parse func(hosturl string, pg *PageInfo, save chan<- interface{}) bool
+	Save  func(result interface{})
 }
 
 func Start(ctx *Content, config Config, url string, stat *Stat) {
@@ -278,9 +278,9 @@ func Crawler(running *int32, group *sync.WaitGroup, jbd *JobDB, dbd *DoneDB, con
 				for t := 0; t < crawlRetry; t++ {
 					stat.CrawRetrtyNum++
 					if crawlfunc == "simple" {
-						pg = simplecrawl(job, crawlTimeout)
+						pg = simplecrawl(job, crawlTimeout, ctx)
 					} else if crawlfunc == "puppeteer" {
-						pg = puppeteercrawl(job, crawlTimeout)
+						pg = puppeteercrawl(job, crawlTimeout, ctx)
 					}
 					if pg != nil {
 						break
@@ -330,7 +330,7 @@ func Parser(running *int32, group *sync.WaitGroup, jbd *JobDB, dbd *DoneDB, conf
 
 		stat.ParseValidNum++
 
-		ok := ctx.ParsePage(hosturl, job, save)
+		ok := ctx.Parse(hosturl, job, save)
 		if ok {
 			stat.ParseFinishNum++
 		}

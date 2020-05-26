@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func simplecrawl(ui *URLInfo, crawlTimeout int) *PageInfo {
+func simplecrawl(ui *URLInfo, crawlTimeout int, ctx *Content) *PageInfo {
 
 	url := ui.Url
 	loggo.Info("start simple crawl %v", url)
@@ -53,7 +53,7 @@ func simplecrawl(ui *URLInfo, crawlTimeout int) *PageInfo {
 		}
 	})
 
-	pg := PageInfo{}
+	pg := &PageInfo{}
 	pg.UI = *ui
 	doc.Find("title").Each(func(i int, s *goquery.Selection) {
 		if pg.Title == "" {
@@ -90,12 +90,12 @@ func simplecrawl(ui *URLInfo, crawlTimeout int) *PageInfo {
 		}
 	})
 
-	pg.Document = doc
+	pg = ctx.Crawl(pg, doc)
 
 	//if len(pg.Son) == 0 {
 	//	html, _ := doc.Html()
 	//	loggo.Info("simple simple crawl no link %v html:\n%v", url, html)
 	//}
 
-	return &pg
+	return pg
 }
