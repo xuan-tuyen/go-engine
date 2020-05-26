@@ -265,6 +265,8 @@ func recvFromSonny(ctx context.Context, recvch chan<- *ProxyFrame, conn conn.Con
 			f.DataFrame.Compress = false
 
 			recvch <- f
+
+			loggo.Debug("recvFromSonny %s %d", conn.Info(), len)
 		}
 	}
 }
@@ -287,6 +289,8 @@ func sendToSonny(ctx context.Context, sendch <-chan *ProxyFrame, conn conn.Conn)
 				loggo.Error("sendToSonny Write fail: %s %s", conn.Info(), err.Error())
 				return err
 			}
+
+			loggo.Debug("sendToSonny %s %d", conn.Info(), len(f.DataFrame.Data))
 		}
 	}
 }
@@ -399,7 +403,7 @@ func checkSonnyActive(ctx context.Context, proxyconn *ProxyConn, estimeout int, 
 	}
 }
 
-func copySonnyRecv(ctx context.Context, recvch <-chan *ProxyFrame, proxyConn *ProxyConn) error {
+func copySonnyRecv(ctx context.Context, recvch <-chan *ProxyFrame, proxyConn *ProxyConn, father *ProxyConn) error {
 	defer common.CrashLog()
 
 	for {
@@ -412,8 +416,10 @@ func copySonnyRecv(ctx context.Context, recvch <-chan *ProxyFrame, proxyConn *Pr
 				return errors.New("conn type error")
 			}
 			f.DataFrame.Id = proxyConn.id
-			proxyConn.sendch <- f
 			proxyConn.actived++
+			father.sendch <- f
+
+			loggo.Debug("copySonnyRecv %s %d", proxyConn.id, len(f.DataFrame.Data))
 		}
 	}
 }
@@ -471,6 +477,7 @@ func (i *Inputer) processDataFrame(f *ProxyFrame) {
 	sonny := v.(*ProxyConn)
 	sonny.sendch <- f
 	sonny.actived++
+	loggo.Debug("Inputer processDataFrame start %s %d", f.DataFrame.Id, len(f.DataFrame.Data))
 }
 
 func (i *Inputer) processOpenRspFrame(f *ProxyFrame) {
@@ -482,10 +489,10 @@ func (i *Inputer) processOpenRspFrame(f *ProxyFrame) {
 	sonny := v.(*ProxyConn)
 	if f.OpenRspFrame.Ret {
 		sonny.established = true
-		loggo.Info("Inputer processOpenRspFrame ok %s %s %s", id, sonny.conn.Info())
+		loggo.Info("Inputer processOpenRspFrame ok %s %s", id, sonny.conn.Info())
 	} else {
 		sonny.needclose = true
-		loggo.Info("Inputer processOpenRspFrame fail %s %s %s", id, sonny.conn.Info())
+		loggo.Info("Inputer processOpenRspFrame fail %s %s", id, sonny.conn.Info())
 	}
 }
 
@@ -552,7 +559,7 @@ func (i *Inputer) processProxyConn(fctx context.Context, proxyConn *ProxyConn) {
 	})
 
 	wg.Go(func() error {
-		return copySonnyRecv(ctx, recvch, i.father)
+		return copySonnyRecv(ctx, recvch, proxyConn, i.father)
 	})
 
 	wg.Wait()
@@ -618,6 +625,7 @@ func (o *Outputer) processDataFrame(f *ProxyFrame) {
 	sonny := v.(*ProxyConn)
 	sonny.sendch <- f
 	sonny.actived++
+	loggo.Debug("Outputer processDataFrame start %s %d", f.DataFrame.Id, len(f.DataFrame.Data))
 }
 
 func (o *Outputer) processOpenFrame(ctx context.Context, f *ProxyFrame) {
@@ -683,7 +691,7 @@ func (o *Outputer) processProxyConn(fctx context.Context, proxyConn *ProxyConn) 
 	})
 
 	wg.Go(func() error {
-		return copySonnyRecv(ctx, recvch, o.father)
+		return copySonnyRecv(ctx, recvch, proxyConn, o.father)
 	})
 
 	wg.Wait()
