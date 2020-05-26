@@ -28,6 +28,7 @@ type Config struct {
 	Key                string
 	Encrypt            string
 	Compress           int
+	ShowPing           bool
 }
 
 func DefaultConfig() *Config {
@@ -41,6 +42,10 @@ func DefaultConfig() *Config {
 		ConnTimeout:        300,
 		ConnectTimeout:     10,
 		Proto:              "tcp",
+		Key:                "123456",
+		Encrypt:            "",
+		Compress:           0,
+		ShowPing:           false,
 	}
 }
 
@@ -238,7 +243,7 @@ func sendTo(ctx context.Context, sendch <-chan *ProxyFrame, conn conn.Conn, comp
 }
 
 func checkPingActive(ctx context.Context, sendch chan<- *ProxyFrame, recvch <-chan *ProxyFrame, proxyconn *ProxyConn,
-	estimeout int, pinginter int, pingintertimeout int) error {
+	estimeout int, pinginter int, pingintertimeout int, showping bool) error {
 	defer common.CrashLog()
 
 	n := 0
@@ -273,7 +278,9 @@ func checkPingActive(ctx context.Context, sendch chan<- *ProxyFrame, recvch <-ch
 			f.PingFrame.Time = time.Now().UnixNano()
 			sendch <- f
 			proxyconn.pinged++
-			loggo.Info("ping %s", proxyconn.conn.Info())
+			if showping {
+				loggo.Info("ping %s", proxyconn.conn.Info())
+			}
 		}
 	}
 }
@@ -302,10 +309,12 @@ func processPing(ctx context.Context, f *ProxyFrame, sendch chan<- *ProxyFrame, 
 	sendch <- rf
 }
 
-func processPong(ctx context.Context, f *ProxyFrame, sendch chan<- *ProxyFrame, proxyconn *ProxyConn) {
+func processPong(ctx context.Context, f *ProxyFrame, sendch chan<- *ProxyFrame, proxyconn *ProxyConn, showping bool) {
 	elapse := time.Duration(time.Now().UnixNano() - f.PongFrame.Time)
 	proxyconn.pinged = 0
-	loggo.Info("pong from %s %s", proxyconn.conn.Info(), elapse.String())
+	if showping {
+		loggo.Info("pong %s %s", proxyconn.conn.Info(), elapse.String())
+	}
 }
 
 func checkSonnyActive(ctx context.Context, proxyconn *ProxyConn, estimeout int, timeout int) error {
@@ -378,6 +387,8 @@ func NewInputer(ctx context.Context, wg *errgroup.Group, proto string, addr stri
 	wg.Go(func() error {
 		return input.listen(ctx)
 	})
+
+	loggo.Info("NewInputer ok %s", addr)
 
 	return input, nil
 }
@@ -523,6 +534,9 @@ func NewOutputer(ctx context.Context, wg *errgroup.Group, proto string, addr str
 		addr:       addr,
 		father:     father,
 	}
+
+	loggo.Info("NewOutputer ok %s", addr)
+
 	return output, nil
 }
 

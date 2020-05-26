@@ -138,7 +138,7 @@ func (c *Client) useServer(fctx context.Context, serverconn *ServerConn) {
 	})
 
 	wg.Go(func() error {
-		return checkPingActive(ctx, sendch, recvch, &serverconn.ProxyConn, c.config.EstablishedTimeout, c.config.PingInter, c.config.PingTimeoutInter)
+		return checkPingActive(ctx, sendch, recvch, &serverconn.ProxyConn, c.config.EstablishedTimeout, c.config.PingInter, c.config.PingTimeoutInter, c.config.ShowPing)
 	})
 
 	wg.Go(func() error {
@@ -190,7 +190,7 @@ func (c *Client) process(ctx context.Context, wg *errgroup.Group, sendch chan<- 
 				processPing(ctx, f, sendch, &serverconn.ProxyConn)
 
 			case FRAME_TYPE_PONG:
-				processPong(ctx, f, sendch, &serverconn.ProxyConn)
+				processPong(ctx, f, sendch, &serverconn.ProxyConn, c.config.ShowPing)
 
 			case FRAME_TYPE_OPEN:
 				c.processOpen(ctx, f, sendch, serverconn)
