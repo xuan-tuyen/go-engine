@@ -55,6 +55,9 @@ func NewServer(config *Config, listenaddr string) (*Server, error) {
 	}
 
 	listenConn, err := conn.Listen(listenaddr)
+	if err != nil {
+		return nil, err
+	}
 
 	wg, ctx := errgroup.WithContext(context.Background())
 
