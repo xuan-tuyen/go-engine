@@ -201,7 +201,9 @@ func recvFrom(ctx context.Context, recvch chan<- *ProxyFrame, conn conn.Conn, ma
 
 			recvch <- f
 
-			loggo.Debug("recvFrom %s %s", conn.Info(), f.Type.String())
+			if f.Type != FRAME_TYPE_PING && f.Type != FRAME_TYPE_PONG {
+				loggo.Debug("recvFrom %s %s", conn.Info(), f.Type.String())
+			}
 		}
 	}
 }
@@ -241,7 +243,9 @@ func sendTo(ctx context.Context, sendch <-chan *ProxyFrame, conn conn.Conn, comp
 				return err
 			}
 
-			loggo.Debug("sendTo %s %s", conn.Info(), f.Type.String())
+			if f.Type != FRAME_TYPE_PING && f.Type != FRAME_TYPE_PONG {
+				loggo.Debug("sendTo %s %s", conn.Info(), f.Type.String())
+			}
 		}
 	}
 }
