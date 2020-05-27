@@ -149,8 +149,6 @@ func (c *Client) useServer(fctx context.Context, serverconn *ServerConn) {
 		return c.process(ctx, wg, sendch, recvch, serverconn)
 	})
 
-	loggo.Info("useServer wait close %s %s", c.server, serverconn.conn.Info())
-
 	wg.Wait()
 	serverconn.conn.Close()
 	if serverconn.output != nil {

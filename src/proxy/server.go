@@ -135,8 +135,6 @@ func (s *Server) serveClient(fctx context.Context, clientconn *ClientConn) {
 		return s.process(ctx, wg, sendch, recvch, clientconn)
 	})
 
-	loggo.Info("serveClient wait close %s", clientconn.conn.Info())
-
 	wg.Wait()
 	clientconn.conn.Close()
 	if clientconn.established {
