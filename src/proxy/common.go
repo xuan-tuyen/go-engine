@@ -181,25 +181,27 @@ func recvFrom(ctx context.Context, recvch chan<- *ProxyFrame, conn conn.Conn, ma
 				return err
 			}
 
-			len := binary.LittleEndian.Uint32(bs)
-			if len > uint32(maxmsgsize) {
-				loggo.Error("recvFrom len fail: %s %d", conn.Info(), len)
-				return errors.New("msg len fail " + strconv.Itoa(int(len)))
+			msglen := binary.LittleEndian.Uint32(bs)
+			if msglen > uint32(maxmsgsize) {
+				loggo.Error("recvFrom len fail: %s %d", conn.Info(), msglen)
+				return errors.New("msg len fail " + strconv.Itoa(int(msglen)))
 			}
 
-			_, err = io.ReadFull(conn, ds[0:len])
+			_, err = io.ReadFull(conn, ds[0:msglen])
 			if err != nil {
 				loggo.Error("recvFrom ReadFull fail: %s %s", conn.Info(), err.Error())
 				return err
 			}
 
-			f, err := UnmarshalSrpFrame(ds[0:len], encrypt)
+			f, err := UnmarshalSrpFrame(ds[0:msglen], encrypt)
 			if err != nil {
 				loggo.Error("recvFrom UnmarshalSrpFrame fail: %s %s", conn.Info(), err.Error())
 				return err
 			}
 
 			recvch <- f
+
+			loggo.Debug("recvFrom %s %s %d", conn.Info(), f.Type.String(), len(f.DataFrame.Data))
 		}
 	}
 }
@@ -220,13 +222,13 @@ func sendTo(ctx context.Context, sendch <-chan *ProxyFrame, conn conn.Conn, comp
 				return err
 			}
 
-			len := uint32(len(mb))
-			if len > uint32(maxmsgsize) {
-				loggo.Error("sendTo len fail: %s %d", conn.Info(), len)
-				return errors.New("msg len fail " + strconv.Itoa(int(len)))
+			msglen := uint32(len(mb))
+			if msglen > uint32(maxmsgsize) {
+				loggo.Error("sendTo len fail: %s %d", conn.Info(), msglen)
+				return errors.New("msg len fail " + strconv.Itoa(int(msglen)))
 			}
 
-			binary.LittleEndian.PutUint32(bs, len)
+			binary.LittleEndian.PutUint32(bs, msglen)
 			_, err = conn.Write(bs)
 			if err != nil {
 				loggo.Error("sendTo Write fail: %s %s", conn.Info(), err.Error())
@@ -238,6 +240,8 @@ func sendTo(ctx context.Context, sendch <-chan *ProxyFrame, conn conn.Conn, comp
 				loggo.Error("sendTo Write fail: %s %s", conn.Info(), err.Error())
 				return err
 			}
+
+			loggo.Debug("sendTo %s %s %d", conn.Info(), f.Type.String(), len(f.DataFrame.Data))
 		}
 	}
 }
