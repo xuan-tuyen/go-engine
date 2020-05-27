@@ -201,7 +201,7 @@ func recvFrom(ctx context.Context, recvch chan<- *ProxyFrame, conn conn.Conn, ma
 
 			recvch <- f
 
-			loggo.Debug("recvFrom %s %s %d", conn.Info(), f.Type.String(), len(f.DataFrame.Data))
+			loggo.Debug("recvFrom %s %s", conn.Info(), f.Type.String())
 		}
 	}
 }
@@ -241,7 +241,7 @@ func sendTo(ctx context.Context, sendch <-chan *ProxyFrame, conn conn.Conn, comp
 				return err
 			}
 
-			loggo.Debug("sendTo %s %s %d", conn.Info(), f.Type.String(), len(f.DataFrame.Data))
+			loggo.Debug("sendTo %s %s", conn.Info(), f.Type.String())
 		}
 	}
 }
