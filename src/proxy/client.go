@@ -192,6 +192,9 @@ func (c *Client) process(ctx context.Context, wg *errgroup.Group, sendch chan<- 
 			case FRAME_TYPE_PONG:
 				processPong(ctx, f, sendch, &serverconn.ProxyConn, c.config.ShowPing)
 
+			case FRAME_TYPE_DATA:
+				c.processData(ctx, f, sendch, serverconn)
+
 			case FRAME_TYPE_OPEN:
 				c.processOpen(ctx, f, sendch, serverconn)
 			}
@@ -236,6 +239,12 @@ func (c *Client) iniService(ctx context.Context, wg *errgroup.Group, serverConn 
 		return errors.New("error CLIENT_TYPE " + strconv.Itoa(int(c.clienttype)))
 	}
 	return nil
+}
+
+func (c *Client) processData(ctx context.Context, f *ProxyFrame, sendch chan<- *ProxyFrame, serverconn *ServerConn) {
+	if serverconn.output != nil {
+		serverconn.output.processDataFrame(f)
+	}
 }
 
 func (c *Client) processOpen(ctx context.Context, f *ProxyFrame, sendch chan<- *ProxyFrame, serverconn *ServerConn) {

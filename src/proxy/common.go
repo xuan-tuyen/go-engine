@@ -316,6 +316,7 @@ func checkPingActive(ctx context.Context, sendch chan<- *ProxyFrame, recvch <-ch
 		if !proxyconn.established {
 			if n > estimeout {
 				loggo.Error("checkPingActive established timeout %s", proxyconn.conn.Info())
+				proxyconn.conn.Close()
 				return errors.New("established timeout")
 			}
 		} else {
@@ -330,6 +331,7 @@ func checkPingActive(ctx context.Context, sendch chan<- *ProxyFrame, recvch <-ch
 		case <-time.After(time.Duration(pinginter) * time.Second):
 			if proxyconn.pinged > pingintertimeout {
 				loggo.Error("checkPingActive ping pong timeout %s", proxyconn.conn.Info())
+				proxyconn.conn.Close()
 				return errors.New("ping pong timeout")
 			}
 
@@ -391,6 +393,7 @@ func checkSonnyActive(ctx context.Context, proxyconn *ProxyConn, estimeout int, 
 		if !proxyconn.established {
 			if n > estimeout {
 				loggo.Error("checkSonnyActive established timeout %s %s", proxyconn.conn.Info())
+				proxyconn.conn.Close()
 				return errors.New("established timeout")
 			}
 		} else {
@@ -405,6 +408,7 @@ func checkSonnyActive(ctx context.Context, proxyconn *ProxyConn, estimeout int, 
 		case <-time.After(time.Duration(timeout) * time.Second):
 			if proxyconn.actived == 0 {
 				loggo.Error("checkSonnyActive timeout %s %s %s", proxyconn.conn.Info())
+				proxyconn.conn.Close()
 				return errors.New("conn timeout")
 			}
 			proxyconn.actived = 0
@@ -666,6 +670,12 @@ func (o *Outputer) processOpenFrame(ctx context.Context, f *ProxyFrame) {
 		return
 	}
 
+	sendch := make(chan *ProxyFrame, o.config.ConnBuffer)
+	recvch := make(chan *ProxyFrame, o.config.ConnBuffer)
+
+	proxyconn.sendch = sendch
+	proxyconn.recvch = recvch
+
 	rf.OpenRspFrame.Ret = true
 	rf.OpenRspFrame.Msg = "ok"
 	o.father.sendch <- rf
@@ -678,11 +688,8 @@ func (o *Outputer) processProxyConn(fctx context.Context, proxyConn *ProxyConn) 
 
 	loggo.Info("Outputer processProxyConn start %s %s", proxyConn.id, proxyConn.conn.Info())
 
-	sendch := make(chan *ProxyFrame, o.config.ConnBuffer)
-	recvch := make(chan *ProxyFrame, o.config.ConnBuffer)
-
-	proxyConn.sendch = sendch
-	proxyConn.recvch = recvch
+	sendch := proxyConn.sendch
+	recvch := proxyConn.recvch
 
 	wg, ctx := errgroup.WithContext(fctx)
 
