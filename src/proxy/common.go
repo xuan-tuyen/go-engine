@@ -481,6 +481,7 @@ func (i *Inputer) processDataFrame(f *ProxyFrame) {
 	id := f.DataFrame.Id
 	v, ok := i.sonny.Load(id)
 	if !ok {
+		loggo.Error("Inputer processDataFrame no sonnny %s %d", id, len(f.DataFrame.Data))
 		return
 	}
 	sonny := v.(*ProxyConn)
@@ -493,6 +494,7 @@ func (i *Inputer) processOpenRspFrame(f *ProxyFrame) {
 	id := f.OpenRspFrame.Id
 	v, ok := i.sonny.Load(id)
 	if !ok {
+		loggo.Error("Inputer processOpenRspFrame no sonnny %s", id)
 		return
 	}
 	sonny := v.(*ProxyConn)
@@ -629,6 +631,7 @@ func (o *Outputer) processDataFrame(f *ProxyFrame) {
 	id := f.DataFrame.Id
 	v, ok := o.sonny.Load(id)
 	if !ok {
+		loggo.Error("Outputer processDataFrame no sonnny %s %d", f.DataFrame.Id, len(f.DataFrame.Data))
 		return
 	}
 	sonny := v.(*ProxyConn)
@@ -655,11 +658,18 @@ func (o *Outputer) processOpenFrame(ctx context.Context, f *ProxyFrame) {
 		return
 	}
 
+	proxyconn := &ProxyConn{id: id, conn: conn, established: true}
+	_, loaded := o.sonny.LoadOrStore(proxyconn.id, proxyconn)
+	if loaded {
+		loggo.Error("Outputer processOpenFrame LoadOrStore fail %s %s", o.addr, id)
+		proxyconn.conn.Close()
+		return
+	}
+
 	rf.OpenRspFrame.Ret = true
 	rf.OpenRspFrame.Msg = "ok"
 	o.father.sendch <- rf
 
-	proxyconn := &ProxyConn{id: id, conn: conn, established: true}
 	go o.processProxyConn(ctx, proxyconn)
 }
 
@@ -667,13 +677,6 @@ func (o *Outputer) processProxyConn(fctx context.Context, proxyConn *ProxyConn) 
 	defer common.CrashLog()
 
 	loggo.Info("Outputer processProxyConn start %s %s", proxyConn.id, proxyConn.conn.Info())
-
-	_, loaded := o.sonny.LoadOrStore(proxyConn.id, proxyConn)
-	if loaded {
-		loggo.Error("Outputer processProxyConn LoadOrStore fail %s", proxyConn.id)
-		proxyConn.conn.Close()
-		return
-	}
 
 	sendch := make(chan *ProxyFrame, o.config.ConnBuffer)
 	recvch := make(chan *ProxyFrame, o.config.ConnBuffer)
