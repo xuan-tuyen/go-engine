@@ -570,6 +570,8 @@ func (i *Inputer) processProxyConn(fctx context.Context, proxyConn *ProxyConn) {
 		return copySonnyRecv(ctx, recvch, proxyConn, i.father)
 	})
 
+	loggo.Info("Inputer processProxyConn wait end %s %s", proxyConn.id, proxyConn.conn.Info())
+
 	wg.Wait()
 	proxyConn.conn.Close()
 	i.sonny.Delete(proxyConn.id)
@@ -701,6 +703,8 @@ func (o *Outputer) processProxyConn(fctx context.Context, proxyConn *ProxyConn) 
 	wg.Go(func() error {
 		return copySonnyRecv(ctx, recvch, proxyConn, o.father)
 	})
+
+	loggo.Info("Outputer processProxyConn wait end %s %s", proxyConn.id, proxyConn.conn.Info())
 
 	wg.Wait()
 	proxyConn.conn.Close()
