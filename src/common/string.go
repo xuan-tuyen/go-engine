@@ -1,8 +1,6 @@
 package common
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"fmt"
 	"math"
 	"reflect"
@@ -35,12 +33,6 @@ func Int64ArrayToString(a []int64, delim string) string {
 		ret += strconv.Itoa((int)(s)) + delim
 	}
 	return ret
-}
-
-func GetMd5String(s string) string {
-	h := md5.New()
-	h.Write([]byte(s))
-	return hex.EncodeToString(h.Sum(nil))
 }
 
 func RandStr(l int) string {

@@ -143,3 +143,10 @@ func Test0004(t *testing.T) {
 	ts1 := TestStruct1{ts, 3}
 	fmt.Println(StructToTable(&ts1))
 }
+
+func Test0005(t *testing.T) {
+	fmt.Println(GetXXHashString("1"))
+	fmt.Println(GetXXHashString("2"))
+	fmt.Println(GetXXHashString("asfaf"))
+	fmt.Println(GetXXHashString("dffd43321"))
+}
