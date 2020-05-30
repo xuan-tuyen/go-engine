@@ -1,7 +1,10 @@
 package common
 
 import (
+	"bytes"
+	"compress/gzip"
 	"fmt"
+	"io/ioutil"
 	"math"
 	"reflect"
 	"strconv"
@@ -202,4 +205,46 @@ func Hex2Num(str string, n int) int {
 		v += float64(index) * math.Pow(float64(n), float64(length-1-i))
 	}
 	return int(v)
+}
+
+func GzipString(data string) string {
+	var b bytes.Buffer
+	w := gzip.NewWriter(&b)
+	w.Write([]byte(data))
+	w.Close()
+	return string(b.Bytes())
+}
+
+func GzipStringBestCompression(data string) string {
+	var b bytes.Buffer
+	w, err := gzip.NewWriterLevel(&b, gzip.BestCompression)
+	if err != nil {
+		return ""
+	}
+	w.Write([]byte(data))
+	w.Close()
+	return string(b.Bytes())
+}
+
+func GzipStringBestSpeed(data string) string {
+	var b bytes.Buffer
+	w, err := gzip.NewWriterLevel(&b, gzip.BestSpeed)
+	if err != nil {
+		return ""
+	}
+	w.Write([]byte(data))
+	w.Close()
+	return string(b.Bytes())
+}
+
+func GunzipString(data string) string {
+	var b bytes.Buffer
+	b.WriteString(data)
+	r, err := gzip.NewReader(&b)
+	if err != nil {
+		return ""
+	}
+	r.Close()
+	ret, _ := ioutil.ReadAll(r)
+	return string(ret)
 }

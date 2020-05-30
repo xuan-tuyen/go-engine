@@ -150,3 +150,24 @@ func Test0005(t *testing.T) {
 	fmt.Println(GetXXHashString("asfaf"))
 	fmt.Println(GetXXHashString("dffd43321"))
 }
+
+func Test0006(t *testing.T) {
+	src := "safa3232sgsgd343q421dsdgsddsgsarwdsddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddgdsgsgewrngfxgcjfhrsgcbxgfhreu658545ghuj,hgfdtsz nsdtzbntshjtwg,tu523jlikr[]iwsfffffds23525ewfsu45632rqwfsgrxy4353rsfzshrey4324fASffdjftui4e22=-"
+	fmt.Println(len(src))
+	a := GzipString(src)
+	fmt.Println(len(a))
+	b := GzipStringBestCompression(src)
+	fmt.Println(len(b))
+	c := GzipStringBestSpeed(src)
+	fmt.Println(len(c))
+
+	if src != GunzipString(a) {
+		t.Error("fail")
+	}
+	if src != GunzipString(b) {
+		t.Error("fail")
+	}
+	if src != GunzipString(c) {
+		t.Error("fail")
+	}
+}
