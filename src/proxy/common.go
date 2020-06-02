@@ -501,7 +501,7 @@ func (i *Inputer) processDataFrame(f *ProxyFrame) {
 	sonny := v.(*ProxyConn)
 	sonny.sendch <- f
 	sonny.actived++
-	loggo.Debug("Inputer processDataFrame start %s %d", f.DataFrame.Id, len(f.DataFrame.Data))
+	loggo.Debug("Inputer processDataFrame %s %d", f.DataFrame.Id, len(f.DataFrame.Data))
 }
 
 func (i *Inputer) processCloseFrame(f *ProxyFrame) {
@@ -675,7 +675,7 @@ func (o *Outputer) processDataFrame(f *ProxyFrame) {
 	sonny := v.(*ProxyConn)
 	sonny.sendch <- f
 	sonny.actived++
-	loggo.Debug("Outputer processDataFrame start %s %d", f.DataFrame.Id, len(f.DataFrame.Data))
+	loggo.Debug("Outputer processDataFrame %s %d", f.DataFrame.Id, len(f.DataFrame.Data))
 }
 
 func (o *Outputer) processCloseFrame(f *ProxyFrame) {
