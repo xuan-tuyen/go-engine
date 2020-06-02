@@ -508,7 +508,7 @@ func (i *Inputer) processCloseFrame(f *ProxyFrame) {
 	id := f.CloseFrame.Id
 	v, ok := i.sonny.Load(id)
 	if !ok {
-		loggo.Info("Inputer processCloseFrame no sonnny %s", f.DataFrame.Id)
+		loggo.Info("Inputer processCloseFrame no sonnny %s", f.CloseFrame.Id)
 		return
 	}
 
@@ -682,7 +682,7 @@ func (o *Outputer) processCloseFrame(f *ProxyFrame) {
 	id := f.CloseFrame.Id
 	v, ok := o.sonny.Load(id)
 	if !ok {
-		loggo.Info("Outputer processCloseFrame no sonnny %s", f.DataFrame.Id)
+		loggo.Info("Outputer processCloseFrame no sonnny %s", f.CloseFrame.Id)
 		return
 	}
 
