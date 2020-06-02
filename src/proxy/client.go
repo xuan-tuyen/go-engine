@@ -204,6 +204,9 @@ func (c *Client) process(ctx context.Context, wg *errgroup.Group, sendch chan<- 
 
 			case FRAME_TYPE_OPENRSP:
 				c.processOpenRsp(ctx, f, sendch, serverconn)
+
+			case FRAME_TYPE_CLOSE:
+				c.processClose(ctx, f, sendch, serverconn)
 			}
 		}
 	}
@@ -253,7 +256,9 @@ func (c *Client) iniService(ctx context.Context, wg *errgroup.Group, serverConn 
 }
 
 func (c *Client) processData(ctx context.Context, f *ProxyFrame, sendch chan<- *ProxyFrame, serverconn *ServerConn) {
-	if serverconn.output != nil {
+	if serverconn.input != nil {
+		serverconn.input.processDataFrame(f)
+	} else if serverconn.output != nil {
 		serverconn.output.processDataFrame(f)
 	}
 }
@@ -267,5 +272,13 @@ func (c *Client) processOpen(ctx context.Context, f *ProxyFrame, sendch chan<- *
 func (c *Client) processOpenRsp(ctx context.Context, f *ProxyFrame, sendch chan<- *ProxyFrame, serverconn *ServerConn) {
 	if serverconn.input != nil {
 		serverconn.input.processOpenRspFrame(f)
+	}
+}
+
+func (c *Client) processClose(ctx context.Context, f *ProxyFrame, sendch chan<- *ProxyFrame, serverconn *ServerConn) {
+	if serverconn.input != nil {
+		serverconn.input.processCloseFrame(f)
+	} else if serverconn.output != nil {
+		serverconn.output.processCloseFrame(f)
 	}
 }

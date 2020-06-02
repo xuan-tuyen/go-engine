@@ -407,7 +407,7 @@ func checkSonnyActive(ctx context.Context, proxyconn *ProxyConn, estimeout int, 
 			return nil
 		case <-time.After(time.Duration(timeout) * time.Second):
 			if proxyconn.actived == 0 {
-				loggo.Error("checkSonnyActive timeout %s %s", proxyconn.conn.Info())
+				loggo.Error("checkSonnyActive timeout %s", proxyconn.conn.Info())
 				proxyconn.conn.Close()
 				return errors.New("conn timeout")
 			}
@@ -492,6 +492,18 @@ func (i *Inputer) processDataFrame(f *ProxyFrame) {
 	sonny.sendch <- f
 	sonny.actived++
 	loggo.Debug("Inputer processDataFrame start %s %d", f.DataFrame.Id, len(f.DataFrame.Data))
+}
+
+func (i *Inputer) processCloseFrame(f *ProxyFrame) {
+	id := f.DataFrame.Id
+	v, ok := i.sonny.Load(id)
+	if !ok {
+		loggo.Info("Inputer processCloseFrame no sonnny %s", f.DataFrame.Id)
+		return
+	}
+
+	sonny := v.(*ProxyConn)
+	sonny.needclose = true
 }
 
 func (i *Inputer) processOpenRspFrame(f *ProxyFrame) {
@@ -583,6 +595,8 @@ func (i *Inputer) processProxyConn(fctx context.Context, proxyConn *ProxyConn) {
 	close(sendch)
 	close(recvch)
 
+	closeRemoteConn(proxyConn, i.father)
+
 	loggo.Info("Inputer processProxyConn end %s %s", proxyConn.id, proxyConn.conn.Info())
 }
 
@@ -594,6 +608,16 @@ func (i *Inputer) openConn(ctx context.Context, proxyConn *ProxyConn) {
 
 	i.father.sendch <- f
 	loggo.Info("Inputer openConn %s", proxyConn.id)
+}
+
+func closeRemoteConn(proxyConn *ProxyConn, father *ProxyConn) {
+	f := &ProxyFrame{}
+	f.Type = FRAME_TYPE_CLOSE
+	f.CloseFrame = &CloseFrame{}
+	f.CloseFrame.Id = proxyConn.id
+
+	father.sendch <- f
+	loggo.Info("closeConn %s", proxyConn.id)
 }
 
 func NewOutputer(ctx context.Context, wg *errgroup.Group, proto string, addr string, clienttype CLIENT_TYPE, config *Config, father *ProxyConn) (*Outputer, error) {
@@ -642,6 +666,18 @@ func (o *Outputer) processDataFrame(f *ProxyFrame) {
 	sonny.sendch <- f
 	sonny.actived++
 	loggo.Debug("Outputer processDataFrame start %s %d", f.DataFrame.Id, len(f.DataFrame.Data))
+}
+
+func (o *Outputer) processCloseFrame(f *ProxyFrame) {
+	id := f.DataFrame.Id
+	v, ok := o.sonny.Load(id)
+	if !ok {
+		loggo.Info("Outputer processCloseFrame no sonnny %s", f.DataFrame.Id)
+		return
+	}
+
+	sonny := v.(*ProxyConn)
+	sonny.needclose = true
 }
 
 func (o *Outputer) processOpenFrame(ctx context.Context, f *ProxyFrame) {
@@ -718,6 +754,8 @@ func (o *Outputer) processProxyConn(fctx context.Context, proxyConn *ProxyConn) 
 	o.sonny.Delete(proxyConn.id)
 	close(sendch)
 	close(recvch)
+
+	closeRemoteConn(proxyConn, o.father)
 
 	loggo.Info("Outputer processProxyConn end %s %s", proxyConn.id, proxyConn.conn.Info())
 }

@@ -269,6 +269,8 @@ func (s *Server) iniService(ctx context.Context, wg *errgroup.Group, f *ProxyFra
 func (s *Server) processData(ctx context.Context, f *ProxyFrame, sendch chan<- *ProxyFrame, clientconn *ClientConn) {
 	if clientconn.input != nil {
 		clientconn.input.processDataFrame(f)
+	} else if clientconn.output != nil {
+		clientconn.output.processDataFrame(f)
 	}
 }
 
@@ -281,5 +283,13 @@ func (s *Server) processOpenRsp(ctx context.Context, f *ProxyFrame, sendch chan<
 func (c *Server) processOpen(ctx context.Context, f *ProxyFrame, sendch chan<- *ProxyFrame, clientconn *ClientConn) {
 	if clientconn.output != nil {
 		clientconn.output.processOpenFrame(ctx, f)
+	}
+}
+
+func (c *Server) processClose(ctx context.Context, f *ProxyFrame, sendch chan<- *ProxyFrame, clientconn *ClientConn) {
+	if clientconn.input != nil {
+		clientconn.input.processCloseFrame(f)
+	} else if clientconn.output != nil {
+		clientconn.output.processCloseFrame(f)
 	}
 }
