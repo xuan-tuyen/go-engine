@@ -392,7 +392,7 @@ func checkSonnyActive(ctx context.Context, proxyconn *ProxyConn, estimeout int, 
 		n++
 		if !proxyconn.established {
 			if n > estimeout {
-				loggo.Error("checkSonnyActive established timeout %s %s", proxyconn.conn.Info())
+				loggo.Error("checkSonnyActive established timeout %s", proxyconn.conn.Info())
 				proxyconn.conn.Close()
 				return errors.New("established timeout")
 			}
@@ -407,7 +407,7 @@ func checkSonnyActive(ctx context.Context, proxyconn *ProxyConn, estimeout int, 
 			return nil
 		case <-time.After(time.Duration(timeout) * time.Second):
 			if proxyconn.actived == 0 {
-				loggo.Error("checkSonnyActive timeout %s %s %s", proxyconn.conn.Info())
+				loggo.Error("checkSonnyActive timeout %s %s", proxyconn.conn.Info())
 				proxyconn.conn.Close()
 				return errors.New("conn timeout")
 			}
