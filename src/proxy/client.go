@@ -24,6 +24,7 @@ type ServerConnSonny struct {
 type ServerConn struct {
 	ProxyConn
 	output *Outputer
+	input  *Inputer
 }
 
 type Client struct {
@@ -154,6 +155,9 @@ func (c *Client) useServer(fctx context.Context, serverconn *ServerConn) {
 	if serverconn.output != nil {
 		serverconn.output.Close()
 	}
+	if serverconn.input != nil {
+		serverconn.input.Close()
+	}
 	c.serverconn = nil
 	loggo.Info("useServer close %s %s", c.server, serverconn.conn.Info())
 }
@@ -197,6 +201,9 @@ func (c *Client) process(ctx context.Context, wg *errgroup.Group, sendch chan<- 
 
 			case FRAME_TYPE_OPEN:
 				c.processOpen(ctx, f, sendch, serverconn)
+
+			case FRAME_TYPE_OPENRSP:
+				c.processOpenRsp(ctx, f, sendch, serverconn)
 			}
 		}
 	}
@@ -224,7 +231,11 @@ func (c *Client) processLoginRsp(ctx context.Context, wg *errgroup.Group, f *Pro
 func (c *Client) iniService(ctx context.Context, wg *errgroup.Group, serverConn *ServerConn) error {
 	switch c.clienttype {
 	case CLIENT_TYPE_PROXY:
-		// TODO
+		input, err := NewInputer(ctx, wg, c.proxyproto.String(), c.fromaddr, c.clienttype, c.config, &serverConn.ProxyConn)
+		if err != nil {
+			return err
+		}
+		serverConn.input = input
 	case CLIENT_TYPE_REVERSE_PROXY:
 		output, err := NewOutputer(ctx, wg, c.proxyproto.String(), c.toaddr, c.clienttype, c.config, &serverConn.ProxyConn)
 		if err != nil {
@@ -250,5 +261,11 @@ func (c *Client) processData(ctx context.Context, f *ProxyFrame, sendch chan<- *
 func (c *Client) processOpen(ctx context.Context, f *ProxyFrame, sendch chan<- *ProxyFrame, serverconn *ServerConn) {
 	if serverconn.output != nil {
 		serverconn.output.processOpenFrame(ctx, f)
+	}
+}
+
+func (c *Client) processOpenRsp(ctx context.Context, f *ProxyFrame, sendch chan<- *ProxyFrame, serverconn *ServerConn) {
+	if serverconn.input != nil {
+		serverconn.input.processOpenRspFrame(f)
 	}
 }
