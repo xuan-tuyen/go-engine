@@ -182,7 +182,7 @@ func recvFrom(ctx context.Context, recvch chan<- *ProxyFrame, conn conn.Conn, ma
 			}
 
 			msglen := binary.LittleEndian.Uint32(bs)
-			if msglen > uint32(maxmsgsize) {
+			if msglen > uint32(maxmsgsize) || msglen <= 0 {
 				loggo.Error("recvFrom len fail: %s %d", conn.Info(), msglen)
 				return errors.New("msg len fail " + strconv.Itoa(int(msglen)))
 			}
@@ -225,7 +225,7 @@ func sendTo(ctx context.Context, sendch <-chan *ProxyFrame, conn conn.Conn, comp
 			}
 
 			msglen := uint32(len(mb))
-			if msglen > uint32(maxmsgsize) {
+			if msglen > uint32(maxmsgsize) || msglen <= 0 {
 				loggo.Error("sendTo len fail: %s %d", conn.Info(), msglen)
 				return errors.New("msg len fail " + strconv.Itoa(int(msglen)))
 			}
@@ -266,6 +266,11 @@ func recvFromSonny(ctx context.Context, recvch chan<- *ProxyFrame, conn conn.Con
 				return err
 			}
 
+			if len <= 0 {
+				loggo.Error("recvFromSonny len error: %s %d", conn.Info(), len)
+				return errors.New("len error " + strconv.Itoa(len))
+			}
+
 			f := &ProxyFrame{}
 			f.Type = FRAME_TYPE_DATA
 			f.DataFrame = &DataFrame{}
@@ -290,6 +295,11 @@ func sendToSonny(ctx context.Context, sendch <-chan *ProxyFrame, conn conn.Conn)
 			if f.DataFrame.Compress {
 				loggo.Error("sendToSonny Compress error: %s", conn.Info())
 				return errors.New("msg compress error")
+			}
+
+			if len(f.DataFrame.Data) <= 0 {
+				loggo.Error("sendToSonny len error: %s %d", conn.Info(), len(f.DataFrame.Data))
+				return errors.New("len error " + strconv.Itoa(len(f.DataFrame.Data)))
 			}
 
 			_, err := conn.Write(f.DataFrame.Data)
@@ -495,7 +505,7 @@ func (i *Inputer) processDataFrame(f *ProxyFrame) {
 }
 
 func (i *Inputer) processCloseFrame(f *ProxyFrame) {
-	id := f.DataFrame.Id
+	id := f.CloseFrame.Id
 	v, ok := i.sonny.Load(id)
 	if !ok {
 		loggo.Info("Inputer processCloseFrame no sonnny %s", f.DataFrame.Id)
@@ -669,7 +679,7 @@ func (o *Outputer) processDataFrame(f *ProxyFrame) {
 }
 
 func (o *Outputer) processCloseFrame(f *ProxyFrame) {
-	id := f.DataFrame.Id
+	id := f.CloseFrame.Id
 	v, ok := o.sonny.Load(id)
 	if !ok {
 		loggo.Info("Outputer processCloseFrame no sonnny %s", f.DataFrame.Id)
