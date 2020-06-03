@@ -110,6 +110,9 @@ func MarshalSrpFrame(f *ProxyFrame, compress int, encrpyt string) ([]byte, error
 	if f.Type == FRAME_TYPE_DATA && compress > 0 && len(f.DataFrame.Data) > compress && !f.DataFrame.Compress {
 		newb := common.CompressData(f.DataFrame.Data)
 		if len(newb) < len(f.DataFrame.Data) {
+			if loggo.IsDebug() {
+				loggo.Debug("MarshalSrpFrame Compress from %d %d", len(f.DataFrame.Data), len(newb))
+			}
 			f.DataFrame.Data = newb
 			f.DataFrame.Compress = true
 		}
@@ -119,6 +122,9 @@ func MarshalSrpFrame(f *ProxyFrame, compress int, encrpyt string) ([]byte, error
 		newb, err := common.Rc4(encrpyt, f.DataFrame.Data)
 		if err != nil {
 			return nil, err
+		}
+		if loggo.IsDebug() {
+			loggo.Debug("MarshalSrpFrame Rc4 from %s %s", common.GetCrc32(f.DataFrame.Data), common.GetCrc32(newb))
 		}
 		f.DataFrame.Data = newb
 	}
@@ -148,6 +154,9 @@ func UnmarshalSrpFrame(b []byte, encrpyt string) (*ProxyFrame, error) {
 		if err != nil {
 			return nil, err
 		}
+		if loggo.IsDebug() {
+			loggo.Debug("MarshalSrpFrame Rc4 from %s %s", common.GetCrc32(f.DataFrame.Data), common.GetCrc32(newb))
+		}
 		f.DataFrame.Data = newb
 	}
 
@@ -155,6 +164,9 @@ func UnmarshalSrpFrame(b []byte, encrpyt string) (*ProxyFrame, error) {
 		newb, err := common.DeCompressData(f.DataFrame.Data)
 		if err != nil {
 			return nil, err
+		}
+		if loggo.IsDebug() {
+			loggo.Debug("UnmarshalSrpFrame Compress from %d %d", len(f.DataFrame.Data), len(newb))
 		}
 		f.DataFrame.Data = newb
 		f.DataFrame.Compress = false
@@ -281,7 +293,7 @@ func recvFromSonny(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxm
 			f.DataFrame = &DataFrame{}
 			f.DataFrame.Data = ds[0:len]
 			f.DataFrame.Compress = false
-			f.DataFrame.Crc = common.GetCrc32String(string(f.DataFrame.Data))
+			f.DataFrame.Crc = common.GetCrc32(f.DataFrame.Data)
 			index++
 			f.DataFrame.Index = index % MAX_INDEX
 
@@ -316,8 +328,8 @@ func sendToSonny(wg *group.Group, sendch *common.Channel, conn conn.Conn) error 
 				return errors.New("len error " + strconv.Itoa(len(f.DataFrame.Data)))
 			}
 
-			if f.DataFrame.Crc != common.GetCrc32String(string(f.DataFrame.Data)) {
-				loggo.Error("sendToSonny crc error: %s %d %s %s", conn.Info(), len(f.DataFrame.Data), f.DataFrame.Crc, common.GetCrc32String(string(f.DataFrame.Data)))
+			if f.DataFrame.Crc != common.GetCrc32(f.DataFrame.Data) {
+				loggo.Error("sendToSonny crc error: %s %d %s %s", conn.Info(), len(f.DataFrame.Data), f.DataFrame.Crc, common.GetCrc32(f.DataFrame.Data))
 				return errors.New("crc error")
 			}
 
@@ -335,7 +347,7 @@ func sendToSonny(wg *group.Group, sendch *common.Channel, conn conn.Conn) error 
 			}
 
 			if loggo.IsDebug() {
-				loggo.Debug("sendToSonny %s %d %s", conn.Info(), len(f.DataFrame.Data), f.DataFrame.Crc)
+				loggo.Debug("sendToSonny %s %d %s %d", conn.Info(), len(f.DataFrame.Data), f.DataFrame.Crc, f.DataFrame.Index)
 			}
 		}
 	}
@@ -531,7 +543,7 @@ func (i *Inputer) processDataFrame(f *ProxyFrame) {
 	id := f.DataFrame.Id
 	v, ok := i.sonny.Load(id)
 	if !ok {
-		loggo.Error("Inputer processDataFrame no sonnny %s %d", id, len(f.DataFrame.Data))
+		loggo.Info("Inputer processDataFrame no sonnny %s %d", id, len(f.DataFrame.Data))
 		return
 	}
 	sonny := v.(*ProxyConn)
@@ -708,7 +720,7 @@ func (o *Outputer) processDataFrame(f *ProxyFrame) {
 	id := f.DataFrame.Id
 	v, ok := o.sonny.Load(id)
 	if !ok {
-		loggo.Error("Outputer processDataFrame no sonnny %s %d", f.DataFrame.Id, len(f.DataFrame.Data))
+		loggo.Info("Outputer processDataFrame no sonnny %s %d", f.DataFrame.Id, len(f.DataFrame.Data))
 		return
 	}
 	sonny := v.(*ProxyConn)

@@ -26,3 +26,10 @@ func GetCrc32String(s string) string {
 	hashInBytes := hash.Sum(nil)[:]
 	return hex.EncodeToString(hashInBytes)
 }
+
+func GetCrc32(data []byte) string {
+	hash := crc32.New(crc32.IEEETable)
+	hash.Write(data)
+	hashInBytes := hash.Sum(nil)[:]
+	return hex.EncodeToString(hashInBytes)
+}
