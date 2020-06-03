@@ -488,7 +488,7 @@ func NewInputer(wg *group.Group, proto string, addr string, clienttype CLIENT_TY
 		listenconn: listenconn,
 	}
 
-	wg.Go(func() error {
+	wg.Go("Inputer listen", func() error {
 		return input.listen()
 	})
 
@@ -569,7 +569,7 @@ func (i *Inputer) listen() error {
 				continue
 			}
 			proxyconn := &ProxyConn{conn: conn}
-			i.fwg.Go(func() error {
+			i.fwg.Go("Inputer processProxyConn", func() error {
 				return i.processProxyConn(proxyconn)
 			})
 		}
@@ -603,23 +603,23 @@ func (i *Inputer) processProxyConn(proxyConn *ProxyConn) error {
 
 	i.openConn(proxyConn)
 
-	wg.Go(func() error {
+	wg.Go("Inputer recvFromSonny", func() error {
 		return recvFromSonny(wg, recvch, proxyConn.conn, i.config.MaxMsgSize)
 	})
 
-	wg.Go(func() error {
+	wg.Go("Inputer sendToSonny", func() error {
 		return sendToSonny(wg, sendch, proxyConn.conn)
 	})
 
-	wg.Go(func() error {
+	wg.Go("Inputer checkSonnyActive", func() error {
 		return checkSonnyActive(wg, proxyConn, i.config.EstablishedTimeout, i.config.ConnTimeout)
 	})
 
-	wg.Go(func() error {
+	wg.Go("Inputer checkNeedClose", func() error {
 		return checkNeedClose(wg, proxyConn)
 	})
 
-	wg.Go(func() error {
+	wg.Go("Inputer copySonnyRecv", func() error {
 		return copySonnyRecv(wg, recvch, proxyConn, i.father)
 	})
 
@@ -751,7 +751,7 @@ func (o *Outputer) processOpenFrame(f *ProxyFrame) {
 	rf.OpenRspFrame.Msg = "ok"
 	o.father.sendch.Write(rf)
 
-	o.fwg.Go(func() error {
+	o.fwg.Go("Outputer processProxyConn", func() error {
 		return o.processProxyConn(proxyconn)
 	})
 }
@@ -769,23 +769,23 @@ func (o *Outputer) processProxyConn(proxyConn *ProxyConn) error {
 		recvch.Close()
 	})
 
-	wg.Go(func() error {
+	wg.Go("Outputer recvFromSonny", func() error {
 		return recvFromSonny(wg, recvch, proxyConn.conn, o.config.MaxMsgSize)
 	})
 
-	wg.Go(func() error {
+	wg.Go("Outputer sendToSonny", func() error {
 		return sendToSonny(wg, sendch, proxyConn.conn)
 	})
 
-	wg.Go(func() error {
+	wg.Go("Outputer checkSonnyActive", func() error {
 		return checkSonnyActive(wg, proxyConn, o.config.EstablishedTimeout, o.config.ConnTimeout)
 	})
 
-	wg.Go(func() error {
+	wg.Go("Outputer checkNeedClose", func() error {
 		return checkNeedClose(wg, proxyConn)
 	})
 
-	wg.Go(func() error {
+	wg.Go("Outputer copySonnyRecv", func() error {
 		return copySonnyRecv(wg, recvch, proxyConn, o.father)
 	})
 

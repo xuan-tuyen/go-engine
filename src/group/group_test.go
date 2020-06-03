@@ -9,7 +9,7 @@ import (
 
 func Test0001(t *testing.T) {
 	g := NewGroup(nil, nil)
-	g.Go(func() error {
+	g.Go("", func() error {
 		fmt.Println("a")
 		return nil
 	})
@@ -18,7 +18,7 @@ func Test0001(t *testing.T) {
 
 func Test0002(t *testing.T) {
 	g := NewGroup(nil, nil)
-	g.Go(func() error {
+	g.Go("", func() error {
 		for {
 			select {
 			case <-g.Done():
@@ -29,7 +29,7 @@ func Test0002(t *testing.T) {
 		}
 		return nil
 	})
-	g.Go(func() error {
+	g.Go("", func() error {
 		time.Sleep(time.Second * 5)
 		return errors.New("done")
 	})
@@ -39,7 +39,7 @@ func Test0002(t *testing.T) {
 func Test0003(t *testing.T) {
 	g := NewGroup(nil, nil)
 	gg := NewGroup(g, nil)
-	gg.Go(func() error {
+	gg.Go("", func() error {
 		for {
 			select {
 			case <-gg.Done():
@@ -50,7 +50,7 @@ func Test0003(t *testing.T) {
 		}
 		return nil
 	})
-	g.Go(func() error {
+	g.Go("", func() error {
 		time.Sleep(time.Second * 5)
 		return errors.New("done")
 	})
@@ -60,7 +60,7 @@ func Test0003(t *testing.T) {
 func Test0004(t *testing.T) {
 	g := NewGroup(nil, nil)
 	gg := NewGroup(g, nil)
-	g.Go(func() error {
+	g.Go("", func() error {
 		for {
 			select {
 			case <-g.Done():
@@ -71,11 +71,11 @@ func Test0004(t *testing.T) {
 		}
 		return nil
 	})
-	g.Go(func() error {
+	g.Go("", func() error {
 		time.Sleep(time.Second * 10)
 		return errors.New("done father")
 	})
-	gg.Go(func() error {
+	gg.Go("", func() error {
 		for {
 			select {
 			case <-gg.Done():
@@ -86,7 +86,7 @@ func Test0004(t *testing.T) {
 		}
 		return nil
 	})
-	gg.Go(func() error {
+	gg.Go("", func() error {
 		time.Sleep(time.Second * 5)
 		return errors.New("done")
 	})
@@ -99,7 +99,7 @@ func Test0005(t *testing.T) {
 		fmt.Println("stop")
 	})
 
-	g.Go(func() error {
+	g.Go("", func() error {
 		for {
 			select {
 			case <-g.Done():
@@ -111,7 +111,7 @@ func Test0005(t *testing.T) {
 		return nil
 	})
 
-	g.Go(func() error {
+	g.Go("", func() error {
 		for {
 			select {
 			case <-g.Done():
@@ -136,7 +136,7 @@ func Test0006(t *testing.T) {
 		fmt.Println("stop")
 	})
 
-	g.Go(func() error {
+	g.Go("", func() error {
 		for done == 0 {
 			fmt.Println("tick 1")
 			time.Sleep(time.Second)
@@ -144,7 +144,7 @@ func Test0006(t *testing.T) {
 		return nil
 	})
 
-	g.Go(func() error {
+	g.Go("", func() error {
 		for done == 0 {
 			fmt.Println("tick 2")
 			time.Sleep(time.Second)
@@ -163,20 +163,20 @@ func Test0007(t *testing.T) {
 		fmt.Println("stop")
 	})
 
-	g.Go(func() error {
+	g.Go("", func() error {
 		time.Sleep(time.Second)
 		fmt.Println("tick 1")
 		return nil
 	})
 
-	g.Go(func() error {
+	g.Go("", func() error {
 		time.Sleep(time.Second)
 		time.Sleep(time.Second)
 		fmt.Println("tick 2")
 		return nil
 	})
 
-	g.Go(func() error {
+	g.Go("", func() error {
 		for {
 			select {
 			case <-g.Done():
@@ -191,4 +191,32 @@ func Test0007(t *testing.T) {
 	time.Sleep(time.Second * 5)
 	g.Stop()
 	g.Wait()
+}
+
+func Test008(t *testing.T) {
+	g := NewGroup(nil, func() {
+		fmt.Println("stop")
+	})
+
+	exit := false
+	g.Go("test", func() error {
+		for !exit {
+			fmt.Println("tick")
+			time.Sleep(time.Second)
+		}
+		return nil
+	})
+
+	go func() {
+		time.Sleep(time.Second * 5)
+		g.Stop()
+	}()
+
+	go func() {
+		time.Sleep(time.Second * 7)
+		exit = true
+	}()
+
+	g.Wait()
+
 }

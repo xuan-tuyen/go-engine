@@ -59,7 +59,7 @@ func NewServer(config *Config, listenaddr string) (*Server, error) {
 		wg:         wg,
 	}
 
-	wg.Go(func() error {
+	wg.Go("Server listen", func() error {
 		return s.listen()
 	})
 
@@ -67,11 +67,8 @@ func NewServer(config *Config, listenaddr string) (*Server, error) {
 }
 
 func (s *Server) Close() {
-	s.wg.Go(func() error {
-		return errors.New("close")
-	})
+	s.wg.Stop()
 	s.wg.Wait()
-	s.listenConn.Close()
 }
 
 func (s *Server) listen() error {
@@ -86,7 +83,7 @@ func (s *Server) listen() error {
 				continue
 			}
 			clientconn := &ClientConn{ProxyConn: ProxyConn{conn: conn}}
-			s.wg.Go(func() error {
+			s.wg.Go("Server serveClient", func() error {
 				return s.serveClient(clientconn)
 			})
 		}
@@ -115,23 +112,23 @@ func (s *Server) serveClient(clientconn *ClientConn) error {
 		}
 	})
 
-	wg.Go(func() error {
+	wg.Go("Server recvFrom", func() error {
 		return recvFrom(wg, recvch, clientconn.conn, s.config.MaxMsgSize, s.config.Encrypt)
 	})
 
-	wg.Go(func() error {
+	wg.Go("Server sendTo", func() error {
 		return sendTo(wg, sendch, clientconn.conn, s.config.Compress, s.config.MaxMsgSize, s.config.Encrypt)
 	})
 
-	wg.Go(func() error {
+	wg.Go("Server checkPingActive", func() error {
 		return checkPingActive(wg, sendch, recvch, &clientconn.ProxyConn, s.config.EstablishedTimeout, s.config.PingInter, s.config.PingTimeoutInter, s.config.ShowPing)
 	})
 
-	wg.Go(func() error {
+	wg.Go("Server checkNeedClose", func() error {
 		return checkNeedClose(wg, &clientconn.ProxyConn)
 	})
 
-	wg.Go(func() error {
+	wg.Go("Server process", func() error {
 		return s.process(wg, sendch, recvch, clientconn)
 	})
 
