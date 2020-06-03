@@ -250,10 +250,15 @@ func sendTo(wg *group.Group, sendch *common.Channel, conn conn.Conn, compress in
 				return err
 			}
 
-			_, err = conn.Write(mb)
+			n, err := conn.Write(mb)
 			if err != nil {
 				loggo.Error("sendTo Write fail: %s %s", conn.Info(), err.Error())
 				return err
+			}
+
+			if n != len(f.DataFrame.Data) {
+				loggo.Error("sendTo Write len fail: %s %d %d", conn.Info(), n, len(f.DataFrame.Data))
+				return errors.New("len error")
 			}
 
 			if f.Type != FRAME_TYPE_PING && f.Type != FRAME_TYPE_PONG && loggo.IsDebug() {
@@ -340,10 +345,15 @@ func sendToSonny(wg *group.Group, sendch *common.Channel, conn conn.Conn) error 
 				return errors.New("index error")
 			}
 
-			_, err := conn.Write(f.DataFrame.Data)
+			n, err := conn.Write(f.DataFrame.Data)
 			if err != nil {
 				loggo.Error("sendToSonny Write fail: %s %s", conn.Info(), err.Error())
 				return err
+			}
+
+			if n != len(f.DataFrame.Data) {
+				loggo.Error("sendToSonny Write len fail: %s %d %d", conn.Info(), n, len(f.DataFrame.Data))
+				return errors.New("len error")
 			}
 
 			if loggo.IsDebug() {
