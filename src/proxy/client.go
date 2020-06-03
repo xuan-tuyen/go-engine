@@ -119,6 +119,12 @@ func (c *Client) useServer(serverconn *ServerConn) error {
 		serverconn.conn.Close()
 		sendch.Close()
 		recvch.Close()
+		if serverconn.output != nil {
+			serverconn.output.Close()
+		}
+		if serverconn.input != nil {
+			serverconn.input.Close()
+		}
 	})
 
 	c.login(sendch)
@@ -144,12 +150,6 @@ func (c *Client) useServer(serverconn *ServerConn) error {
 	})
 
 	wg.Wait()
-	if serverconn.output != nil {
-		serverconn.output.Close()
-	}
-	if serverconn.input != nil {
-		serverconn.input.Close()
-	}
 	c.serverconn = nil
 	loggo.Info("useServer close %s %s", c.server, serverconn.conn.Info())
 

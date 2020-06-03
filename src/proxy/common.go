@@ -569,12 +569,14 @@ func (i *Inputer) listen() error {
 				continue
 			}
 			proxyconn := &ProxyConn{conn: conn}
-			go i.processProxyConn(proxyconn)
+			i.fwg.Go(func() error {
+				return i.processProxyConn(proxyconn)
+			})
 		}
 	}
 }
 
-func (i *Inputer) processProxyConn(proxyConn *ProxyConn) {
+func (i *Inputer) processProxyConn(proxyConn *ProxyConn) error {
 
 	proxyConn.id = common.UniqueId()
 
@@ -584,7 +586,7 @@ func (i *Inputer) processProxyConn(proxyConn *ProxyConn) {
 	if loaded {
 		loggo.Error("Inputer processProxyConn LoadOrStore fail %s", proxyConn.id)
 		proxyConn.conn.Close()
-		return
+		return nil
 	}
 
 	sendch := common.NewChannel(i.config.ConnBuffer)
@@ -627,6 +629,8 @@ func (i *Inputer) processProxyConn(proxyConn *ProxyConn) {
 	closeRemoteConn(proxyConn, i.father)
 
 	loggo.Info("Inputer processProxyConn end %s %s", proxyConn.id, proxyConn.conn.Info())
+
+	return nil
 }
 
 func (i *Inputer) openConn(proxyConn *ProxyConn) {
@@ -747,10 +751,12 @@ func (o *Outputer) processOpenFrame(f *ProxyFrame) {
 	rf.OpenRspFrame.Msg = "ok"
 	o.father.sendch.Write(rf)
 
-	go o.processProxyConn(proxyconn)
+	o.fwg.Go(func() error {
+		return o.processProxyConn(proxyconn)
+	})
 }
 
-func (o *Outputer) processProxyConn(proxyConn *ProxyConn) {
+func (o *Outputer) processProxyConn(proxyConn *ProxyConn) error {
 
 	loggo.Info("Outputer processProxyConn start %s %s", proxyConn.id, proxyConn.conn.Info())
 
@@ -789,4 +795,6 @@ func (o *Outputer) processProxyConn(proxyConn *ProxyConn) {
 	closeRemoteConn(proxyConn, o.father)
 
 	loggo.Info("Outputer processProxyConn end %s %s", proxyConn.id, proxyConn.conn.Info())
+
+	return nil
 }

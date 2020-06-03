@@ -107,6 +107,12 @@ func (s *Server) serveClient(clientconn *ClientConn) error {
 		clientconn.conn.Close()
 		sendch.Close()
 		recvch.Close()
+		if clientconn.input != nil {
+			clientconn.input.Close()
+		}
+		if clientconn.output != nil {
+			clientconn.output.Close()
+		}
 	})
 
 	wg.Go(func() error {
@@ -132,12 +138,6 @@ func (s *Server) serveClient(clientconn *ClientConn) error {
 	wg.Wait()
 	if clientconn.established {
 		s.clients.Delete(clientconn.name)
-	}
-	if clientconn.input != nil {
-		clientconn.input.Close()
-	}
-	if clientconn.output != nil {
-		clientconn.output.Close()
 	}
 
 	loggo.Info("serveClient close client %s", clientconn.conn.Info())
