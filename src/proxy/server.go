@@ -152,6 +152,9 @@ func (s *Server) process(wg *group.Group, sendch *common.Channel, recvch *common
 		case <-wg.Done():
 			return nil
 		case ff := <-recvch.Ch():
+			if ff == nil {
+				return nil
+			}
 			f := ff.(*ProxyFrame)
 			switch f.Type {
 			case FRAME_TYPE_LOGIN:

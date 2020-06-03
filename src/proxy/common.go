@@ -215,6 +215,9 @@ func sendTo(wg *group.Group, sendch *common.Channel, conn conn.Conn, compress in
 		case <-wg.Done():
 			return nil
 		case ff := <-sendch.Ch():
+			if ff == nil {
+				return nil
+			}
 			f := ff.(*ProxyFrame)
 			mb, err := MarshalSrpFrame(f, compress, encrypt)
 			if err != nil {
@@ -291,6 +294,9 @@ func sendToSonny(wg *group.Group, sendch *common.Channel, conn conn.Conn) error 
 		case <-wg.Done():
 			return nil
 		case ff := <-sendch.Ch():
+			if ff == nil {
+				return nil
+			}
 			f := ff.(*ProxyFrame)
 			if f.DataFrame.Compress {
 				loggo.Error("sendToSonny Compress error: %s", conn.Info())
@@ -439,6 +445,9 @@ func copySonnyRecv(wg *group.Group, recvch *common.Channel, proxyConn *ProxyConn
 		case <-wg.Done():
 			return nil
 		case ff := <-recvch.Ch():
+			if ff == nil {
+				return nil
+			}
 			f := ff.(*ProxyFrame)
 			if f.Type != FRAME_TYPE_DATA {
 				loggo.Error("copySonnyRecv type error %s %d", proxyConn.conn.Info(), f.Type)
