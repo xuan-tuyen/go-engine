@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/esrrhs/go-engine/src/common"
 	"github.com/esrrhs/go-engine/src/loggo"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -98,7 +97,6 @@ func (g *Group) Go(name string, f func() error) {
 	g.lock.Lock()
 	defer g.lock.Unlock()
 	g.add()
-	name = strings.Replace(name, " ", "-", -1)
 	g.sonname[name]++
 
 	go func() {

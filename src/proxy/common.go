@@ -338,7 +338,6 @@ func checkPingActive(wg *group.Group, sendch *common.Channel, recvch *common.Cha
 		if !proxyconn.established {
 			if n > estimeout {
 				loggo.Error("checkPingActive established timeout %s", proxyconn.conn.Info())
-				proxyconn.conn.Close()
 				return errors.New("established timeout")
 			}
 		} else {
@@ -353,7 +352,6 @@ func checkPingActive(wg *group.Group, sendch *common.Channel, recvch *common.Cha
 		case <-time.After(time.Duration(pinginter) * time.Second):
 			if proxyconn.pinged > pingintertimeout {
 				loggo.Error("checkPingActive ping pong timeout %s", proxyconn.conn.Info())
-				proxyconn.conn.Close()
 				return errors.New("ping pong timeout")
 			}
 
@@ -381,7 +379,6 @@ func checkNeedClose(wg *group.Group, proxyconn *ProxyConn) error {
 		case <-time.After(time.Second):
 			if proxyconn.needclose {
 				loggo.Error("checkNeedClose needclose %s", proxyconn.conn.Info())
-				proxyconn.conn.Close()
 				return errors.New("needclose")
 			}
 		}
@@ -415,7 +412,6 @@ func checkSonnyActive(wg *group.Group, proxyconn *ProxyConn, estimeout int, time
 		if !proxyconn.established {
 			if n > estimeout {
 				loggo.Error("checkSonnyActive established timeout %s", proxyconn.conn.Info())
-				proxyconn.conn.Close()
 				return errors.New("established timeout")
 			}
 		} else {
@@ -430,7 +426,6 @@ func checkSonnyActive(wg *group.Group, proxyconn *ProxyConn, estimeout int, time
 		case <-time.After(time.Duration(timeout) * time.Second):
 			if proxyconn.actived == 0 {
 				loggo.Error("checkSonnyActive timeout %s", proxyconn.conn.Info())
-				proxyconn.conn.Close()
 				return errors.New("conn timeout")
 			}
 			proxyconn.actived = 0
