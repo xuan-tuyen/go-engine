@@ -444,6 +444,10 @@ func copySonnyRecv(wg *group.Group, recvch *common.Channel, proxyConn *ProxyConn
 				loggo.Error("copySonnyRecv type error %s %d", proxyConn.conn.Info(), f.Type)
 				return errors.New("conn type error")
 			}
+			if f.DataFrame.Compress {
+				loggo.Error("copySonnyRecv compress error %s %d", proxyConn.conn.Info(), f.Type)
+				return errors.New("conn compress error")
+			}
 			f.DataFrame.Id = proxyConn.id
 			proxyConn.actived++
 
