@@ -178,3 +178,14 @@ func Test0007(t *testing.T) {
 	fmt.Println(GetCrc32String("2"))
 	fmt.Println(GetCrc32String("asfsadgewwe"))
 }
+
+func Test0008(t *testing.T) {
+	c := NewChannel(10)
+	c.Write(1)
+	i := <-c.Ch()
+	fmt.Println(i)
+	c.Close()
+	c.Close()
+	c.Write(1)
+	c.Write(1)
+}

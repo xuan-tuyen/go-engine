@@ -1,27 +1,15 @@
 package proxy
 
 import (
-	"context"
 	"errors"
 	"github.com/esrrhs/go-engine/src/common"
 	"github.com/esrrhs/go-engine/src/conn"
+	"github.com/esrrhs/go-engine/src/group"
 	"github.com/esrrhs/go-engine/src/loggo"
-	"golang.org/x/sync/errgroup"
-	"net"
 	"strconv"
 	"sync"
 	"time"
 )
-
-type ClientConnSonny struct {
-	conn      *net.TCPConn
-	id        string
-	sendch    chan *ProxyFrame
-	recvch    chan *ProxyFrame
-	active    int64
-	opened    bool
-	needclose bool
-}
 
 type ClientConn struct {
 	ProxyConn
@@ -40,7 +28,7 @@ type Server struct {
 	config     *Config
 	listenaddr string
 	listenConn conn.Conn
-	wg         *errgroup.Group
+	wg         *group.Group
 	clients    sync.Map
 }
 
@@ -60,7 +48,9 @@ func NewServer(config *Config, listenaddr string) (*Server, error) {
 		return nil, err
 	}
 
-	wg, ctx := errgroup.WithContext(context.Background())
+	wg := group.NewGroup(nil, func() {
+		listenConn.Close()
+	})
 
 	s := &Server{
 		config:     config,
@@ -70,7 +60,7 @@ func NewServer(config *Config, listenaddr string) (*Server, error) {
 	}
 
 	wg.Go(func() error {
-		return s.listen(ctx)
+		return s.listen()
 	})
 
 	return s, nil
@@ -84,13 +74,11 @@ func (s *Server) Close() {
 	s.listenConn.Close()
 }
 
-func (s *Server) listen(ctx context.Context) error {
-
-	defer common.CrashLog()
+func (s *Server) listen() error {
 
 	for {
 		select {
-		case <-ctx.Done():
+		case <-s.wg.Done():
 			return nil
 		case <-time.After(time.Second):
 			conn, err := s.listenConn.Accept()
@@ -98,46 +86,50 @@ func (s *Server) listen(ctx context.Context) error {
 				continue
 			}
 			clientconn := &ClientConn{ProxyConn: ProxyConn{conn: conn}}
-			go s.serveClient(ctx, clientconn)
+			s.wg.Go(func() error {
+				return s.serveClient(clientconn)
+			})
 		}
 	}
 }
 
-func (s *Server) serveClient(fctx context.Context, clientconn *ClientConn) {
-	defer common.CrashLog()
+func (s *Server) serveClient(clientconn *ClientConn) error {
 
 	loggo.Info("serveClient accept new client %s", clientconn.conn.Info())
 
-	wg, ctx := errgroup.WithContext(fctx)
-
-	sendch := make(chan *ProxyFrame, s.config.MainBuffer)
-	recvch := make(chan *ProxyFrame, s.config.MainBuffer)
+	sendch := common.NewChannel(s.config.MainBuffer)
+	recvch := common.NewChannel(s.config.MainBuffer)
 
 	clientconn.sendch = sendch
 	clientconn.recvch = recvch
 
-	wg.Go(func() error {
-		return recvFrom(ctx, recvch, clientconn.conn, s.config.MaxMsgSize, s.config.Encrypt)
+	wg := group.NewGroup(s.wg, func() {
+		clientconn.conn.Close()
+		sendch.Close()
+		recvch.Close()
 	})
 
 	wg.Go(func() error {
-		return sendTo(ctx, sendch, clientconn.conn, s.config.Compress, s.config.MaxMsgSize, s.config.Encrypt)
+		return recvFrom(wg, recvch, clientconn.conn, s.config.MaxMsgSize, s.config.Encrypt)
 	})
 
 	wg.Go(func() error {
-		return checkPingActive(ctx, sendch, recvch, &clientconn.ProxyConn, s.config.EstablishedTimeout, s.config.PingInter, s.config.PingTimeoutInter, s.config.ShowPing)
+		return sendTo(wg, sendch, clientconn.conn, s.config.Compress, s.config.MaxMsgSize, s.config.Encrypt)
 	})
 
 	wg.Go(func() error {
-		return checkNeedClose(ctx, &clientconn.ProxyConn)
+		return checkPingActive(wg, sendch, recvch, &clientconn.ProxyConn, s.config.EstablishedTimeout, s.config.PingInter, s.config.PingTimeoutInter, s.config.ShowPing)
 	})
 
 	wg.Go(func() error {
-		return s.process(ctx, wg, sendch, recvch, clientconn)
+		return checkNeedClose(wg, &clientconn.ProxyConn)
+	})
+
+	wg.Go(func() error {
+		return s.process(wg, sendch, recvch, clientconn)
 	})
 
 	wg.Wait()
-	clientconn.conn.Close()
 	if clientconn.established {
 		s.clients.Delete(clientconn.name)
 	}
@@ -147,45 +139,45 @@ func (s *Server) serveClient(fctx context.Context, clientconn *ClientConn) {
 	if clientconn.output != nil {
 		clientconn.output.Close()
 	}
-	close(sendch)
-	close(recvch)
 
 	loggo.Info("serveClient close client %s", clientconn.conn.Info())
+
+	return nil
 }
 
-func (s *Server) process(ctx context.Context, wg *errgroup.Group, sendch chan<- *ProxyFrame, recvch <-chan *ProxyFrame, clientconn *ClientConn) error {
-	defer common.CrashLog()
+func (s *Server) process(wg *group.Group, sendch *common.Channel, recvch *common.Channel, clientconn *ClientConn) error {
 
 	for {
 		select {
-		case <-ctx.Done():
+		case <-wg.Done():
 			return nil
-		case f := <-recvch:
+		case ff := <-recvch.Ch():
+			f := ff.(*ProxyFrame)
 			switch f.Type {
 			case FRAME_TYPE_LOGIN:
-				s.processLogin(ctx, wg, f, sendch, clientconn)
+				s.processLogin(wg, f, sendch, clientconn)
 
 			case FRAME_TYPE_PING:
-				processPing(ctx, f, sendch, &clientconn.ProxyConn)
+				processPing(f, sendch, &clientconn.ProxyConn)
 
 			case FRAME_TYPE_PONG:
-				processPong(ctx, f, sendch, &clientconn.ProxyConn, s.config.ShowPing)
+				processPong(f, sendch, &clientconn.ProxyConn, s.config.ShowPing)
 
 			case FRAME_TYPE_DATA:
-				s.processData(ctx, f, sendch, clientconn)
+				s.processData(f, clientconn)
 
 			case FRAME_TYPE_OPEN:
-				s.processOpen(ctx, f, sendch, clientconn)
+				s.processOpen(f, clientconn)
 
 			case FRAME_TYPE_OPENRSP:
-				s.processOpenRsp(ctx, f, sendch, clientconn)
+				s.processOpenRsp(f, clientconn)
 			}
 		}
 	}
 
 }
 
-func (s *Server) processLogin(ctx context.Context, wg *errgroup.Group, f *ProxyFrame, sendch chan<- *ProxyFrame, clientconn *ClientConn) {
+func (s *Server) processLogin(wg *group.Group, f *ProxyFrame, sendch *common.Channel, clientconn *ClientConn) {
 	loggo.Info("processLogin from %s %s", clientconn.conn.Info(), f.LoginFrame.String())
 
 	clientconn.proxyproto = f.LoginFrame.Proxyproto
@@ -201,7 +193,7 @@ func (s *Server) processLogin(ctx context.Context, wg *errgroup.Group, f *ProxyF
 	if f.LoginFrame.Key != s.config.Key {
 		rf.LoginRspFrame.Ret = false
 		rf.LoginRspFrame.Msg = "key error"
-		sendch <- rf
+		sendch.Write(rf)
 		loggo.Error("processLogin fail key error %s %s", clientconn.conn.Info(), f.LoginFrame.String())
 		return
 	}
@@ -209,7 +201,7 @@ func (s *Server) processLogin(ctx context.Context, wg *errgroup.Group, f *ProxyF
 	if clientconn.established {
 		rf.LoginRspFrame.Ret = false
 		rf.LoginRspFrame.Msg = "has established before"
-		sendch <- rf
+		sendch.Write(rf)
 		loggo.Error("processLogin fail has established before %s %s", clientconn.conn.Info(), f.LoginFrame.String())
 		return
 	}
@@ -218,17 +210,17 @@ func (s *Server) processLogin(ctx context.Context, wg *errgroup.Group, f *ProxyF
 	if loaded {
 		rf.LoginRspFrame.Ret = false
 		rf.LoginRspFrame.Msg = "other has login before"
-		sendch <- rf
+		sendch.Write(rf)
 		loggo.Error("processLogin fail other has login before %s %s", clientconn.conn.Info(), f.LoginFrame.String())
 		return
 	}
 
-	err := s.iniService(ctx, wg, f, clientconn)
+	err := s.iniService(wg, f, clientconn)
 	if err != nil {
 		s.clients.Delete(clientconn.name)
 		rf.LoginRspFrame.Ret = false
 		rf.LoginRspFrame.Msg = "iniService fail"
-		sendch <- rf
+		sendch.Write(rf)
 		loggo.Error("processLogin iniService fail %s %s", clientconn.conn.Info(), f.LoginFrame.String())
 		return
 	}
@@ -237,21 +229,21 @@ func (s *Server) processLogin(ctx context.Context, wg *errgroup.Group, f *ProxyF
 
 	rf.LoginRspFrame.Ret = true
 	rf.LoginRspFrame.Msg = "ok"
-	sendch <- rf
+	sendch.Write(rf)
 
 	loggo.Info("processLogin ok %s %s", clientconn.conn.Info(), f.LoginFrame.String())
 }
 
-func (s *Server) iniService(ctx context.Context, wg *errgroup.Group, f *ProxyFrame, clientConn *ClientConn) error {
+func (s *Server) iniService(wg *group.Group, f *ProxyFrame, clientConn *ClientConn) error {
 	switch f.LoginFrame.Clienttype {
 	case CLIENT_TYPE_PROXY:
-		output, err := NewOutputer(ctx, wg, f.LoginFrame.Proxyproto.String(), f.LoginFrame.Toaddr, f.LoginFrame.Clienttype, s.config, &clientConn.ProxyConn)
+		output, err := NewOutputer(wg, f.LoginFrame.Proxyproto.String(), f.LoginFrame.Toaddr, f.LoginFrame.Clienttype, s.config, &clientConn.ProxyConn)
 		if err != nil {
 			return err
 		}
 		clientConn.output = output
 	case CLIENT_TYPE_REVERSE_PROXY:
-		input, err := NewInputer(ctx, wg, f.LoginFrame.Proxyproto.String(), f.LoginFrame.Fromaddr, f.LoginFrame.Clienttype, s.config, &clientConn.ProxyConn)
+		input, err := NewInputer(wg, f.LoginFrame.Proxyproto.String(), f.LoginFrame.Fromaddr, f.LoginFrame.Clienttype, s.config, &clientConn.ProxyConn)
 		if err != nil {
 			return err
 		}
@@ -266,7 +258,7 @@ func (s *Server) iniService(ctx context.Context, wg *errgroup.Group, f *ProxyFra
 	return nil
 }
 
-func (s *Server) processData(ctx context.Context, f *ProxyFrame, sendch chan<- *ProxyFrame, clientconn *ClientConn) {
+func (s *Server) processData(f *ProxyFrame, clientconn *ClientConn) {
 	if clientconn.input != nil {
 		clientconn.input.processDataFrame(f)
 	} else if clientconn.output != nil {
@@ -274,19 +266,19 @@ func (s *Server) processData(ctx context.Context, f *ProxyFrame, sendch chan<- *
 	}
 }
 
-func (s *Server) processOpenRsp(ctx context.Context, f *ProxyFrame, sendch chan<- *ProxyFrame, clientconn *ClientConn) {
+func (s *Server) processOpenRsp(f *ProxyFrame, clientconn *ClientConn) {
 	if clientconn.input != nil {
 		clientconn.input.processOpenRspFrame(f)
 	}
 }
 
-func (c *Server) processOpen(ctx context.Context, f *ProxyFrame, sendch chan<- *ProxyFrame, clientconn *ClientConn) {
+func (c *Server) processOpen(f *ProxyFrame, clientconn *ClientConn) {
 	if clientconn.output != nil {
-		clientconn.output.processOpenFrame(ctx, f)
+		clientconn.output.processOpenFrame(f)
 	}
 }
 
-func (c *Server) processClose(ctx context.Context, f *ProxyFrame, sendch chan<- *ProxyFrame, clientconn *ClientConn) {
+func (c *Server) processClose(f *ProxyFrame, clientconn *ClientConn) {
 	if clientconn.input != nil {
 		clientconn.input.processCloseFrame(f)
 	} else if clientconn.output != nil {

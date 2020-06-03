@@ -1,14 +1,13 @@
 package proxy
 
 import (
-	"context"
 	"encoding/binary"
 	"errors"
 	"github.com/esrrhs/go-engine/src/common"
 	"github.com/esrrhs/go-engine/src/conn"
+	"github.com/esrrhs/go-engine/src/group"
 	"github.com/esrrhs/go-engine/src/loggo"
 	"github.com/golang/protobuf/proto"
-	"golang.org/x/sync/errgroup"
 	"io"
 	"strconv"
 	"sync"
@@ -52,8 +51,8 @@ func DefaultConfig() *Config {
 type ProxyConn struct {
 	conn        conn.Conn
 	established bool
-	sendch      chan *ProxyFrame
-	recvch      chan *ProxyFrame
+	sendch      *common.Channel // *ProxyFrame
+	recvch      *common.Channel // *ProxyFrame
 	actived     int
 	pinged      int
 	id          string
@@ -164,15 +163,14 @@ func UnmarshalSrpFrame(b []byte, encrpyt string) (*ProxyFrame, error) {
 	return f, nil
 }
 
-func recvFrom(ctx context.Context, recvch chan<- *ProxyFrame, conn conn.Conn, maxmsgsize int, encrypt string) error {
-	defer common.CrashLog()
+func recvFrom(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxmsgsize int, encrypt string) error {
 
 	bs := make([]byte, 4)
 	ds := make([]byte, maxmsgsize)
 
 	for {
 		select {
-		case <-ctx.Done():
+		case <-wg.Done():
 			return nil
 		default:
 			_, err := io.ReadFull(conn, bs)
@@ -199,7 +197,7 @@ func recvFrom(ctx context.Context, recvch chan<- *ProxyFrame, conn conn.Conn, ma
 				return err
 			}
 
-			recvch <- f
+			recvch.Write(f)
 
 			if f.Type != FRAME_TYPE_PING && f.Type != FRAME_TYPE_PONG && loggo.IsDebug() {
 				loggo.Debug("recvFrom %s %s", conn.Info(), f.Type.String())
@@ -208,16 +206,16 @@ func recvFrom(ctx context.Context, recvch chan<- *ProxyFrame, conn conn.Conn, ma
 	}
 }
 
-func sendTo(ctx context.Context, sendch <-chan *ProxyFrame, conn conn.Conn, compress int, maxmsgsize int, encrypt string) error {
-	defer common.CrashLog()
+func sendTo(wg *group.Group, sendch *common.Channel, conn conn.Conn, compress int, maxmsgsize int, encrypt string) error {
 
 	bs := make([]byte, 4)
 
 	for {
 		select {
-		case <-ctx.Done():
+		case <-wg.Done():
 			return nil
-		case f := <-sendch:
+		case ff := <-sendch.Ch():
+			f := ff.(*ProxyFrame)
 			mb, err := MarshalSrpFrame(f, compress, encrypt)
 			if err != nil {
 				loggo.Error("sendTo MarshalSrpFrame fail: %s %s", conn.Info(), err.Error())
@@ -250,14 +248,13 @@ func sendTo(ctx context.Context, sendch <-chan *ProxyFrame, conn conn.Conn, comp
 	}
 }
 
-func recvFromSonny(ctx context.Context, recvch chan<- *ProxyFrame, conn conn.Conn, maxmsgsize int) error {
-	defer common.CrashLog()
+func recvFromSonny(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxmsgsize int) error {
 
 	ds := make([]byte, maxmsgsize)
 
 	for {
 		select {
-		case <-ctx.Done():
+		case <-wg.Done():
 			return nil
 		default:
 			len, err := conn.Read(ds)
@@ -278,7 +275,7 @@ func recvFromSonny(ctx context.Context, recvch chan<- *ProxyFrame, conn conn.Con
 			f.DataFrame.Compress = false
 			f.DataFrame.Crc = common.GetCrc32String(string(f.DataFrame.Data))
 
-			recvch <- f
+			recvch.Write(f)
 
 			if loggo.IsDebug() {
 				loggo.Debug("recvFromSonny %s %d %s", conn.Info(), len, f.DataFrame.Crc)
@@ -287,14 +284,14 @@ func recvFromSonny(ctx context.Context, recvch chan<- *ProxyFrame, conn conn.Con
 	}
 }
 
-func sendToSonny(ctx context.Context, sendch <-chan *ProxyFrame, conn conn.Conn) error {
-	defer common.CrashLog()
+func sendToSonny(wg *group.Group, sendch *common.Channel, conn conn.Conn) error {
 
 	for {
 		select {
-		case <-ctx.Done():
+		case <-wg.Done():
 			return nil
-		case f := <-sendch:
+		case ff := <-sendch.Ch():
+			f := ff.(*ProxyFrame)
 			if f.DataFrame.Compress {
 				loggo.Error("sendToSonny Compress error: %s", conn.Info())
 				return errors.New("msg compress error")
@@ -323,13 +320,12 @@ func sendToSonny(ctx context.Context, sendch <-chan *ProxyFrame, conn conn.Conn)
 	}
 }
 
-func checkPingActive(ctx context.Context, sendch chan<- *ProxyFrame, recvch <-chan *ProxyFrame, proxyconn *ProxyConn,
+func checkPingActive(wg *group.Group, sendch *common.Channel, recvch *common.Channel, proxyconn *ProxyConn,
 	estimeout int, pinginter int, pingintertimeout int, showping bool) error {
-	defer common.CrashLog()
 
 	n := 0
 	select {
-	case <-ctx.Done():
+	case <-wg.Done():
 		return nil
 	case <-time.After(time.Second):
 		n++
@@ -346,7 +342,7 @@ func checkPingActive(ctx context.Context, sendch chan<- *ProxyFrame, recvch <-ch
 
 	for {
 		select {
-		case <-ctx.Done():
+		case <-wg.Done():
 			return nil
 		case <-time.After(time.Duration(pinginter) * time.Second):
 			if proxyconn.pinged > pingintertimeout {
@@ -359,7 +355,9 @@ func checkPingActive(ctx context.Context, sendch chan<- *ProxyFrame, recvch <-ch
 			f.Type = FRAME_TYPE_PING
 			f.PingFrame = &PingFrame{}
 			f.PingFrame.Time = time.Now().UnixNano()
-			sendch <- f
+
+			sendch.Write(f)
+
 			proxyconn.pinged++
 			if showping {
 				loggo.Info("ping %s", proxyconn.conn.Info())
@@ -368,12 +366,11 @@ func checkPingActive(ctx context.Context, sendch chan<- *ProxyFrame, recvch <-ch
 	}
 }
 
-func checkNeedClose(ctx context.Context, proxyconn *ProxyConn) error {
-	defer common.CrashLog()
+func checkNeedClose(wg *group.Group, proxyconn *ProxyConn) error {
 
 	for {
 		select {
-		case <-ctx.Done():
+		case <-wg.Done():
 			return nil
 		case <-time.After(time.Second):
 			if proxyconn.needclose {
@@ -385,15 +382,15 @@ func checkNeedClose(ctx context.Context, proxyconn *ProxyConn) error {
 	}
 }
 
-func processPing(ctx context.Context, f *ProxyFrame, sendch chan<- *ProxyFrame, proxyconn *ProxyConn) {
+func processPing(f *ProxyFrame, sendch *common.Channel, proxyconn *ProxyConn) {
 	rf := &ProxyFrame{}
 	rf.Type = FRAME_TYPE_PONG
 	rf.PongFrame = &PongFrame{}
 	rf.PongFrame.Time = f.PingFrame.Time
-	sendch <- rf
+	sendch.Write(rf)
 }
 
-func processPong(ctx context.Context, f *ProxyFrame, sendch chan<- *ProxyFrame, proxyconn *ProxyConn, showping bool) {
+func processPong(f *ProxyFrame, sendch *common.Channel, proxyconn *ProxyConn, showping bool) {
 	elapse := time.Duration(time.Now().UnixNano() - f.PongFrame.Time)
 	proxyconn.pinged = 0
 	if showping {
@@ -401,12 +398,11 @@ func processPong(ctx context.Context, f *ProxyFrame, sendch chan<- *ProxyFrame, 
 	}
 }
 
-func checkSonnyActive(ctx context.Context, proxyconn *ProxyConn, estimeout int, timeout int) error {
-	defer common.CrashLog()
+func checkSonnyActive(wg *group.Group, proxyconn *ProxyConn, estimeout int, timeout int) error {
 
 	n := 0
 	select {
-	case <-ctx.Done():
+	case <-wg.Done():
 		return nil
 	case <-time.After(time.Second):
 		n++
@@ -423,7 +419,7 @@ func checkSonnyActive(ctx context.Context, proxyconn *ProxyConn, estimeout int, 
 
 	for {
 		select {
-		case <-ctx.Done():
+		case <-wg.Done():
 			return nil
 		case <-time.After(time.Duration(timeout) * time.Second):
 			if proxyconn.actived == 0 {
@@ -436,28 +432,29 @@ func checkSonnyActive(ctx context.Context, proxyconn *ProxyConn, estimeout int, 
 	}
 }
 
-func copySonnyRecv(ctx context.Context, recvch <-chan *ProxyFrame, proxyConn *ProxyConn, father *ProxyConn) error {
-	defer common.CrashLog()
+func copySonnyRecv(wg *group.Group, recvch *common.Channel, proxyConn *ProxyConn, father *ProxyConn) error {
 
 	for {
 		select {
-		case <-ctx.Done():
+		case <-wg.Done():
 			return nil
-		case f := <-recvch:
+		case ff := <-recvch.Ch():
+			f := ff.(*ProxyFrame)
 			if f.Type != FRAME_TYPE_DATA {
 				loggo.Error("copySonnyRecv type error %s %d", proxyConn.conn.Info(), f.Type)
 				return errors.New("conn type error")
 			}
 			f.DataFrame.Id = proxyConn.id
 			proxyConn.actived++
-			father.sendch <- f
+
+			father.sendch.Write(f)
 
 			loggo.Debug("copySonnyRecv %s %d", proxyConn.id, len(f.DataFrame.Data))
 		}
 	}
 }
 
-func NewInputer(ctx context.Context, wg *errgroup.Group, proto string, addr string, clienttype CLIENT_TYPE, config *Config, father *ProxyConn) (*Inputer, error) {
+func NewInputer(wg *group.Group, proto string, addr string, clienttype CLIENT_TYPE, config *Config, father *ProxyConn) (*Inputer, error) {
 	conn, err := conn.NewConn(proto)
 	if conn == nil {
 		return nil, err
@@ -474,11 +471,12 @@ func NewInputer(ctx context.Context, wg *errgroup.Group, proto string, addr stri
 		proto:      proto,
 		addr:       addr,
 		father:     father,
+		fwg:        wg,
 		listenconn: listenconn,
 	}
 
 	wg.Go(func() error {
-		return input.listen(ctx)
+		return input.listen()
 	})
 
 	loggo.Info("NewInputer ok %s", addr)
@@ -492,6 +490,7 @@ type Inputer struct {
 	proto      string
 	addr       string
 	father     *ProxyConn
+	fwg        *group.Group
 
 	listenconn conn.Conn
 	sonny      sync.Map
@@ -509,7 +508,7 @@ func (i *Inputer) processDataFrame(f *ProxyFrame) {
 		return
 	}
 	sonny := v.(*ProxyConn)
-	sonny.sendch <- f
+	sonny.sendch.Write(f)
 	sonny.actived++
 	loggo.Debug("Inputer processDataFrame %s %d", f.DataFrame.Id, len(f.DataFrame.Data))
 }
@@ -543,15 +542,13 @@ func (i *Inputer) processOpenRspFrame(f *ProxyFrame) {
 	}
 }
 
-func (i *Inputer) listen(ctx context.Context) error {
-
-	defer common.CrashLog()
+func (i *Inputer) listen() error {
 
 	loggo.Info("Inputer start listen %s", i.addr)
 
 	for {
 		select {
-		case <-ctx.Done():
+		case <-i.fwg.Done():
 			return nil
 		case <-time.After(time.Second):
 			conn, err := i.listenconn.Accept()
@@ -559,14 +556,12 @@ func (i *Inputer) listen(ctx context.Context) error {
 				continue
 			}
 			proxyconn := &ProxyConn{conn: conn}
-			go i.processProxyConn(ctx, proxyconn)
+			go i.processProxyConn(proxyconn)
 		}
 	}
 }
 
-func (i *Inputer) processProxyConn(fctx context.Context, proxyConn *ProxyConn) {
-
-	defer common.CrashLog()
+func (i *Inputer) processProxyConn(proxyConn *ProxyConn) {
 
 	proxyConn.id = common.UniqueId()
 
@@ -579,54 +574,55 @@ func (i *Inputer) processProxyConn(fctx context.Context, proxyConn *ProxyConn) {
 		return
 	}
 
-	sendch := make(chan *ProxyFrame, i.config.ConnBuffer)
-	recvch := make(chan *ProxyFrame, i.config.ConnBuffer)
+	sendch := common.NewChannel(i.config.ConnBuffer)
+	recvch := common.NewChannel(i.config.ConnBuffer)
 
 	proxyConn.sendch = sendch
 	proxyConn.recvch = recvch
 
-	wg, ctx := errgroup.WithContext(fctx)
+	wg := group.NewGroup(i.fwg, func() {
+		proxyConn.conn.Close()
+		sendch.Close()
+		recvch.Close()
+	})
 
-	i.openConn(ctx, proxyConn)
+	i.openConn(proxyConn)
 
 	wg.Go(func() error {
-		return recvFromSonny(ctx, recvch, proxyConn.conn, i.config.MaxMsgSize)
+		return recvFromSonny(wg, recvch, proxyConn.conn, i.config.MaxMsgSize)
 	})
 
 	wg.Go(func() error {
-		return sendToSonny(ctx, sendch, proxyConn.conn)
+		return sendToSonny(wg, sendch, proxyConn.conn)
 	})
 
 	wg.Go(func() error {
-		return checkSonnyActive(ctx, proxyConn, i.config.EstablishedTimeout, i.config.ConnTimeout)
+		return checkSonnyActive(wg, proxyConn, i.config.EstablishedTimeout, i.config.ConnTimeout)
 	})
 
 	wg.Go(func() error {
-		return checkNeedClose(ctx, proxyConn)
+		return checkNeedClose(wg, proxyConn)
 	})
 
 	wg.Go(func() error {
-		return copySonnyRecv(ctx, recvch, proxyConn, i.father)
+		return copySonnyRecv(wg, recvch, proxyConn, i.father)
 	})
 
 	wg.Wait()
-	proxyConn.conn.Close()
 	i.sonny.Delete(proxyConn.id)
-	close(sendch)
-	close(recvch)
 
 	closeRemoteConn(proxyConn, i.father)
 
 	loggo.Info("Inputer processProxyConn end %s %s", proxyConn.id, proxyConn.conn.Info())
 }
 
-func (i *Inputer) openConn(ctx context.Context, proxyConn *ProxyConn) {
+func (i *Inputer) openConn(proxyConn *ProxyConn) {
 	f := &ProxyFrame{}
 	f.Type = FRAME_TYPE_OPEN
 	f.OpenFrame = &OpenConnFrame{}
 	f.OpenFrame.Id = proxyConn.id
 
-	i.father.sendch <- f
+	i.father.sendch.Write(f)
 	loggo.Info("Inputer openConn %s", proxyConn.id)
 }
 
@@ -636,11 +632,11 @@ func closeRemoteConn(proxyConn *ProxyConn, father *ProxyConn) {
 	f.CloseFrame = &CloseFrame{}
 	f.CloseFrame.Id = proxyConn.id
 
-	father.sendch <- f
+	father.sendch.Write(f)
 	loggo.Info("closeConn %s", proxyConn.id)
 }
 
-func NewOutputer(ctx context.Context, wg *errgroup.Group, proto string, addr string, clienttype CLIENT_TYPE, config *Config, father *ProxyConn) (*Outputer, error) {
+func NewOutputer(wg *group.Group, proto string, addr string, clienttype CLIENT_TYPE, config *Config, father *ProxyConn) (*Outputer, error) {
 	conn, err := conn.NewConn(proto)
 	if conn == nil {
 		return nil, err
@@ -653,6 +649,7 @@ func NewOutputer(ctx context.Context, wg *errgroup.Group, proto string, addr str
 		proto:      proto,
 		addr:       addr,
 		father:     father,
+		fwg:        wg,
 	}
 
 	loggo.Info("NewOutputer ok %s", addr)
@@ -666,6 +663,7 @@ type Outputer struct {
 	proto      string
 	addr       string
 	father     *ProxyConn
+	fwg        *group.Group
 
 	conn  conn.Conn
 	sonny sync.Map
@@ -683,7 +681,7 @@ func (o *Outputer) processDataFrame(f *ProxyFrame) {
 		return
 	}
 	sonny := v.(*ProxyConn)
-	sonny.sendch <- f
+	sonny.sendch.Write(f)
 	sonny.actived++
 	loggo.Debug("Outputer processDataFrame %s %d", f.DataFrame.Id, len(f.DataFrame.Data))
 }
@@ -700,7 +698,7 @@ func (o *Outputer) processCloseFrame(f *ProxyFrame) {
 	sonny.needclose = true
 }
 
-func (o *Outputer) processOpenFrame(ctx context.Context, f *ProxyFrame) {
+func (o *Outputer) processOpenFrame(f *ProxyFrame) {
 
 	id := f.OpenFrame.Id
 
@@ -713,7 +711,7 @@ func (o *Outputer) processOpenFrame(ctx context.Context, f *ProxyFrame) {
 	if err != nil {
 		rf.OpenRspFrame.Ret = false
 		rf.OpenRspFrame.Msg = "Dial fail"
-		o.father.sendch <- rf
+		o.father.sendch.Write(rf)
 		loggo.Error("Outputer processOpenFrame Dial fail %s %s", o.addr, err.Error())
 		return
 	}
@@ -726,54 +724,54 @@ func (o *Outputer) processOpenFrame(ctx context.Context, f *ProxyFrame) {
 		return
 	}
 
-	sendch := make(chan *ProxyFrame, o.config.ConnBuffer)
-	recvch := make(chan *ProxyFrame, o.config.ConnBuffer)
+	sendch := common.NewChannel(o.config.ConnBuffer)
+	recvch := common.NewChannel(o.config.ConnBuffer)
 
 	proxyconn.sendch = sendch
 	proxyconn.recvch = recvch
 
 	rf.OpenRspFrame.Ret = true
 	rf.OpenRspFrame.Msg = "ok"
-	o.father.sendch <- rf
+	o.father.sendch.Write(rf)
 
-	go o.processProxyConn(ctx, proxyconn)
+	go o.processProxyConn(proxyconn)
 }
 
-func (o *Outputer) processProxyConn(fctx context.Context, proxyConn *ProxyConn) {
-	defer common.CrashLog()
+func (o *Outputer) processProxyConn(proxyConn *ProxyConn) {
 
 	loggo.Info("Outputer processProxyConn start %s %s", proxyConn.id, proxyConn.conn.Info())
 
 	sendch := proxyConn.sendch
 	recvch := proxyConn.recvch
 
-	wg, ctx := errgroup.WithContext(fctx)
-
-	wg.Go(func() error {
-		return recvFromSonny(ctx, recvch, proxyConn.conn, o.config.MaxMsgSize)
+	wg := group.NewGroup(o.fwg, func() {
+		proxyConn.conn.Close()
+		sendch.Close()
+		recvch.Close()
 	})
 
 	wg.Go(func() error {
-		return sendToSonny(ctx, sendch, proxyConn.conn)
+		return recvFromSonny(wg, recvch, proxyConn.conn, o.config.MaxMsgSize)
 	})
 
 	wg.Go(func() error {
-		return checkSonnyActive(ctx, proxyConn, o.config.EstablishedTimeout, o.config.ConnTimeout)
+		return sendToSonny(wg, sendch, proxyConn.conn)
 	})
 
 	wg.Go(func() error {
-		return checkNeedClose(ctx, proxyConn)
+		return checkSonnyActive(wg, proxyConn, o.config.EstablishedTimeout, o.config.ConnTimeout)
 	})
 
 	wg.Go(func() error {
-		return copySonnyRecv(ctx, recvch, proxyConn, o.father)
+		return checkNeedClose(wg, proxyConn)
+	})
+
+	wg.Go(func() error {
+		return copySonnyRecv(wg, recvch, proxyConn, o.father)
 	})
 
 	wg.Wait()
-	proxyConn.conn.Close()
 	o.sonny.Delete(proxyConn.id)
-	close(sendch)
-	close(recvch)
 
 	closeRemoteConn(proxyConn, o.father)
 
