@@ -171,6 +171,9 @@ func (s *Server) process(wg *group.Group, sendch *common.Channel, recvch *common
 
 			case FRAME_TYPE_OPENRSP:
 				s.processOpenRsp(f, clientconn)
+
+			case FRAME_TYPE_CLOSE:
+				s.processClose(f, clientconn)
 			}
 		}
 	}
