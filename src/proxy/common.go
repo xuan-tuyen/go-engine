@@ -256,8 +256,8 @@ func sendTo(wg *group.Group, sendch *common.Channel, conn conn.Conn, compress in
 				return err
 			}
 
-			if n != len(f.DataFrame.Data) {
-				loggo.Error("sendTo Write len fail: %s %d %d", conn.Info(), n, len(f.DataFrame.Data))
+			if n != len(mb) {
+				loggo.Error("sendTo Write len fail: %s %d %d", conn.Info(), n, len(mb))
 				return errors.New("len error")
 			}
 
