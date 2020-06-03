@@ -171,3 +171,10 @@ func Test0006(t *testing.T) {
 		t.Error("fail")
 	}
 }
+
+func Test0007(t *testing.T) {
+	fmt.Println(GetCrc32String(""))
+	fmt.Println(GetCrc32String("1"))
+	fmt.Println(GetCrc32String("2"))
+	fmt.Println(GetCrc32String("asfsadgewwe"))
+}

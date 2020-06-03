@@ -201,7 +201,7 @@ func recvFrom(ctx context.Context, recvch chan<- *ProxyFrame, conn conn.Conn, ma
 
 			recvch <- f
 
-			if f.Type != FRAME_TYPE_PING && f.Type != FRAME_TYPE_PONG {
+			if f.Type != FRAME_TYPE_PING && f.Type != FRAME_TYPE_PONG && loggo.IsDebug() {
 				loggo.Debug("recvFrom %s %s", conn.Info(), f.Type.String())
 			}
 		}
@@ -243,7 +243,7 @@ func sendTo(ctx context.Context, sendch <-chan *ProxyFrame, conn conn.Conn, comp
 				return err
 			}
 
-			if f.Type != FRAME_TYPE_PING && f.Type != FRAME_TYPE_PONG {
+			if f.Type != FRAME_TYPE_PING && f.Type != FRAME_TYPE_PONG && loggo.IsDebug() {
 				loggo.Debug("sendTo %s %s", conn.Info(), f.Type.String())
 			}
 		}
@@ -276,10 +276,13 @@ func recvFromSonny(ctx context.Context, recvch chan<- *ProxyFrame, conn conn.Con
 			f.DataFrame = &DataFrame{}
 			f.DataFrame.Data = ds[0:len]
 			f.DataFrame.Compress = false
+			f.DataFrame.Crc = common.GetCrc32String(string(f.DataFrame.Data))
 
 			recvch <- f
 
-			loggo.Debug("recvFromSonny %s %d", conn.Info(), len)
+			if loggo.IsDebug() {
+				loggo.Debug("recvFromSonny %s %d %s", conn.Info(), len, f.DataFrame.Crc)
+			}
 		}
 	}
 }
@@ -302,13 +305,20 @@ func sendToSonny(ctx context.Context, sendch <-chan *ProxyFrame, conn conn.Conn)
 				return errors.New("len error " + strconv.Itoa(len(f.DataFrame.Data)))
 			}
 
+			if f.DataFrame.Crc != common.GetCrc32String(string(f.DataFrame.Data)) {
+				loggo.Error("sendToSonny crc error: %s %d %s %s", conn.Info(), len(f.DataFrame.Data), f.DataFrame.Crc, common.GetCrc32String(string(f.DataFrame.Data)))
+				return errors.New("crc error")
+			}
+
 			_, err := conn.Write(f.DataFrame.Data)
 			if err != nil {
 				loggo.Error("sendToSonny Write fail: %s %s", conn.Info(), err.Error())
 				return err
 			}
 
-			loggo.Debug("sendToSonny %s %d", conn.Info(), len(f.DataFrame.Data))
+			if loggo.IsDebug() {
+				loggo.Debug("sendToSonny %s %d %s", conn.Info(), len(f.DataFrame.Data), f.DataFrame.Crc)
+			}
 		}
 	}
 }

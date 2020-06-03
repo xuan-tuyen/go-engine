@@ -58,6 +58,7 @@ message CloseFrame {
 message DataFrame {
     string id = 1;
     bool compress = 2;
+    string crc = 3;
     bytes data = 4;
 }
 
