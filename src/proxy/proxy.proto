@@ -60,6 +60,7 @@ message DataFrame {
     bool compress = 2;
     string crc = 3;
     bytes data = 4;
+    int32 index = 5;
 }
 
 enum FRAME_TYPE {

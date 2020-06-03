@@ -251,10 +251,15 @@ func sendTo(wg *group.Group, sendch *common.Channel, conn conn.Conn, compress in
 	}
 }
 
+const (
+	MAX_INDEX = 1024
+)
+
 func recvFromSonny(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxmsgsize int) error {
 
 	ds := make([]byte, maxmsgsize)
 
+	index := int32(0)
 	for {
 		select {
 		case <-wg.Done():
@@ -277,11 +282,13 @@ func recvFromSonny(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxm
 			f.DataFrame.Data = ds[0:len]
 			f.DataFrame.Compress = false
 			f.DataFrame.Crc = common.GetCrc32String(string(f.DataFrame.Data))
+			index++
+			f.DataFrame.Index = index % MAX_INDEX
 
 			recvch.Write(f)
 
 			if loggo.IsDebug() {
-				loggo.Debug("recvFromSonny %s %d %s", conn.Info(), len, f.DataFrame.Crc)
+				loggo.Debug("recvFromSonny %s %d %s %d", conn.Info(), len, f.DataFrame.Crc, f.DataFrame.Index)
 			}
 		}
 	}
@@ -289,6 +296,7 @@ func recvFromSonny(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxm
 
 func sendToSonny(wg *group.Group, sendch *common.Channel, conn conn.Conn) error {
 
+	index := int32(0)
 	for {
 		select {
 		case <-wg.Done():
@@ -311,6 +319,13 @@ func sendToSonny(wg *group.Group, sendch *common.Channel, conn conn.Conn) error 
 			if f.DataFrame.Crc != common.GetCrc32String(string(f.DataFrame.Data)) {
 				loggo.Error("sendToSonny crc error: %s %d %s %s", conn.Info(), len(f.DataFrame.Data), f.DataFrame.Crc, common.GetCrc32String(string(f.DataFrame.Data)))
 				return errors.New("crc error")
+			}
+
+			index++
+			index = index % MAX_INDEX
+			if f.DataFrame.Index != index {
+				loggo.Error("sendToSonny index error: %s %d %s %s", conn.Info(), len(f.DataFrame.Data), f.DataFrame.Index, index)
+				return errors.New("index error")
 			}
 
 			_, err := conn.Write(f.DataFrame.Data)
