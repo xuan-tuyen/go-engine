@@ -213,7 +213,7 @@ func recvFrom(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxmsgsiz
 
 			if f.Type != FRAME_TYPE_PING && f.Type != FRAME_TYPE_PONG && loggo.IsDebug() {
 				loggo.Debug("recvFrom %s %s", conn.Info(), f.Type.String())
-				if f.Type != FRAME_TYPE_DATA {
+				if f.Type == FRAME_TYPE_DATA {
 					if common.GetCrc32(f.DataFrame.Data) != f.DataFrame.Crc {
 						loggo.Error("recvFrom crc error %s %s %s", conn.Info(), common.GetCrc32(f.DataFrame.Data), f.DataFrame.Crc)
 						return errors.New("conn crc error")
@@ -269,7 +269,7 @@ func sendTo(wg *group.Group, sendch *common.Channel, conn conn.Conn, compress in
 
 			if f.Type != FRAME_TYPE_PING && f.Type != FRAME_TYPE_PONG && loggo.IsDebug() {
 				loggo.Debug("sendTo %s %s", conn.Info(), f.Type.String())
-				if f.Type != FRAME_TYPE_DATA {
+				if f.Type == FRAME_TYPE_DATA {
 					if common.GetCrc32(f.DataFrame.Data) != f.DataFrame.Crc {
 						loggo.Error("sendTo crc error %s %s %s", conn.Info(), common.GetCrc32(f.DataFrame.Data), f.DataFrame.Crc)
 						return errors.New("conn crc error")
