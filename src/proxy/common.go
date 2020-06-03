@@ -178,6 +178,7 @@ func UnmarshalSrpFrame(b []byte, encrpyt string) (*ProxyFrame, error) {
 func recvFrom(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxmsgsize int, encrypt string) error {
 
 	bs := make([]byte, 4)
+	ds := make([]byte, maxmsgsize)
 
 	for {
 		select {
@@ -196,9 +197,7 @@ func recvFrom(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxmsgsiz
 				return errors.New("msg len fail " + strconv.Itoa(int(msglen)))
 			}
 
-			ds := make([]byte, msglen)
-
-			_, err = io.ReadFull(conn, ds)
+			_, err = io.ReadFull(conn, ds[0:msglen])
 			if err != nil {
 				loggo.Error("recvFrom ReadFull fail: %s %s", conn.Info(), err.Error())
 				return err
@@ -309,7 +308,8 @@ func recvFromSonny(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxm
 			f := &ProxyFrame{}
 			f.Type = FRAME_TYPE_DATA
 			f.DataFrame = &DataFrame{}
-			f.DataFrame.Data = ds[0:len]
+			f.DataFrame.Data = make([]byte, len)
+			copy(f.DataFrame.Data, ds[0:len])
 			f.DataFrame.Compress = false
 			f.DataFrame.Crc = common.GetCrc32(f.DataFrame.Data)
 			index++
