@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/esrrhs/go-engine/src/common"
 	"github.com/esrrhs/go-engine/src/loggo"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -70,7 +71,13 @@ func (g *Group) runningmap() string {
 	g.lock.Lock()
 	defer g.lock.Unlock()
 	ret := ""
-	ret += fmt.Sprintf("%v", g.sonname) + "\n"
+	tmp := make(map[string]int)
+	for k, v := range g.sonname {
+		if v > 0 {
+			tmp[k] = v
+		}
+	}
+	ret += fmt.Sprintf("%v", tmp) + "\n"
 	for _, son := range g.son {
 		ret += son.runningmap()
 	}
@@ -91,6 +98,7 @@ func (g *Group) Go(name string, f func() error) {
 	g.lock.Lock()
 	defer g.lock.Unlock()
 	g.add()
+	name = strings.Replace(name, " ", "-", -1)
 	g.sonname[name]++
 
 	go func() {
