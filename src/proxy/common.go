@@ -419,16 +419,20 @@ func checkSonnyActive(wg *group.Group, proxyconn *ProxyConn, estimeout int, time
 		}
 	}
 
+	n = 0
 	for {
 		select {
 		case <-wg.Done():
 			return nil
-		case <-time.After(time.Duration(timeout) * time.Second):
-			if proxyconn.actived == 0 {
-				loggo.Error("checkSonnyActive timeout %s", proxyconn.conn.Info())
-				return errors.New("conn timeout")
+		case <-time.After(time.Second):
+			n++
+			if n > timeout {
+				if proxyconn.actived == 0 {
+					loggo.Error("checkSonnyActive timeout %s", proxyconn.conn.Info())
+					return errors.New("conn timeout")
+				}
+				proxyconn.actived = 0
 			}
-			proxyconn.actived = 0
 		}
 	}
 }
