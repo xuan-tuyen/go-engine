@@ -178,7 +178,6 @@ func UnmarshalSrpFrame(b []byte, encrpyt string) (*ProxyFrame, error) {
 func recvFrom(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxmsgsize int, encrypt string) error {
 
 	bs := make([]byte, 4)
-	ds := make([]byte, maxmsgsize)
 
 	for {
 		select {
@@ -197,7 +196,9 @@ func recvFrom(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxmsgsiz
 				return errors.New("msg len fail " + strconv.Itoa(int(msglen)))
 			}
 
-			_, err = io.ReadFull(conn, ds[0:msglen])
+			ds := make([]byte, msglen)
+
+			_, err = io.ReadFull(conn, ds)
 			if err != nil {
 				loggo.Error("recvFrom ReadFull fail: %s %s", conn.Info(), err.Error())
 				return err
@@ -215,7 +216,7 @@ func recvFrom(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxmsgsiz
 				loggo.Debug("recvFrom %s %s", conn.Info(), f.Type.String())
 				if f.Type == FRAME_TYPE_DATA {
 					if common.GetCrc32(f.DataFrame.Data) != f.DataFrame.Crc {
-						loggo.Error("recvFrom crc error %s %s %s", conn.Info(), common.GetCrc32(f.DataFrame.Data), f.DataFrame.Crc)
+						loggo.Error("recvFrom crc error %s %s %s %p", conn.Info(), common.GetCrc32(f.DataFrame.Data), f.DataFrame.Crc, f)
 						return errors.New("conn crc error")
 					}
 				}
@@ -271,7 +272,7 @@ func sendTo(wg *group.Group, sendch *common.Channel, conn conn.Conn, compress in
 				loggo.Debug("sendTo %s %s", conn.Info(), f.Type.String())
 				if f.Type == FRAME_TYPE_DATA {
 					if common.GetCrc32(f.DataFrame.Data) != f.DataFrame.Crc {
-						loggo.Error("sendTo crc error %s %s %s", conn.Info(), common.GetCrc32(f.DataFrame.Data), f.DataFrame.Crc)
+						loggo.Error("sendTo crc error %s %s %s %p", conn.Info(), common.GetCrc32(f.DataFrame.Data), f.DataFrame.Crc, f)
 						return errors.New("conn crc error")
 					}
 				}
@@ -317,7 +318,7 @@ func recvFromSonny(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxm
 			recvch.Write(f)
 
 			if loggo.IsDebug() {
-				loggo.Debug("recvFromSonny %s %d %s %d", conn.Info(), len, f.DataFrame.Crc, f.DataFrame.Index)
+				loggo.Debug("recvFromSonny %s %d %s %d %p", conn.Info(), len, f.DataFrame.Crc, f.DataFrame.Index, f)
 			}
 		}
 	}
@@ -516,7 +517,7 @@ func copySonnyRecv(wg *group.Group, recvch *common.Channel, proxyConn *ProxyConn
 
 			father.sendch.Write(f)
 
-			loggo.Debug("copySonnyRecv %s %d", proxyConn.id, len(f.DataFrame.Data))
+			loggo.Debug("copySonnyRecv %s %d %s %p", proxyConn.id, len(f.DataFrame.Data), f.DataFrame.Crc, f)
 		}
 	}
 }
