@@ -154,7 +154,7 @@ func (o *Outputer) processOpenFrame(f *ProxyFrame) {
 
 func (o *Outputer) processProxyConn(proxyConn *ProxyConn, targetAddr string) error {
 
-	loggo.Info("Outputer processProxyConn start %s %s", proxyConn.id, proxyConn.conn.Info())
+	loggo.Info("Outputer processProxyConn start %s %s", proxyConn.id, targetAddr)
 
 	sendch := proxyConn.sendch
 	recvch := proxyConn.recvch
@@ -164,6 +164,8 @@ func (o *Outputer) processProxyConn(proxyConn *ProxyConn, targetAddr string) err
 		recvch.Close()
 		return nil
 	}
+
+	loggo.Info("Outputer processProxyConn open ok %s %s", proxyConn.id, proxyConn.conn.Info())
 
 	wg := group.NewGroup(o.fwg, func() {
 		proxyConn.conn.Close()
