@@ -317,7 +317,7 @@ func recvFromSonny(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxm
 			recvch.Write(f)
 
 			if loggo.IsDebug() {
-				loggo.Debug("recvFromSonny %s %d %s %d %p", conn.Info(), len, f.DataFrame.Crc, f.DataFrame.Index, f)
+				loggo.Debug("recvFromSonny %s %d %s %d %p", conn.Info(), len, f.DataFrame.Crc, int(f.DataFrame.Index), f)
 			}
 		}
 	}
@@ -357,7 +357,7 @@ func sendToSonny(wg *group.Group, sendch *common.Channel, conn conn.Conn) error 
 			index++
 			index = index % MAX_INDEX
 			if f.DataFrame.Index != index {
-				loggo.Error("sendToSonny index error: %s %d %s %d", conn.Info(), len(f.DataFrame.Data), f.DataFrame.Index, index)
+				loggo.Error("sendToSonny index error: %s %d %s %d", conn.Info(), len(f.DataFrame.Data), int(f.DataFrame.Index), index)
 				return errors.New("index error")
 			}
 
@@ -373,7 +373,7 @@ func sendToSonny(wg *group.Group, sendch *common.Channel, conn conn.Conn) error 
 			}
 
 			if loggo.IsDebug() {
-				loggo.Debug("sendToSonny %s %d %s %d", conn.Info(), len(f.DataFrame.Data), f.DataFrame.Crc, f.DataFrame.Index)
+				loggo.Debug("sendToSonny %s %d %s %d", conn.Info(), len(f.DataFrame.Data), f.DataFrame.Crc, int(f.DataFrame.Index))
 			}
 		}
 	}
