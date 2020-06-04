@@ -68,12 +68,12 @@ func (o *Outputer) processCloseFrame(f *ProxyFrame) {
 	sonny.sendch.Write(f)
 }
 
-func (o *Outputer) processOpenFrame(f *ProxyFrame) {
+func (o *Outputer) open(f *ProxyFrame) error {
 
 	id := f.OpenFrame.Id
 	addr := f.OpenFrame.Toaddr
 
-	loggo.Info("Outputer processOpenFrame start %s %s", id, addr)
+	loggo.Info("Outputer open start %s %s", id, addr)
 
 	rf := &ProxyFrame{}
 	rf.Type = FRAME_TYPE_OPENRSP
@@ -85,8 +85,8 @@ func (o *Outputer) processOpenFrame(f *ProxyFrame) {
 		rf.OpenRspFrame.Ret = false
 		rf.OpenRspFrame.Msg = "NewConn fail " + addr
 		o.father.sendch.Write(rf)
-		loggo.Error("Outputer processOpenFrame NewConn fail %s %s", addr, err.Error())
-		return
+		loggo.Error("Outputer open NewConn fail %s %s", addr, err.Error())
+		return nil
 	}
 
 	wg := group.NewGroup(o.fwg, func() {
@@ -108,18 +108,18 @@ func (o *Outputer) processOpenFrame(f *ProxyFrame) {
 		rf.OpenRspFrame.Ret = false
 		rf.OpenRspFrame.Msg = "Dial fail " + addr
 		o.father.sendch.Write(rf)
-		loggo.Error("Outputer processOpenFrame Dial fail %s %s", addr, err.Error())
-		return
+		loggo.Error("Outputer open Dial fail %s %s", addr, err.Error())
+		return nil
 	}
 
-	loggo.Info("Outputer processOpenFrame Dial ok %s %s", id, addr)
+	loggo.Info("Outputer open Dial ok %s %s", id, addr)
 
 	proxyconn := &ProxyConn{id: id, conn: conn, established: true}
 	_, loaded := o.sonny.LoadOrStore(proxyconn.id, proxyconn)
 	if loaded {
-		loggo.Error("Outputer processOpenFrame LoadOrStore fail %s %s", addr, id)
+		loggo.Error("Outputer open LoadOrStore fail %s %s", addr, id)
 		proxyconn.conn.Close()
-		return
+		return nil
 	}
 
 	sendch := common.NewChannel(o.config.ConnBuffer)
@@ -134,6 +134,14 @@ func (o *Outputer) processOpenFrame(f *ProxyFrame) {
 
 	o.fwg.Go("Outputer processProxyConn", func() error {
 		return o.processProxyConn(proxyconn)
+	})
+
+	return nil
+}
+
+func (o *Outputer) processOpenFrame(f *ProxyFrame) {
+	o.fwg.Go("Outputer processOpenFrame", func() error {
+		return o.open(f)
 	})
 }
 

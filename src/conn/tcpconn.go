@@ -52,6 +52,7 @@ func (c *tcpConn) Dial(dst string) (Conn, error) {
 	if err != nil {
 		return nil, err
 	}
+	c.cancel = nil
 	return &tcpConn{conn: conn.(*net.TCPConn)}, nil
 }
 
