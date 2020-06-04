@@ -202,7 +202,11 @@ func (i *Inputer) processSocks5Conn(proxyConn *ProxyConn) error {
 
 	loggo.Info("processSocks5Conn ok %s %s", proxyConn.conn.Info(), targetAddr)
 
-	return i.processProxyConn(proxyConn, targetAddr)
+	i.fwg.Go("Inputer processProxyConn", func() error {
+		return i.processProxyConn(proxyConn, targetAddr)
+	})
+
+	return nil
 }
 
 func (i *Inputer) processProxyConn(proxyConn *ProxyConn, targetAddr string) error {
