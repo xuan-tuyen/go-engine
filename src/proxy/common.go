@@ -336,6 +336,10 @@ func sendToSonny(wg *group.Group, sendch *common.Channel, conn conn.Conn) error 
 				return nil
 			}
 			f := ff.(*ProxyFrame)
+			if f.Type == FRAME_TYPE_CLOSE {
+				loggo.Info("sendToSonny close by remote: %s", conn.Info())
+				return errors.New("close by remote")
+			}
 			if f.DataFrame.Compress {
 				loggo.Error("sendToSonny Compress error: %s", conn.Info())
 				return errors.New("msg compress error")
@@ -590,7 +594,7 @@ func (i *Inputer) processCloseFrame(f *ProxyFrame) {
 	}
 
 	sonny := v.(*ProxyConn)
-	sonny.needclose = true
+	sonny.sendch.Write(f)
 }
 
 func (i *Inputer) processOpenRspFrame(f *ProxyFrame) {
@@ -767,7 +771,7 @@ func (o *Outputer) processCloseFrame(f *ProxyFrame) {
 	}
 
 	sonny := v.(*ProxyConn)
-	sonny.needclose = true
+	sonny.sendch.Write(f)
 }
 
 func (o *Outputer) processOpenFrame(f *ProxyFrame) {
