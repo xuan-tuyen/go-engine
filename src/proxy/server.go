@@ -240,21 +240,29 @@ func (s *Server) processLogin(wg *group.Group, f *ProxyFrame, sendch *common.Cha
 func (s *Server) iniService(wg *group.Group, f *ProxyFrame, clientConn *ClientConn) error {
 	switch f.LoginFrame.Clienttype {
 	case CLIENT_TYPE_PROXY:
-		output, err := NewOutputer(wg, f.LoginFrame.Proxyproto.String(), f.LoginFrame.Toaddr, f.LoginFrame.Clienttype, s.config, &clientConn.ProxyConn)
+		output, err := NewOutputer(wg, f.LoginFrame.Proxyproto.String(), f.LoginFrame.Clienttype, s.config, &clientConn.ProxyConn)
 		if err != nil {
 			return err
 		}
 		clientConn.output = output
 	case CLIENT_TYPE_REVERSE_PROXY:
-		input, err := NewInputer(wg, f.LoginFrame.Proxyproto.String(), f.LoginFrame.Fromaddr, f.LoginFrame.Clienttype, s.config, &clientConn.ProxyConn)
+		input, err := NewInputer(wg, f.LoginFrame.Proxyproto.String(), f.LoginFrame.Fromaddr, f.LoginFrame.Clienttype, s.config, &clientConn.ProxyConn, clientConn.toaddr)
 		if err != nil {
 			return err
 		}
 		clientConn.input = input
 	case CLIENT_TYPE_SOCKS5:
-		// TODO
+		output, err := NewOutputer(wg, f.LoginFrame.Proxyproto.String(), f.LoginFrame.Clienttype, s.config, &clientConn.ProxyConn)
+		if err != nil {
+			return err
+		}
+		clientConn.output = output
 	case CLIENT_TYPE_REVERSE_SOCKS5:
-		// TODO
+		input, err := NewSocks5Inputer(wg, f.LoginFrame.Proxyproto.String(), f.LoginFrame.Fromaddr, f.LoginFrame.Clienttype, s.config, &clientConn.ProxyConn)
+		if err != nil {
+			return err
+		}
+		clientConn.input = input
 	default:
 		return errors.New("error CLIENT_TYPE " + strconv.Itoa(int(f.LoginFrame.Clienttype)))
 	}

@@ -226,21 +226,29 @@ func (c *Client) processLoginRsp(wg *group.Group, f *ProxyFrame, sendch *common.
 func (c *Client) iniService(wg *group.Group, serverConn *ServerConn) error {
 	switch c.clienttype {
 	case CLIENT_TYPE_PROXY:
-		input, err := NewInputer(wg, c.proxyproto.String(), c.fromaddr, c.clienttype, c.config, &serverConn.ProxyConn)
+		input, err := NewInputer(wg, c.proxyproto.String(), c.fromaddr, c.clienttype, c.config, &serverConn.ProxyConn, c.toaddr)
 		if err != nil {
 			return err
 		}
 		serverConn.input = input
 	case CLIENT_TYPE_REVERSE_PROXY:
-		output, err := NewOutputer(wg, c.proxyproto.String(), c.toaddr, c.clienttype, c.config, &serverConn.ProxyConn)
+		output, err := NewOutputer(wg, c.proxyproto.String(), c.clienttype, c.config, &serverConn.ProxyConn)
 		if err != nil {
 			return err
 		}
 		serverConn.output = output
 	case CLIENT_TYPE_SOCKS5:
-		// TODO
+		input, err := NewSocks5Inputer(wg, c.proxyproto.String(), c.fromaddr, c.clienttype, c.config, &serverConn.ProxyConn)
+		if err != nil {
+			return err
+		}
+		serverConn.input = input
 	case CLIENT_TYPE_REVERSE_SOCKS5:
-		// TODO
+		output, err := NewOutputer(wg, c.proxyproto.String(), c.clienttype, c.config, &serverConn.ProxyConn)
+		if err != nil {
+			return err
+		}
+		serverConn.output = output
 	default:
 		return errors.New("error CLIENT_TYPE " + strconv.Itoa(int(c.clienttype)))
 	}

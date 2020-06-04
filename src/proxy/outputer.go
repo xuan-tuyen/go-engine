@@ -12,7 +12,6 @@ type Outputer struct {
 	clienttype CLIENT_TYPE
 	config     *Config
 	proto      string
-	addr       string
 	father     *ProxyConn
 	fwg        *group.Group
 
@@ -20,7 +19,7 @@ type Outputer struct {
 	sonny sync.Map
 }
 
-func NewOutputer(wg *group.Group, proto string, addr string, clienttype CLIENT_TYPE, config *Config, father *ProxyConn) (*Outputer, error) {
+func NewOutputer(wg *group.Group, proto string, clienttype CLIENT_TYPE, config *Config, father *ProxyConn) (*Outputer, error) {
 	conn, err := conn.NewConn(proto)
 	if conn == nil {
 		return nil, err
@@ -31,12 +30,11 @@ func NewOutputer(wg *group.Group, proto string, addr string, clienttype CLIENT_T
 		config:     config,
 		conn:       conn,
 		proto:      proto,
-		addr:       addr,
 		father:     father,
 		fwg:        wg,
 	}
 
-	loggo.Info("NewOutputer ok %s", addr)
+	loggo.Info("NewOutputer ok %s", proto)
 
 	return output, nil
 }
@@ -73,25 +71,26 @@ func (o *Outputer) processCloseFrame(f *ProxyFrame) {
 func (o *Outputer) processOpenFrame(f *ProxyFrame) {
 
 	id := f.OpenFrame.Id
+	addr := f.OpenFrame.Toaddr
 
 	rf := &ProxyFrame{}
 	rf.Type = FRAME_TYPE_OPENRSP
 	rf.OpenRspFrame = &OpenConnRspFrame{}
 	rf.OpenRspFrame.Id = id
 
-	conn, err := o.conn.Dial(o.addr)
+	conn, err := o.conn.Dial(addr)
 	if err != nil {
 		rf.OpenRspFrame.Ret = false
-		rf.OpenRspFrame.Msg = "Dial fail"
+		rf.OpenRspFrame.Msg = "Dial fail " + addr
 		o.father.sendch.Write(rf)
-		loggo.Error("Outputer processOpenFrame Dial fail %s %s", o.addr, err.Error())
+		loggo.Error("Outputer processOpenFrame Dial fail %s %s", addr, err.Error())
 		return
 	}
 
 	proxyconn := &ProxyConn{id: id, conn: conn, established: true}
 	_, loaded := o.sonny.LoadOrStore(proxyconn.id, proxyconn)
 	if loaded {
-		loggo.Error("Outputer processOpenFrame LoadOrStore fail %s %s", o.addr, id)
+		loggo.Error("Outputer processOpenFrame LoadOrStore fail %s %s", addr, id)
 		proxyconn.conn.Close()
 		return
 	}

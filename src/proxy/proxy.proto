@@ -43,6 +43,7 @@ message PongFrame {
 
 message OpenConnFrame {
     string id = 1;
+    string toaddr = 2;
 }
 
 message OpenConnRspFrame {

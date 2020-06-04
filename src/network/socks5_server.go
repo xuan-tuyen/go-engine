@@ -27,7 +27,7 @@ const (
 	authFailure     = uint8(1)
 )
 
-func Sock5HandshakeBy(conn net.Conn, username string, password string) (err error) {
+func Sock5HandshakeBy(conn io.ReadWriter, username string, password string) (err error) {
 	const (
 		idVer     = 0
 		idNmethod = 1
@@ -112,7 +112,7 @@ func Sock5HandshakeBy(conn net.Conn, username string, password string) (err erro
 	return
 }
 
-func Sock5GetRequest(conn net.Conn) (rawaddr []byte, host string, err error) {
+func Sock5GetRequest(conn io.ReadWriter) (rawaddr []byte, host string, err error) {
 	const (
 		idVer   = 0
 		idCmd   = 1

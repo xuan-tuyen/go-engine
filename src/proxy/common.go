@@ -27,6 +27,8 @@ type Config struct {
 	Encrypt            string
 	Compress           int
 	ShowPing           bool
+	Username           string
+	Password           string
 }
 
 func DefaultConfig() *Config {
@@ -44,6 +46,8 @@ func DefaultConfig() *Config {
 		Encrypt:            "",
 		Compress:           0,
 		ShowPing:           false,
+		Username:           "",
+		Password:           "",
 	}
 }
 
