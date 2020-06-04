@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"errors"
 	"github.com/esrrhs/go-engine/src/common"
 	"github.com/esrrhs/go-engine/src/conn"
 	"github.com/esrrhs/go-engine/src/group"
@@ -172,31 +173,42 @@ func (i *Inputer) listenSocks5() error {
 
 func (i *Inputer) processSocks5Conn(proxyConn *ProxyConn) error {
 
-	if proxyConn.conn.Name() != "tcp" {
-		loggo.Error("processSocks5Conn no tcp %s %s", proxyConn.conn.Info(), proxyConn.conn.Name())
+	wg := group.NewGroup(i.fwg, func() {
 		proxyConn.conn.Close()
-		return nil
-	}
+	})
 
-	var err error = nil
-	if err = network.Sock5HandshakeBy(proxyConn.conn, i.config.Username, i.config.Password); err != nil {
-		loggo.Error("processSocks5Conn Sock5HandshakeBy %s %s", proxyConn.conn.Info(), err)
-		proxyConn.conn.Close()
+	targetAddr := ""
+	wg.Go("Inputer socks5", func() error {
+		if proxyConn.conn.Name() != "tcp" {
+			loggo.Error("processSocks5Conn no tcp %s %s", proxyConn.conn.Info(), proxyConn.conn.Name())
+			return errors.New("socks5 not tcp")
+		}
+
+		var err error = nil
+		if err = network.Sock5HandshakeBy(proxyConn.conn, i.config.Username, i.config.Password); err != nil {
+			loggo.Error("processSocks5Conn Sock5HandshakeBy %s %s", proxyConn.conn.Info(), err)
+			return err
+		}
+		_, addr, err := network.Sock5GetRequest(proxyConn.conn)
+		if err != nil {
+			loggo.Error("processSocks5Conn Sock5GetRequest %s %s", proxyConn.conn.Info(), err)
+			return err
+		}
+		// Sending connection established message immediately to client.
+		// This some round trip time for creating socks connection with the client.
+		// But if connection failed, the client will get connection reset error.
+		_, err = proxyConn.conn.Write([]byte{0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x08, 0x43})
+		if err != nil {
+			loggo.Error("processSocks5Conn Write %s %s", proxyConn.conn.Info(), err)
+			return err
+		}
+
+		targetAddr = addr
 		return nil
-	}
-	_, targetAddr, err := network.Sock5GetRequest(proxyConn.conn)
+	})
+
+	err := wg.Wait()
 	if err != nil {
-		loggo.Error("processSocks5Conn Sock5GetRequest %s %s", proxyConn.conn.Info(), err)
-		proxyConn.conn.Close()
-		return nil
-	}
-	// Sending connection established message immediately to client.
-	// This some round trip time for creating socks connection with the client.
-	// But if connection failed, the client will get connection reset error.
-	_, err = proxyConn.conn.Write([]byte{0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x08, 0x43})
-	if err != nil {
-		loggo.Error("processSocks5Conn Write %s %s", proxyConn.conn.Info(), err)
-		proxyConn.conn.Close()
 		return nil
 	}
 

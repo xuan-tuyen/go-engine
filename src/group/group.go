@@ -12,7 +12,7 @@ import (
 
 type Group struct {
 	father   *Group
-	son      []*Group
+	son      map[*Group]int
 	wg       int32
 	errOnce  sync.Once
 	err      error
@@ -28,14 +28,29 @@ func NewGroup(father *Group, exitfunc func()) *Group {
 		father:   father,
 		exitfunc: exitfunc,
 	}
+	g.lock.Lock()
+	defer g.lock.Unlock()
 	g.donech = make(chan int)
 	g.sonname = make(map[string]int)
+	g.son = make(map[*Group]int)
 
 	if father != nil {
-		father.son = append(father.son, g)
+		father.addson(g)
 	}
 
 	return g
+}
+
+func (g *Group) addson(son *Group) {
+	g.lock.Lock()
+	defer g.lock.Unlock()
+	g.son[son]++
+}
+
+func (g *Group) removeson(son *Group) {
+	g.lock.Lock()
+	defer g.lock.Unlock()
+	delete(g.son, son)
 }
 
 func (g *Group) add() {
@@ -60,7 +75,7 @@ func (g *Group) exit(err error) {
 			g.exitfunc()
 		}
 
-		for _, son := range g.son {
+		for son, _ := range g.son {
 			son.exit(err)
 		}
 	})
@@ -77,7 +92,7 @@ func (g *Group) runningmap() string {
 		}
 	}
 	ret += fmt.Sprintf("%v", tmp) + "\n"
-	for _, son := range g.son {
+	for son, _ := range g.son {
 		ret += son.runningmap()
 	}
 	return ret
@@ -134,6 +149,9 @@ func (g *Group) Wait() error {
 			}
 		}
 		time.Sleep(time.Millisecond * 10)
+	}
+	if g.father != nil {
+		g.father.removeson(g)
 	}
 	return g.err
 }
