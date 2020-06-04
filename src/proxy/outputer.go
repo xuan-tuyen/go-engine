@@ -73,6 +73,8 @@ func (o *Outputer) processOpenFrame(f *ProxyFrame) {
 	id := f.OpenFrame.Id
 	addr := f.OpenFrame.Toaddr
 
+	loggo.Info("Outputer processOpenFrame start %s %s", id, addr)
+
 	rf := &ProxyFrame{}
 	rf.Type = FRAME_TYPE_OPENRSP
 	rf.OpenRspFrame = &OpenConnRspFrame{}
