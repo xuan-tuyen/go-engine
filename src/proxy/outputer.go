@@ -89,6 +89,8 @@ func (o *Outputer) processOpenFrame(f *ProxyFrame) {
 		return
 	}
 
+	loggo.Info("Outputer processOpenFrame Dial ok %s %s", id, addr)
+
 	proxyconn := &ProxyConn{id: id, conn: conn, established: true}
 	_, loaded := o.sonny.LoadOrStore(proxyconn.id, proxyconn)
 	if loaded {

@@ -1,6 +1,7 @@
 package conn
 
 import (
+	"context"
 	"net"
 	"time"
 )
@@ -8,6 +9,7 @@ import (
 type tcpConn struct {
 	conn     *net.TCPConn
 	listener *net.TCPListener
+	cancel   context.CancelFunc
 }
 
 func (c *tcpConn) Name() string {
@@ -28,6 +30,9 @@ func (c *tcpConn) Close() error {
 	} else if c.listener != nil {
 		return c.listener.Close()
 	}
+	if c.cancel != nil {
+		c.cancel()
+	}
 	return nil
 }
 
@@ -40,11 +45,14 @@ func (c *tcpConn) Dial(dst string) (Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	conn, err := net.DialTCP("tcp", nil, addr)
+	ctx, cancel := context.WithCancel(context.Background())
+	c.cancel = cancel
+	var d net.Dialer
+	conn, err := d.DialContext(ctx, "tcp", addr.String())
 	if err != nil {
 		return nil, err
 	}
-	return &tcpConn{conn: conn}, nil
+	return &tcpConn{conn: conn.(*net.TCPConn)}, nil
 }
 
 func (c *tcpConn) Listen(dst string) (Conn, error) {
