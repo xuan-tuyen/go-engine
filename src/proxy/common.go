@@ -357,7 +357,7 @@ func sendToSonny(wg *group.Group, sendch *common.Channel, conn conn.Conn) error 
 			index++
 			index = index % MAX_INDEX
 			if f.DataFrame.Index != index {
-				loggo.Error("sendToSonny index error: %s %d %s %s", conn.Info(), len(f.DataFrame.Data), f.DataFrame.Index, index)
+				loggo.Error("sendToSonny index error: %s %d %s %d", conn.Info(), len(f.DataFrame.Data), f.DataFrame.Index, index)
 				return errors.New("index error")
 			}
 
