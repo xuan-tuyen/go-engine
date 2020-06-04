@@ -711,7 +711,7 @@ func (p *Client) AcceptSock5Conn(conn *net.TCPConn) {
 	defer p.workResultLock.Done()
 
 	var err error = nil
-	if err = network.Sock5HandshakeBy(conn); err != nil {
+	if err = network.Sock5HandshakeBy(conn, "", ""); err != nil {
 		loggo.Error("socks handshake: %s", err)
 		conn.Close()
 		return
