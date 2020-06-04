@@ -80,7 +80,30 @@ func (o *Outputer) processOpenFrame(f *ProxyFrame) {
 	rf.OpenRspFrame = &OpenConnRspFrame{}
 	rf.OpenRspFrame.Id = id
 
-	conn, err := o.conn.Dial(addr)
+	c, err := conn.NewConn(o.conn.Name())
+	if err != nil {
+		rf.OpenRspFrame.Ret = false
+		rf.OpenRspFrame.Msg = "NewConn fail " + addr
+		o.father.sendch.Write(rf)
+		loggo.Error("Outputer processOpenFrame NewConn fail %s %s", addr, err.Error())
+		return
+	}
+
+	wg := group.NewGroup(o.fwg, func() {
+		c.Close()
+	})
+
+	var conn conn.Conn
+	wg.Go("Outputer Dial", func() error {
+		cc, err := c.Dial(addr)
+		if err != nil {
+			return err
+		}
+		conn = cc
+		return nil
+	})
+
+	err = wg.Wait()
 	if err != nil {
 		rf.OpenRspFrame.Ret = false
 		rf.OpenRspFrame.Msg = "Dial fail " + addr
