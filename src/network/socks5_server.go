@@ -3,6 +3,7 @@ package network
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"strconv"
@@ -19,9 +20,14 @@ var (
 
 const (
 	socksCmdConnect = 1
+	NoAuth          = uint8(0)
+	userAuthVersion = uint8(1)
+	UserPassAuth    = uint8(2)
+	authSuccess     = uint8(0)
+	authFailure     = uint8(1)
 )
 
-func Sock5HandshakeBy(conn net.Conn) (err error) {
+func Sock5HandshakeBy(conn net.Conn, username string, password string) (err error) {
 	const (
 		idVer     = 0
 		idNmethod = 1
@@ -36,7 +42,7 @@ func Sock5HandshakeBy(conn net.Conn) (err error) {
 	var n int
 	// make sure we get the nmethod field
 	if n, err = io.ReadAtLeast(conn, buf, idNmethod+1); err != nil {
-		return
+		return err
 	}
 	if buf[idVer] != socksVer5 {
 		return errVer
@@ -47,13 +53,62 @@ func Sock5HandshakeBy(conn net.Conn) (err error) {
 		// do nothing, jump directly to send confirmation
 	} else if n < msgLen { // has more methods to read, rare case
 		if _, err = io.ReadFull(conn, buf[n:msgLen]); err != nil {
-			return
+			return err
 		}
 	} else { // error, should not get extra data
 		return errAuthExtraData
 	}
-	// send confirmation: version 5, no authentication required
-	_, err = conn.Write([]byte{socksVer5, 0})
+
+	if username == "" && password == "" {
+		// send confirmation: version 5, no authentication required
+		_, err = conn.Write([]byte{socksVer5, NoAuth})
+	} else {
+		// Tell the client to use user/pass auth
+		if _, err := conn.Write([]byte{socksVer5, UserPassAuth}); err != nil {
+			return err
+		}
+
+		// Get the version and username length
+		header := []byte{0, 0}
+		if _, err := io.ReadAtLeast(conn, header, 2); err != nil {
+			return err
+		}
+
+		// Ensure we are compatible
+		if header[0] != userAuthVersion {
+			return fmt.Errorf("Unsupported auth version: %v", header[0])
+		}
+
+		// Get the user name
+		userLen := int(header[1])
+		user := make([]byte, userLen)
+		if _, err := io.ReadAtLeast(conn, user, userLen); err != nil {
+			return err
+		}
+
+		// Get the password length
+		if _, err := conn.Read(header[:1]); err != nil {
+			return err
+		}
+
+		// Get the password
+		passLen := int(header[0])
+		pass := make([]byte, passLen)
+		if _, err := io.ReadAtLeast(conn, pass, passLen); err != nil {
+			return err
+		}
+
+		// Verify the password
+		if username == string(user) && password == string(pass) {
+			if _, err := conn.Write([]byte{userAuthVersion, authSuccess}); err != nil {
+				return err
+			}
+		} else {
+			if _, err := conn.Write([]byte{userAuthVersion, authFailure}); err != nil {
+				return err
+			}
+		}
+	}
 	return
 }
 

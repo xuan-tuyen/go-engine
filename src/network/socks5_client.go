@@ -1,6 +1,7 @@
 package network
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -10,12 +11,13 @@ import (
 )
 
 const (
-	socksVer5        = 5
-	socks5AuthNone   = 0
-	socks5Connect    = 1
-	Socks5AtypIP4    = 1
-	Socks5AtypDomain = 3
-	Socks5AtypIP6    = 4
+	socksVer5          = 5
+	socks5AuthNone     = 0
+	socks5UserPassAuth = 2
+	socks5Connect      = 1
+	Socks5AtypIP4      = 1
+	Socks5AtypDomain   = 3
+	Socks5AtypIP6      = 4
 )
 
 var socks5Errors = []string{
@@ -30,34 +32,82 @@ var socks5Errors = []string{
 	"address type not supported",
 }
 
-func Sock5Handshake(conn *net.TCPConn, timeoutms int) (err error) {
+func Sock5Handshake(conn *net.TCPConn, timeoutms int, username string, password string) (err error) {
 
-	buf := make([]byte, 0)
-	buf = append(buf, socksVer5)
-	buf = append(buf, 1)
-	buf = append(buf, socks5AuthNone)
+	if username == "" && password == "" {
+		buf := make([]byte, 0)
+		buf = append(buf, socksVer5)
+		buf = append(buf, 1)
+		buf = append(buf, socks5AuthNone)
 
-	if timeoutms > 0 {
-		conn.SetDeadline(time.Now().Add(time.Duration(timeoutms) * time.Millisecond))
-	}
-	if _, err := conn.Write(buf); err != nil {
-		return errors.New("proxy: failed to write greeting to SOCKS5 proxy at " + conn.RemoteAddr().String() + ": " + err.Error())
-	}
+		if timeoutms > 0 {
+			conn.SetDeadline(time.Now().Add(time.Duration(timeoutms) * time.Millisecond))
+		}
+		if _, err := conn.Write(buf); err != nil {
+			return errors.New("proxy: failed to write greeting to SOCKS5 proxy at " + conn.RemoteAddr().String() + ": " + err.Error())
+		}
 
-	if timeoutms > 0 {
-		conn.SetDeadline(time.Now().Add(time.Duration(timeoutms) * time.Millisecond))
-	}
-	if _, err := io.ReadFull(conn, buf[:2]); err != nil {
-		return errors.New("proxy: failed to read greeting from SOCKS5 proxy at " + conn.RemoteAddr().String() + ": " + err.Error())
-	}
-	if buf[0] != 5 {
-		return errors.New("proxy: SOCKS5 proxy at " + conn.RemoteAddr().String() + " has unexpected version " + strconv.Itoa(int(buf[0])))
-	}
-	if buf[1] != 0 {
-		return errors.New("proxy: SOCKS5 proxy at " + conn.RemoteAddr().String() + " requires authentication")
-	}
+		if timeoutms > 0 {
+			conn.SetDeadline(time.Now().Add(time.Duration(timeoutms) * time.Millisecond))
+		}
+		if _, err := io.ReadFull(conn, buf[:2]); err != nil {
+			return errors.New("proxy: failed to read greeting from SOCKS5 proxy at " + conn.RemoteAddr().String() + ": " + err.Error())
+		}
+		if buf[0] != 5 {
+			return errors.New("proxy: SOCKS5 proxy at " + conn.RemoteAddr().String() + " has unexpected version " + strconv.Itoa(int(buf[0])))
+		}
+		if buf[1] != socks5AuthNone {
+			return errors.New("proxy: SOCKS5 proxy at " + conn.RemoteAddr().String() + " requires authentication")
+		}
 
-	return nil
+		return nil
+	} else {
+		buf := make([]byte, 0)
+		buf = append(buf, socksVer5)
+		buf = append(buf, 1)
+		buf = append(buf, socks5UserPassAuth)
+
+		if timeoutms > 0 {
+			conn.SetDeadline(time.Now().Add(time.Duration(timeoutms) * time.Millisecond))
+		}
+		if _, err := conn.Write(buf); err != nil {
+			return errors.New("proxy: failed to write greeting to SOCKS5 proxy at " + conn.RemoteAddr().String() + ": " + err.Error())
+		}
+
+		if timeoutms > 0 {
+			conn.SetDeadline(time.Now().Add(time.Duration(timeoutms) * time.Millisecond))
+		}
+		if _, err := io.ReadFull(conn, buf[:2]); err != nil {
+			return errors.New("proxy: failed to read greeting from SOCKS5 proxy at " + conn.RemoteAddr().String() + ": " + err.Error())
+		}
+		if buf[0] != 5 {
+			return errors.New("proxy: SOCKS5 proxy at " + conn.RemoteAddr().String() + " has unexpected version " + strconv.Itoa(int(buf[0])))
+		}
+		if buf[1] != socks5UserPassAuth {
+			return errors.New("proxy: SOCKS5 proxy at " + conn.RemoteAddr().String() + " not requires authentication")
+		}
+
+		userLen := len(username)
+		passLen := len(password)
+		socket5Authentication := make([]byte, 0, 3+userLen+passLen)
+		socket5Authentication = append(socket5Authentication, 0x01, byte(userLen))
+		socket5Authentication = append(socket5Authentication, []byte(username)...)
+		socket5Authentication = append(socket5Authentication, byte(passLen))
+		socket5Authentication = append(socket5Authentication, []byte(password)...)
+
+		if _, err := conn.Write(socket5Authentication); err != nil {
+			return errors.New("proxy: failed to read send Authentication from SOCKS5 proxy at " + conn.RemoteAddr().String() + ": " + err.Error())
+		}
+
+		if _, err := io.ReadFull(conn, buf[:2]); err != nil {
+			return errors.New("proxy: failed to read Authentication from SOCKS5 proxy at " + conn.RemoteAddr().String() + ": " + err.Error())
+		}
+		if bytes.Equal(buf, []byte{0x01, 0x00}) != true {
+			return errors.New("proxy: SOCKS5 proxy at " + conn.RemoteAddr().String() + " fail authentication")
+		}
+
+		return nil
+	}
 }
 
 func Sock5SetRequest(conn *net.TCPConn, host string, port int, timeoutms int) (err error) {
