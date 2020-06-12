@@ -190,7 +190,7 @@ func recvFrom(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxmsgsiz
 		default:
 			_, err := io.ReadFull(conn, bs)
 			if err != nil {
-				loggo.Error("recvFrom ReadFull fail: %s %s", conn.Info(), err.Error())
+				loggo.Info("recvFrom ReadFull fail: %s %s", conn.Info(), err.Error())
 				return err
 			}
 
@@ -202,7 +202,7 @@ func recvFrom(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxmsgsiz
 
 			_, err = io.ReadFull(conn, ds[0:msglen])
 			if err != nil {
-				loggo.Error("recvFrom ReadFull fail: %s %s", conn.Info(), err.Error())
+				loggo.Info("recvFrom ReadFull fail: %s %s", conn.Info(), err.Error())
 				return err
 			}
 
@@ -261,7 +261,7 @@ func sendTo(wg *group.Group, sendch *common.Channel, conn conn.Conn, compress in
 
 			n, err := conn.Write(mb)
 			if err != nil {
-				loggo.Error("sendTo Write fail: %s %s", conn.Info(), err.Error())
+				loggo.Info("sendTo Write fail: %s %s", conn.Info(), err.Error())
 				return err
 			}
 
@@ -299,7 +299,7 @@ func recvFromSonny(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxm
 		default:
 			len, err := conn.Read(ds)
 			if err != nil {
-				loggo.Error("recvFromSonny Read fail: %s %s", conn.Info(), err.Error())
+				loggo.Info("recvFromSonny Read fail: %s %s", conn.Info(), err.Error())
 				return err
 			}
 
@@ -367,7 +367,7 @@ func sendToSonny(wg *group.Group, sendch *common.Channel, conn conn.Conn) error 
 
 			n, err := conn.Write(f.DataFrame.Data)
 			if err != nil {
-				loggo.Error("sendToSonny Write fail: %s %s", conn.Info(), err.Error())
+				loggo.Info("sendToSonny Write fail: %s %s", conn.Info(), err.Error())
 				return err
 			}
 
