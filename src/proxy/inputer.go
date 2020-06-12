@@ -44,7 +44,7 @@ func NewInputer(wg *group.Group, proto string, addr string, clienttype CLIENT_TY
 		listenconn: listenconn,
 	}
 
-	wg.Go("Inputer listen", func() error {
+	wg.Go("Inputer listen"+" "+targetAddr, func() error {
 		return input.listen(targetAddr)
 	})
 
@@ -74,7 +74,7 @@ func NewSocks5Inputer(wg *group.Group, proto string, addr string, clienttype CLI
 		listenconn: listenconn,
 	}
 
-	wg.Go("Inputer listenSocks5", func() error {
+	wg.Go("Inputer listenSocks5"+" "+addr, func() error {
 		return input.listenSocks5()
 	})
 
@@ -143,7 +143,7 @@ func (i *Inputer) listen(targetAddr string) error {
 				continue
 			}
 			proxyconn := &ProxyConn{conn: conn}
-			i.fwg.Go("Inputer processProxyConn", func() error {
+			i.fwg.Go("Inputer processProxyConn"+" "+targetAddr, func() error {
 				return i.processProxyConn(proxyconn, targetAddr)
 			})
 		}
@@ -164,7 +164,7 @@ func (i *Inputer) listenSocks5() error {
 				continue
 			}
 			proxyconn := &ProxyConn{conn: conn}
-			i.fwg.Go("Inputer processSocks5Conn", func() error {
+			i.fwg.Go("Inputer processSocks5Conn"+" "+conn.Info(), func() error {
 				return i.processSocks5Conn(proxyconn)
 			})
 		}
@@ -178,7 +178,7 @@ func (i *Inputer) processSocks5Conn(proxyConn *ProxyConn) error {
 	})
 
 	targetAddr := ""
-	wg.Go("Inputer socks5", func() error {
+	wg.Go("Inputer socks5"+" "+proxyConn.conn.Info(), func() error {
 		if proxyConn.conn.Name() != "tcp" {
 			loggo.Error("processSocks5Conn no tcp %s %s", proxyConn.conn.Info(), proxyConn.conn.Name())
 			return errors.New("socks5 not tcp")
@@ -214,7 +214,7 @@ func (i *Inputer) processSocks5Conn(proxyConn *ProxyConn) error {
 
 	loggo.Info("processSocks5Conn ok %s %s", proxyConn.conn.Info(), targetAddr)
 
-	i.fwg.Go("Inputer processProxyConn", func() error {
+	i.fwg.Go("Inputer processProxyConn"+" "+proxyConn.conn.Info(), func() error {
 		return i.processProxyConn(proxyConn, targetAddr)
 	})
 
@@ -248,23 +248,23 @@ func (i *Inputer) processProxyConn(proxyConn *ProxyConn, targetAddr string) erro
 
 	i.openConn(proxyConn, targetAddr)
 
-	wg.Go("Inputer recvFromSonny", func() error {
+	wg.Go("Inputer recvFromSonny"+" "+proxyConn.conn.Info(), func() error {
 		return recvFromSonny(wg, recvch, proxyConn.conn, i.config.MaxMsgSize)
 	})
 
-	wg.Go("Inputer sendToSonny", func() error {
+	wg.Go("Inputer sendToSonny"+" "+proxyConn.conn.Info(), func() error {
 		return sendToSonny(wg, sendch, proxyConn.conn)
 	})
 
-	wg.Go("Inputer checkSonnyActive", func() error {
+	wg.Go("Inputer checkSonnyActive"+" "+proxyConn.conn.Info(), func() error {
 		return checkSonnyActive(wg, proxyConn, i.config.EstablishedTimeout, i.config.ConnTimeout)
 	})
 
-	wg.Go("Inputer checkNeedClose", func() error {
+	wg.Go("Inputer checkNeedClose"+" "+proxyConn.conn.Info(), func() error {
 		return checkNeedClose(wg, proxyConn)
 	})
 
-	wg.Go("Inputer copySonnyRecv", func() error {
+	wg.Go("Inputer copySonnyRecv"+" "+proxyConn.conn.Info(), func() error {
 		return copySonnyRecv(wg, recvch, proxyConn, i.father)
 	})
 

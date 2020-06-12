@@ -93,7 +93,7 @@ func (o *Outputer) open(proxyconn *ProxyConn, targetAddr string) bool {
 	})
 
 	var conn conn.Conn
-	wg.Go("Outputer Dial", func() error {
+	wg.Go("Outputer Dial"+" "+targetAddr, func() error {
 		cc, err := c.Dial(targetAddr)
 		if err != nil {
 			return err
@@ -147,7 +147,7 @@ func (o *Outputer) processOpenFrame(f *ProxyFrame) {
 	proxyconn.sendch = sendch
 	proxyconn.recvch = recvch
 
-	o.fwg.Go("Outputer processProxyConn", func() error {
+	o.fwg.Go("Outputer processProxyConn"+" "+targetAddr, func() error {
 		return o.processProxyConn(proxyconn, targetAddr)
 	})
 }
@@ -173,23 +173,23 @@ func (o *Outputer) processProxyConn(proxyConn *ProxyConn, targetAddr string) err
 		recvch.Close()
 	})
 
-	wg.Go("Outputer recvFromSonny", func() error {
+	wg.Go("Outputer recvFromSonny"+" "+proxyConn.conn.Info(), func() error {
 		return recvFromSonny(wg, recvch, proxyConn.conn, o.config.MaxMsgSize)
 	})
 
-	wg.Go("Outputer sendToSonny", func() error {
+	wg.Go("Outputer sendToSonny"+" "+proxyConn.conn.Info(), func() error {
 		return sendToSonny(wg, sendch, proxyConn.conn)
 	})
 
-	wg.Go("Outputer checkSonnyActive", func() error {
+	wg.Go("Outputer checkSonnyActive"+" "+proxyConn.conn.Info(), func() error {
 		return checkSonnyActive(wg, proxyConn, o.config.EstablishedTimeout, o.config.ConnTimeout)
 	})
 
-	wg.Go("Outputer checkNeedClose", func() error {
+	wg.Go("Outputer checkNeedClose"+" "+proxyConn.conn.Info(), func() error {
 		return checkNeedClose(wg, proxyConn)
 	})
 
-	wg.Go("Outputer copySonnyRecv", func() error {
+	wg.Go("Outputer copySonnyRecv"+" "+proxyConn.conn.Info(), func() error {
 		return copySonnyRecv(wg, recvch, proxyConn, o.father)
 	})
 
