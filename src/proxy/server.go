@@ -212,9 +212,9 @@ func (s *Server) processLogin(wg *group.Group, f *ProxyFrame, sendch *common.Cha
 	_, loaded := s.clients.LoadOrStore(f.LoginFrame.Name, clientconn)
 	if loaded {
 		rf.LoginRspFrame.Ret = false
-		rf.LoginRspFrame.Msg = "other has login before"
+		rf.LoginRspFrame.Msg = f.LoginFrame.Name + " has login before"
 		sendch.Write(rf)
-		loggo.Error("processLogin fail other has login before %s %s", clientconn.conn.Info(), f.LoginFrame.String())
+		loggo.Error("processLogin fail %s has login before %s %s", f.LoginFrame.Name, clientconn.conn.Info(), f.LoginFrame.String())
 		return
 	}
 
