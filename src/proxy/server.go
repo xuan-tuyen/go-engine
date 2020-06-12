@@ -224,7 +224,7 @@ func (s *Server) processLogin(wg *group.Group, f *ProxyFrame, sendch *common.Cha
 		rf.LoginRspFrame.Ret = false
 		rf.LoginRspFrame.Msg = "iniService fail"
 		sendch.Write(rf)
-		loggo.Error("processLogin iniService fail %s %s", clientconn.conn.Info(), f.LoginFrame.String())
+		loggo.Error("processLogin iniService fail %s %s %s", clientconn.conn.Info(), f.LoginFrame.String(), err)
 		return
 	}
 

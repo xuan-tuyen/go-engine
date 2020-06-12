@@ -216,7 +216,7 @@ func (c *Client) processLoginRsp(wg *group.Group, f *ProxyFrame, sendch *common.
 
 	err := c.iniService(wg, serverconn)
 	if err != nil {
-		loggo.Error("processLoginRsp iniService fail %s", c.server)
+		loggo.Error("processLoginRsp iniService fail %s %s", c.server, err)
 		return
 	}
 
