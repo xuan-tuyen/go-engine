@@ -20,6 +20,7 @@ func (c *Channel) Close() {
 
 	if !c.closed {
 		close(c.ch)
+		c.closed = true
 	}
 }
 
