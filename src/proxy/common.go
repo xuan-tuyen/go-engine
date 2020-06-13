@@ -328,7 +328,7 @@ func recvFromSonny(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxm
 			recvch.Write(f)
 
 			if loggo.IsDebug() {
-				loggo.Debug("recvFromSonny %s %d %s %d %p", conn.Info(), len, f.DataFrame.Crc, f.DataFrame.Index, f)
+				loggo.Debug("recvFromSonny %s %d %s %d %p", conn.Info(), msglen, f.DataFrame.Crc, f.DataFrame.Index, f)
 			}
 
 			atomic.AddInt32(&gState.RecvNum, 1)
