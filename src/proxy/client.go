@@ -111,6 +111,7 @@ func (c *Client) useServer(serverconn *ServerConn) error {
 	serverconn.recvch = recvch
 
 	wg := group.NewGroup(c.wg, func() {
+		loggo.Info("group start exit %s", serverconn.conn.Info())
 		serverconn.conn.Close()
 		sendch.Close()
 		recvch.Close()
@@ -120,6 +121,7 @@ func (c *Client) useServer(serverconn *ServerConn) error {
 		if serverconn.input != nil {
 			serverconn.input.Close()
 		}
+		loggo.Info("group end exit %s", serverconn.conn.Info())
 	})
 
 	c.login(sendch)

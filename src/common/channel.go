@@ -1,7 +1,5 @@
 package common
 
-import "time"
-
 type Channel struct {
 	ch     chan interface{}
 	closed bool
@@ -19,8 +17,8 @@ func (c *Channel) Close() {
 	}()
 
 	if !c.closed {
-		close(c.ch)
 		c.closed = true
+		close(c.ch)
 	}
 }
 
@@ -31,12 +29,8 @@ func (c *Channel) Write(v interface{}) {
 		}
 	}()
 
-	for !c.closed {
-		select {
-		case c.ch <- v:
-			break
-		case <-time.After(time.Second):
-		}
+	if !c.closed {
+		c.ch <- v
 	}
 }
 

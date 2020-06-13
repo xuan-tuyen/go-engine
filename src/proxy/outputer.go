@@ -89,7 +89,9 @@ func (o *Outputer) open(proxyconn *ProxyConn, targetAddr string) bool {
 	}
 
 	wg := group.NewGroup(o.fwg, func() {
+		loggo.Info("group start exit %s", c.Info())
 		c.Close()
+		loggo.Info("group end exit %s", c.Info())
 	})
 
 	var conn conn.Conn
@@ -168,9 +170,11 @@ func (o *Outputer) processProxyConn(proxyConn *ProxyConn, targetAddr string) err
 	loggo.Info("Outputer processProxyConn open ok %s %s", proxyConn.id, proxyConn.conn.Info())
 
 	wg := group.NewGroup(o.fwg, func() {
+		loggo.Info("group start exit %s", proxyConn.conn.Info())
 		proxyConn.conn.Close()
 		sendch.Close()
 		recvch.Close()
+		loggo.Info("group end exit %s", proxyConn.conn.Info())
 	})
 
 	wg.Go("Outputer recvFromSonny"+" "+proxyConn.conn.Info(), func() error {

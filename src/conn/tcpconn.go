@@ -37,7 +37,11 @@ func (c *tcpConn) Close() error {
 }
 
 func (c *tcpConn) Info() string {
-	return c.conn.LocalAddr().String() + "<--->" + c.conn.RemoteAddr().String()
+	if c.conn != nil {
+		return c.conn.LocalAddr().String() + "<--->" + c.conn.RemoteAddr().String()
+	} else {
+		return c.listener.Addr().String()
+	}
 }
 
 func (c *tcpConn) Dial(dst string) (Conn, error) {
