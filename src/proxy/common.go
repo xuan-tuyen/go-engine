@@ -255,7 +255,7 @@ func sendTo(wg *group.Group, sendch *common.Channel, conn conn.Conn, compress in
 			binary.LittleEndian.PutUint32(bs, msglen)
 			_, err = conn.Write(bs)
 			if err != nil {
-				loggo.Error("sendTo Write fail: %s %s", conn.Info(), err.Error())
+				loggo.Info("sendTo Write fail: %s %s", conn.Info(), err.Error())
 				return err
 			}
 
