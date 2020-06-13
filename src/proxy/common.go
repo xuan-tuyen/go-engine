@@ -10,6 +10,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"io"
 	"strconv"
+	"sync/atomic"
 	"time"
 )
 
@@ -223,6 +224,9 @@ func recvFrom(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxmsgsiz
 					}
 				}
 			}
+
+			atomic.AddInt32(&gState.MainRecvNum, 1)
+			atomic.AddInt32(&gState.MainRecvSize, int32(msglen)+4)
 		}
 	}
 }
@@ -279,6 +283,9 @@ func sendTo(wg *group.Group, sendch *common.Channel, conn conn.Conn, compress in
 					}
 				}
 			}
+
+			atomic.AddInt32(&gState.MainSendNum, 1)
+			atomic.AddInt32(&gState.MainSendSize, int32(msglen)+4)
 		}
 	}
 }
@@ -297,22 +304,22 @@ func recvFromSonny(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxm
 		case <-wg.Done():
 			return nil
 		default:
-			len, err := conn.Read(ds)
+			msglen, err := conn.Read(ds)
 			if err != nil {
 				loggo.Info("recvFromSonny Read fail: %s %s", conn.Info(), err.Error())
 				return err
 			}
 
-			if len <= 0 {
-				loggo.Error("recvFromSonny len error: %s %d", conn.Info(), len)
-				return errors.New("len error " + strconv.Itoa(len))
+			if msglen <= 0 {
+				loggo.Error("recvFromSonny len error: %s %d", conn.Info(), msglen)
+				return errors.New("len error " + strconv.Itoa(msglen))
 			}
 
 			f := &ProxyFrame{}
 			f.Type = FRAME_TYPE_DATA
 			f.DataFrame = &DataFrame{}
-			f.DataFrame.Data = make([]byte, len)
-			copy(f.DataFrame.Data, ds[0:len])
+			f.DataFrame.Data = make([]byte, msglen)
+			copy(f.DataFrame.Data, ds[0:msglen])
 			f.DataFrame.Compress = false
 			f.DataFrame.Crc = common.GetCrc32(f.DataFrame.Data)
 			index++
@@ -323,6 +330,9 @@ func recvFromSonny(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxm
 			if loggo.IsDebug() {
 				loggo.Debug("recvFromSonny %s %d %s %d %p", conn.Info(), len, f.DataFrame.Crc, f.DataFrame.Index, f)
 			}
+
+			atomic.AddInt32(&gState.RecvNum, 1)
+			atomic.AddInt32(&gState.RecvSize, int32(len(f.DataFrame.Data)))
 		}
 	}
 }
@@ -379,6 +389,9 @@ func sendToSonny(wg *group.Group, sendch *common.Channel, conn conn.Conn) error 
 			if loggo.IsDebug() {
 				loggo.Debug("sendToSonny %s %d %s %d", conn.Info(), len(f.DataFrame.Data), f.DataFrame.Crc, f.DataFrame.Index)
 			}
+
+			atomic.AddInt32(&gState.SendNum, 1)
+			atomic.AddInt32(&gState.SendSize, int32(len(f.DataFrame.Data)))
 		}
 	}
 }
@@ -537,4 +550,29 @@ func closeRemoteConn(proxyConn *ProxyConn, father *ProxyConn) {
 
 	father.sendch.Write(f)
 	loggo.Info("closeConn %s", proxyConn.id)
+}
+
+type State struct {
+	ThreadNum    int32
+	MainRecvNum  int32
+	MainSendNum  int32
+	MainRecvSize int32
+	MainSendSize int32
+	RecvNum      int32
+	SendNum      int32
+	RecvSize     int32
+	SendSize     int32
+}
+
+var gState State
+
+func showState(wg *group.Group) error {
+	for {
+		select {
+		case <-wg.Done():
+			return nil
+		case <-time.After(time.Second):
+			loggo.Info("showState\n%s", common.StructToTable(&gState))
+		}
+	}
 }
