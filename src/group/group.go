@@ -71,6 +71,7 @@ func (g *Group) exit(err error) {
 	g.errOnce.Do(func() {
 		g.err = err
 		g.isexit = true
+		close(g.donech)
 		if g.exitfunc != nil {
 			g.exitfunc()
 		}
@@ -99,13 +100,7 @@ func (g *Group) runningmap() string {
 }
 
 func (g *Group) Done() <-chan int {
-	if !g.isexit {
-		return g.donech
-	} else {
-		tmp := make(chan int, 1)
-		tmp <- 1
-		return tmp
-	}
+	return g.donech
 }
 
 func (g *Group) Go(name string, f func() error) {
