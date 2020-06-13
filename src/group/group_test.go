@@ -8,7 +8,7 @@ import (
 )
 
 func Test0001(t *testing.T) {
-	g := NewGroup(nil, nil)
+	g := NewGroup("", nil, nil)
 	g.Go("", func() error {
 		fmt.Println("a")
 		return nil
@@ -17,7 +17,7 @@ func Test0001(t *testing.T) {
 }
 
 func Test0002(t *testing.T) {
-	g := NewGroup(nil, nil)
+	g := NewGroup("", nil, nil)
 	g.Go("", func() error {
 		for {
 			select {
@@ -37,8 +37,8 @@ func Test0002(t *testing.T) {
 }
 
 func Test0003(t *testing.T) {
-	g := NewGroup(nil, nil)
-	gg := NewGroup(g, nil)
+	g := NewGroup("", nil, nil)
+	gg := NewGroup("", g, nil)
 	gg.Go("", func() error {
 		for {
 			select {
@@ -58,8 +58,8 @@ func Test0003(t *testing.T) {
 }
 
 func Test0004(t *testing.T) {
-	g := NewGroup(nil, nil)
-	gg := NewGroup(g, nil)
+	g := NewGroup("", nil, nil)
+	gg := NewGroup("", g, nil)
 	g.Go("", func() error {
 		for {
 			select {
@@ -95,7 +95,7 @@ func Test0004(t *testing.T) {
 }
 
 func Test0005(t *testing.T) {
-	g := NewGroup(nil, func() {
+	g := NewGroup("", nil, func() {
 		fmt.Println("stop")
 	})
 
@@ -131,7 +131,7 @@ func Test0005(t *testing.T) {
 
 func Test0006(t *testing.T) {
 	done := 0
-	g := NewGroup(nil, func() {
+	g := NewGroup("", nil, func() {
 		done = 1
 		fmt.Println("stop")
 	})
@@ -159,7 +159,7 @@ func Test0006(t *testing.T) {
 }
 
 func Test0007(t *testing.T) {
-	g := NewGroup(nil, func() {
+	g := NewGroup("", nil, func() {
 		fmt.Println("stop")
 	})
 
@@ -194,7 +194,7 @@ func Test0007(t *testing.T) {
 }
 
 func Test008(t *testing.T) {
-	g := NewGroup(nil, func() {
+	g := NewGroup("", nil, func() {
 		fmt.Println("stop")
 	})
 

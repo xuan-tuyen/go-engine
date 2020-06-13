@@ -182,7 +182,7 @@ func (i *Inputer) listenSocks5() error {
 
 func (i *Inputer) processSocks5Conn(proxyConn *ProxyConn) error {
 
-	wg := group.NewGroup(i.fwg, func() {
+	wg := group.NewGroup("Inputer processSocks5Conn"+" "+proxyConn.conn.Info(), i.fwg, func() {
 		loggo.Info("group start exit %s", proxyConn.conn.Info())
 		proxyConn.conn.Close()
 		loggo.Info("group end exit %s", proxyConn.conn.Info())
@@ -256,7 +256,7 @@ func (i *Inputer) processProxyConn(proxyConn *ProxyConn, targetAddr string) erro
 	proxyConn.sendch = sendch
 	proxyConn.recvch = recvch
 
-	wg := group.NewGroup(i.fwg, func() {
+	wg := group.NewGroup("Inputer processProxyConn"+" "+proxyConn.conn.Info(), i.fwg, func() {
 		loggo.Info("group start exit %s", proxyConn.conn.Info())
 		proxyConn.conn.Close()
 		sendch.Close()

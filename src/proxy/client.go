@@ -54,7 +54,7 @@ func NewClient(config *Config, server string, name string, clienttypestr string,
 		return nil, errors.New("no PROXY_PROTO " + proxyprotostr)
 	}
 
-	wg := group.NewGroup(nil, nil)
+	wg := group.NewGroup("Clent"+" "+fromaddr+" "+toaddr, nil, nil)
 
 	c := &Client{
 		config:     config,
@@ -119,7 +119,7 @@ func (c *Client) useServer(serverconn *ServerConn) error {
 	serverconn.sendch = sendch
 	serverconn.recvch = recvch
 
-	wg := group.NewGroup(c.wg, func() {
+	wg := group.NewGroup("Client useServer"+" "+serverconn.conn.Info(), c.wg, func() {
 		loggo.Info("group start exit %s", serverconn.conn.Info())
 		serverconn.conn.Close()
 		sendch.Close()

@@ -49,7 +49,7 @@ func NewServer(config *Config, listenaddr string) (*Server, error) {
 		return nil, err
 	}
 
-	wg := group.NewGroup(nil, func() {
+	wg := group.NewGroup("Server"+" "+listenaddr, nil, func() {
 		loggo.Info("group start exit %s", listenConn.Info())
 		listenConn.Close()
 		loggo.Info("group start exit %s", listenConn.Info())
@@ -111,7 +111,7 @@ func (s *Server) serveClient(clientconn *ClientConn) error {
 	clientconn.sendch = sendch
 	clientconn.recvch = recvch
 
-	wg := group.NewGroup(s.wg, func() {
+	wg := group.NewGroup("Server serveClient"+" "+clientconn.conn.Info(), s.wg, func() {
 		loggo.Info("group start exit %s", clientconn.conn.Info())
 		clientconn.conn.Close()
 		sendch.Close()

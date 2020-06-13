@@ -21,9 +21,10 @@ type Group struct {
 	donech   chan int
 	sonname  map[string]int
 	lock     sync.Mutex
+	name     string
 }
 
-func NewGroup(father *Group, exitfunc func()) *Group {
+func NewGroup(name string, father *Group, exitfunc func()) *Group {
 	g := &Group{
 		father:   father,
 		exitfunc: exitfunc,
@@ -33,6 +34,7 @@ func NewGroup(father *Group, exitfunc func()) *Group {
 	g.donech = make(chan int)
 	g.sonname = make(map[string]int)
 	g.son = make(map[*Group]int)
+	g.name = name
 
 	if father != nil {
 		father.addson(g)
@@ -50,7 +52,13 @@ func (g *Group) addson(son *Group) {
 func (g *Group) removeson(son *Group) {
 	g.lock.Lock()
 	defer g.lock.Unlock()
+	if g.son[son] == 0 {
+		loggo.Error("removeson fail no son %s %s", g.name, son.name)
+	}
 	delete(g.son, son)
+	if g.son[son] != 0 {
+		loggo.Error("removeson fail has son %s %s", g.name, son.name)
+	}
 }
 
 func (g *Group) add() {
@@ -139,7 +147,8 @@ func (g *Group) Wait() error {
 			} else {
 				if cur-last > 5 {
 					last = cur
-					loggo.Error("Group Wait too long %s %v", time.Duration((cur-begin)*int64(time.Second)).String(), g.runningmap())
+					loggo.Error("Group Wait too long %s %d %s %v", g.name, g.wg,
+						time.Duration((cur-begin)*int64(time.Second)).String(), g.runningmap())
 				}
 			}
 		}
