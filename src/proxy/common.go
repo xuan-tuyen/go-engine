@@ -189,6 +189,9 @@ func recvFrom(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxmsgsiz
 		case <-wg.Done():
 			return nil
 		default:
+			if loggo.IsDebug() {
+				loggo.Debug("recvFrom start ReadFull len %s", conn.Info())
+			}
 			_, err := io.ReadFull(conn, bs)
 			if err != nil {
 				loggo.Info("recvFrom ReadFull fail: %s %s", conn.Info(), err.Error())
@@ -201,6 +204,9 @@ func recvFrom(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxmsgsiz
 				return errors.New("msg len fail " + strconv.Itoa(int(msglen)))
 			}
 
+			if loggo.IsDebug() {
+				loggo.Debug("recvFrom start ReadFull body %s %d", conn.Info(), msglen)
+			}
 			_, err = io.ReadFull(conn, ds[0:msglen])
 			if err != nil {
 				loggo.Info("recvFrom ReadFull fail: %s %s", conn.Info(), err.Error())
@@ -213,6 +219,9 @@ func recvFrom(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxmsgsiz
 				return err
 			}
 
+			if loggo.IsDebug() {
+				loggo.Debug("recvFrom start Write %s", conn.Info())
+			}
 			recvch.Write(f)
 
 			if f.Type != FRAME_TYPE_PING && f.Type != FRAME_TYPE_PONG && loggo.IsDebug() {
@@ -256,6 +265,9 @@ func sendTo(wg *group.Group, sendch *common.Channel, conn conn.Conn, compress in
 				return errors.New("msg len fail " + strconv.Itoa(int(msglen)))
 			}
 
+			if loggo.IsDebug() {
+				loggo.Debug("sendTo start Write len %s", conn.Info())
+			}
 			binary.LittleEndian.PutUint32(bs, msglen)
 			_, err = conn.Write(bs)
 			if err != nil {
@@ -263,6 +275,9 @@ func sendTo(wg *group.Group, sendch *common.Channel, conn conn.Conn, compress in
 				return err
 			}
 
+			if loggo.IsDebug() {
+				loggo.Debug("sendTo start Write body %s %d", conn.Info(), msglen)
+			}
 			n, err := conn.Write(mb)
 			if err != nil {
 				loggo.Info("sendTo Write fail: %s %s", conn.Info(), err.Error())
@@ -573,6 +588,7 @@ func showState(wg *group.Group) error {
 		case <-wg.Done():
 			return nil
 		case <-time.After(time.Second):
+			n++
 			if n > 60 {
 				MainRecvNum := gState.MainRecvNum
 				MainSendNum := gState.MainSendNum
