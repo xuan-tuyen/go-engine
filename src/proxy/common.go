@@ -181,12 +181,18 @@ func UnmarshalSrpFrame(b []byte, encrpyt string) (*ProxyFrame, error) {
 
 func recvFrom(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxmsgsize int, encrypt string) error {
 
+	if loggo.IsDebug() {
+		loggo.Debug("recvFrom start %s", conn.Info())
+	}
 	bs := make([]byte, 4)
 	ds := make([]byte, maxmsgsize)
 
 	for {
 		select {
 		case <-wg.Done():
+			if loggo.IsDebug() {
+				loggo.Debug("recvFrom end %s", conn.Info())
+			}
 			return nil
 		default:
 			if loggo.IsDebug() {
@@ -242,11 +248,17 @@ func recvFrom(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxmsgsiz
 
 func sendTo(wg *group.Group, sendch *common.Channel, conn conn.Conn, compress int, maxmsgsize int, encrypt string) error {
 
+	if loggo.IsDebug() {
+		loggo.Debug("sendTo start %s", conn.Info())
+	}
 	bs := make([]byte, 4)
 
 	for {
 		select {
 		case <-wg.Done():
+			if loggo.IsDebug() {
+				loggo.Debug("sendTo end %s", conn.Info())
+			}
 			return nil
 		case ff := <-sendch.Ch():
 			if ff == nil {
