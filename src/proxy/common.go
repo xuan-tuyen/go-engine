@@ -195,6 +195,8 @@ func recvFrom(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxmsgsiz
 			}
 			return nil
 		default:
+			atomic.AddInt32(&gState.Frames, 1)
+
 			if loggo.IsDebug() {
 				loggo.Debug("recvFrom start ReadFull len %s", conn.Info())
 			}
@@ -261,6 +263,8 @@ func sendTo(wg *group.Group, sendch *common.Channel, conn conn.Conn, compress in
 			}
 			return nil
 		case ff := <-sendch.Ch():
+			atomic.AddInt32(&gState.Frames, 1)
+
 			if ff == nil {
 				return nil
 			}
@@ -331,6 +335,8 @@ func recvFromSonny(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxm
 		case <-wg.Done():
 			return nil
 		default:
+			atomic.AddInt32(&gState.Frames, 1)
+
 			msglen, err := conn.Read(ds)
 			if err != nil {
 				loggo.Info("recvFromSonny Read fail: %s %s", conn.Info(), err.Error())
@@ -372,6 +378,8 @@ func sendToSonny(wg *group.Group, sendch *common.Channel, conn conn.Conn) error 
 		case <-wg.Done():
 			return nil
 		case ff := <-sendch.Ch():
+			atomic.AddInt32(&gState.Frames, 1)
+
 			if ff == nil {
 				return nil
 			}
@@ -431,6 +439,8 @@ func checkPingActive(wg *group.Group, sendch *common.Channel, recvch *common.Cha
 	case <-wg.Done():
 		return nil
 	case <-time.After(time.Second):
+		atomic.AddInt32(&gState.Frames, 1)
+
 		n++
 		if !proxyconn.established {
 			if n > estimeout {
@@ -447,6 +457,8 @@ func checkPingActive(wg *group.Group, sendch *common.Channel, recvch *common.Cha
 		case <-wg.Done():
 			return nil
 		case <-time.After(time.Duration(pinginter) * time.Second):
+			atomic.AddInt32(&gState.Frames, 1)
+
 			if proxyconn.pinged > pingintertimeout {
 				loggo.Error("checkPingActive ping pong timeout %s", proxyconn.conn.Info())
 				return errors.New("ping pong timeout")
@@ -474,6 +486,8 @@ func checkNeedClose(wg *group.Group, proxyconn *ProxyConn) error {
 		case <-wg.Done():
 			return nil
 		case <-time.After(time.Second):
+			atomic.AddInt32(&gState.Frames, 1)
+
 			if proxyconn.needclose {
 				loggo.Error("checkNeedClose needclose %s", proxyconn.conn.Info())
 				return errors.New("needclose")
@@ -505,6 +519,8 @@ func checkSonnyActive(wg *group.Group, proxyconn *ProxyConn, estimeout int, time
 	case <-wg.Done():
 		return nil
 	case <-time.After(time.Second):
+		atomic.AddInt32(&gState.Frames, 1)
+
 		n++
 		if !proxyconn.established {
 			if n > estimeout {
@@ -522,6 +538,8 @@ func checkSonnyActive(wg *group.Group, proxyconn *ProxyConn, estimeout int, time
 		case <-wg.Done():
 			return nil
 		case <-time.After(time.Second):
+			atomic.AddInt32(&gState.Frames, 1)
+
 			n++
 			if n > timeout {
 				if proxyconn.actived == 0 {
@@ -541,6 +559,8 @@ func copySonnyRecv(wg *group.Group, recvch *common.Channel, proxyConn *ProxyConn
 		case <-wg.Done():
 			return nil
 		case ff := <-recvch.Ch():
+			atomic.AddInt32(&gState.Frames, 1)
+
 			if ff == nil {
 				return nil
 			}
@@ -581,6 +601,8 @@ func closeRemoteConn(proxyConn *ProxyConn, father *ProxyConn) {
 
 type State struct {
 	ThreadNum    int32
+	Frames       int32
+	Fps          int32
 	MainRecvNum  int32
 	MainSendNum  int32
 	MainRecvSize int32
@@ -602,6 +624,7 @@ func showState(wg *group.Group) error {
 		case <-time.After(time.Second):
 			n++
 			if n > 60 {
+				Frames := gState.Frames
 				MainRecvNum := gState.MainRecvNum
 				MainSendNum := gState.MainSendNum
 				MainRecvSize := gState.MainRecvSize
@@ -610,7 +633,15 @@ func showState(wg *group.Group) error {
 				SendNum := gState.SendNum
 				RecvSize := gState.RecvSize
 				SendSize := gState.SendSize
+
+				if gState.ThreadNum > 0 {
+					gState.Fps = gState.Frames / gState.ThreadNum
+				} else {
+					gState.Fps = 0
+				}
 				loggo.Info("showState\n%s", common.StructToTable(&gState))
+
+				atomic.AddInt32(&gState.Frames, -Frames)
 				atomic.AddInt32(&gState.MainRecvNum, -MainRecvNum)
 				atomic.AddInt32(&gState.MainSendNum, -MainSendNum)
 				atomic.AddInt32(&gState.MainRecvSize, -MainRecvSize)
