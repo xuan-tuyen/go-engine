@@ -567,12 +567,32 @@ type State struct {
 var gState State
 
 func showState(wg *group.Group) error {
+	n := 0
 	for {
 		select {
 		case <-wg.Done():
 			return nil
 		case <-time.After(time.Second):
-			loggo.Info("showState\n%s", common.StructToTable(&gState))
+			if n > 60 {
+				MainRecvNum := gState.MainRecvNum
+				MainSendNum := gState.MainSendNum
+				MainRecvSize := gState.MainRecvSize
+				MainSendSize := gState.MainSendSize
+				RecvNum := gState.RecvNum
+				SendNum := gState.SendNum
+				RecvSize := gState.RecvSize
+				SendSize := gState.SendSize
+				loggo.Info("showState\n%s", common.StructToTable(&gState))
+				atomic.AddInt32(&gState.MainRecvNum, -MainRecvNum)
+				atomic.AddInt32(&gState.MainSendNum, -MainSendNum)
+				atomic.AddInt32(&gState.MainRecvSize, -MainRecvSize)
+				atomic.AddInt32(&gState.MainSendSize, -MainSendSize)
+				atomic.AddInt32(&gState.RecvNum, -RecvNum)
+				atomic.AddInt32(&gState.SendNum, -SendNum)
+				atomic.AddInt32(&gState.RecvSize, -RecvSize)
+				atomic.AddInt32(&gState.SendSize, -SendSize)
+				n = 0
+			}
 		}
 	}
 }
