@@ -99,6 +99,7 @@ func (s *Server) listen() error {
 			})
 		}
 	}
+	return nil
 }
 
 func (s *Server) serveClient(clientconn *ClientConn) error {
@@ -200,7 +201,7 @@ func (s *Server) process(wg *group.Group, sendch *common.Channel, recvch *common
 			}
 		}
 	}
-
+	return nil
 }
 
 func (s *Server) processLogin(wg *group.Group, f *ProxyFrame, sendch *common.Channel, clientconn *ClientConn) {

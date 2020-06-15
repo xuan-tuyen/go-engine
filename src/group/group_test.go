@@ -19,7 +19,7 @@ func Test0001(t *testing.T) {
 func Test0002(t *testing.T) {
 	g := NewGroup("", nil, nil)
 	g.Go("", func() error {
-		for {
+		for !g.IsExit() {
 			select {
 			case <-g.Done():
 				return nil

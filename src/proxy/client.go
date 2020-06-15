@@ -107,6 +107,7 @@ func (c *Client) connect(conn conn.Conn) error {
 			}
 		}
 	}
+	return nil
 }
 
 func (c *Client) useServer(serverconn *ServerConn) error {
@@ -223,7 +224,7 @@ func (c *Client) process(wg *group.Group, sendch *common.Channel, recvch *common
 			}
 		}
 	}
-
+	return nil
 }
 
 func (c *Client) processLoginRsp(wg *group.Group, f *ProxyFrame, sendch *common.Channel, serverconn *ServerConn) {

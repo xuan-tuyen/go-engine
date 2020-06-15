@@ -242,6 +242,7 @@ func recvFrom(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxmsgsiz
 			atomic.AddInt32(&gState.MainRecvSize, int32(msglen)+4)
 		}
 	}
+	return nil
 }
 
 func sendTo(wg *group.Group, sendch *common.Channel, conn conn.Conn, compress int, maxmsgsize int, encrypt string) error {
@@ -311,6 +312,7 @@ func sendTo(wg *group.Group, sendch *common.Channel, conn conn.Conn, compress in
 			atomic.AddInt32(&gState.MainSendSize, int32(msglen)+4)
 		}
 	}
+	return nil
 }
 
 const (
@@ -360,6 +362,7 @@ func recvFromSonny(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxm
 			atomic.AddInt32(&gState.RecvSize, int32(len(f.DataFrame.Data)))
 		}
 	}
+	return nil
 }
 
 func sendToSonny(wg *group.Group, sendch *common.Channel, conn conn.Conn) error {
@@ -421,6 +424,7 @@ func sendToSonny(wg *group.Group, sendch *common.Channel, conn conn.Conn) error 
 			atomic.AddInt32(&gState.SendSize, int32(len(f.DataFrame.Data)))
 		}
 	}
+	return nil
 }
 
 func checkPingActive(wg *group.Group, sendch *common.Channel, recvch *common.Channel, proxyconn *ProxyConn,
@@ -469,6 +473,7 @@ func checkPingActive(wg *group.Group, sendch *common.Channel, recvch *common.Cha
 			}
 		}
 	}
+	return nil
 }
 
 func checkNeedClose(wg *group.Group, proxyconn *ProxyConn) error {
@@ -486,6 +491,7 @@ func checkNeedClose(wg *group.Group, proxyconn *ProxyConn) error {
 			}
 		}
 	}
+	return nil
 }
 
 func processPing(f *ProxyFrame, sendch *common.Channel, proxyconn *ProxyConn) {
@@ -542,6 +548,7 @@ func checkSonnyActive(wg *group.Group, proxyconn *ProxyConn, estimeout int, time
 			}
 		}
 	}
+	return nil
 }
 
 func copySonnyRecv(wg *group.Group, recvch *common.Channel, proxyConn *ProxyConn, father *ProxyConn) error {
@@ -579,6 +586,7 @@ func copySonnyRecv(wg *group.Group, recvch *common.Channel, proxyConn *ProxyConn
 			loggo.Debug("copySonnyRecv %s %d %s %p", proxyConn.id, len(f.DataFrame.Data), f.DataFrame.Crc, f)
 		}
 	}
+	return nil
 }
 
 func closeRemoteConn(proxyConn *ProxyConn, father *ProxyConn) {
@@ -646,4 +654,5 @@ func showState(wg *group.Group) error {
 			}
 		}
 	}
+	return nil
 }

@@ -155,6 +155,7 @@ func (i *Inputer) listen(targetAddr string) error {
 			})
 		}
 	}
+	return nil
 }
 
 func (i *Inputer) listenSocks5() error {
@@ -178,6 +179,7 @@ func (i *Inputer) listenSocks5() error {
 			})
 		}
 	}
+	return nil
 }
 
 func (i *Inputer) processSocks5Conn(proxyConn *ProxyConn) error {
