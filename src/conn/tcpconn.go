@@ -10,6 +10,7 @@ type tcpConn struct {
 	conn     *net.TCPConn
 	listener *net.TCPListener
 	cancel   context.CancelFunc
+	info     string
 }
 
 func (c *tcpConn) Name() string {
@@ -37,11 +38,15 @@ func (c *tcpConn) Close() error {
 }
 
 func (c *tcpConn) Info() string {
-	if c.conn != nil {
-		return c.conn.LocalAddr().String() + "<--->" + c.conn.RemoteAddr().String()
-	} else {
-		return c.listener.Addr().String()
+	if c.info != "" {
+		return c.info
 	}
+	if c.conn != nil {
+		c.info = c.conn.LocalAddr().String() + "<--->" + c.conn.RemoteAddr().String()
+	} else {
+		c.info = c.listener.Addr().String()
+	}
+	return c.info
 }
 
 func (c *tcpConn) Dial(dst string) (Conn, error) {
