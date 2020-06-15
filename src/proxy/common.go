@@ -181,18 +181,14 @@ func UnmarshalSrpFrame(b []byte, encrpyt string) (*ProxyFrame, error) {
 
 func recvFrom(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxmsgsize int, encrypt string) error {
 
-	if loggo.IsDebug() {
-		loggo.Debug("recvFrom start %s", conn.Info())
-	}
+	loggo.Info("recvFrom start %s", conn.Info())
 	bs := make([]byte, 4)
 	ds := make([]byte, maxmsgsize)
 
-	for {
+	for !wg.IsExit() {
 		select {
 		case <-wg.Done():
-			if loggo.IsDebug() {
-				loggo.Debug("recvFrom end %s", conn.Info())
-			}
+			loggo.Info("recvFrom end %s", conn.Info())
 			return nil
 		default:
 			atomic.AddInt32(&gState.Frames, 1)
@@ -250,17 +246,13 @@ func recvFrom(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxmsgsiz
 
 func sendTo(wg *group.Group, sendch *common.Channel, conn conn.Conn, compress int, maxmsgsize int, encrypt string) error {
 
-	if loggo.IsDebug() {
-		loggo.Debug("sendTo start %s", conn.Info())
-	}
+	loggo.Info("sendTo start %s", conn.Info())
 	bs := make([]byte, 4)
 
-	for {
+	for !wg.IsExit() {
 		select {
 		case <-wg.Done():
-			if loggo.IsDebug() {
-				loggo.Debug("sendTo end %s", conn.Info())
-			}
+			loggo.Info("sendTo end %s", conn.Info())
 			return nil
 		case ff := <-sendch.Ch():
 			atomic.AddInt32(&gState.Frames, 1)
@@ -330,7 +322,7 @@ func recvFromSonny(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxm
 	ds := make([]byte, maxmsgsize)
 
 	index := int32(0)
-	for {
+	for !wg.IsExit() {
 		select {
 		case <-wg.Done():
 			return nil
@@ -373,7 +365,7 @@ func recvFromSonny(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxm
 func sendToSonny(wg *group.Group, sendch *common.Channel, conn conn.Conn) error {
 
 	index := int32(0)
-	for {
+	for !wg.IsExit() {
 		select {
 		case <-wg.Done():
 			return nil
@@ -452,7 +444,7 @@ func checkPingActive(wg *group.Group, sendch *common.Channel, recvch *common.Cha
 		}
 	}
 
-	for {
+	for !wg.IsExit() {
 		select {
 		case <-wg.Done():
 			return nil
@@ -481,7 +473,7 @@ func checkPingActive(wg *group.Group, sendch *common.Channel, recvch *common.Cha
 
 func checkNeedClose(wg *group.Group, proxyconn *ProxyConn) error {
 
-	for {
+	for !wg.IsExit() {
 		select {
 		case <-wg.Done():
 			return nil
@@ -533,7 +525,7 @@ func checkSonnyActive(wg *group.Group, proxyconn *ProxyConn, estimeout int, time
 	}
 
 	n = 0
-	for {
+	for !wg.IsExit() {
 		select {
 		case <-wg.Done():
 			return nil
@@ -554,7 +546,7 @@ func checkSonnyActive(wg *group.Group, proxyconn *ProxyConn, estimeout int, time
 
 func copySonnyRecv(wg *group.Group, recvch *common.Channel, proxyConn *ProxyConn, father *ProxyConn) error {
 
-	for {
+	for !wg.IsExit() {
 		select {
 		case <-wg.Done():
 			return nil
@@ -617,7 +609,7 @@ var gState State
 
 func showState(wg *group.Group) error {
 	n := 0
-	for {
+	for !wg.IsExit() {
 		select {
 		case <-wg.Done():
 			return nil

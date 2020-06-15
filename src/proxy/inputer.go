@@ -138,7 +138,7 @@ func (i *Inputer) listen(targetAddr string) error {
 
 	loggo.Info("Inputer start listen %s %s", i.addr, targetAddr)
 
-	for {
+	for !i.fwg.IsExit() {
 		select {
 		case <-i.fwg.Done():
 			return nil
@@ -161,7 +161,7 @@ func (i *Inputer) listenSocks5() error {
 
 	loggo.Info("Inputer start listenSocks5 %s", i.addr)
 
-	for {
+	for !i.fwg.IsExit() {
 		select {
 		case <-i.fwg.Done():
 			return nil

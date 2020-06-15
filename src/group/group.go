@@ -75,6 +75,10 @@ func (g *Group) done() {
 	}
 }
 
+func (g *Group) IsExit() bool {
+	return g.isexit
+}
+
 func (g *Group) exit(err error) {
 	g.errOnce.Do(func() {
 		g.err = err

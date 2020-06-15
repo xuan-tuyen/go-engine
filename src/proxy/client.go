@@ -87,7 +87,7 @@ func (c *Client) Close() {
 
 func (c *Client) connect(conn conn.Conn) error {
 
-	for {
+	for !c.wg.IsExit() {
 		select {
 		case <-c.wg.Done():
 			return nil
@@ -190,7 +190,7 @@ func (c *Client) login(sendch *common.Channel) {
 
 func (c *Client) process(wg *group.Group, sendch *common.Channel, recvch *common.Channel, serverconn *ServerConn) error {
 
-	for {
+	for !wg.IsExit() {
 		select {
 		case <-wg.Done():
 			return nil

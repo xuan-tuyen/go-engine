@@ -82,7 +82,7 @@ func (s *Server) Close() {
 
 func (s *Server) listen() error {
 
-	for {
+	for !s.wg.IsExit() {
 		select {
 		case <-s.wg.Done():
 			return nil
@@ -167,7 +167,7 @@ func (s *Server) serveClient(clientconn *ClientConn) error {
 
 func (s *Server) process(wg *group.Group, sendch *common.Channel, recvch *common.Channel, clientconn *ClientConn) error {
 
-	for {
+	for !wg.IsExit() {
 		select {
 		case <-wg.Done():
 			return nil
