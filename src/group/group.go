@@ -155,6 +155,10 @@ func (g *Group) Wait() error {
 						time.Duration((cur-begin)*int64(time.Second)).String(), g.runningmap())
 				}
 			}
+		} else if g.father != nil {
+			if g.father.IsExit() {
+				g.exit(errors.New("father exit"))
+			}
 		}
 		time.Sleep(time.Millisecond * 10)
 	}
