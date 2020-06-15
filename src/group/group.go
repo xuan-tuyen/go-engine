@@ -149,7 +149,7 @@ func (g *Group) Wait() error {
 				last = cur
 				begin = cur
 			} else {
-				if cur-last > 5 {
+				if cur-last > 30 {
 					last = cur
 					loggo.Error("Group Wait too long %s %d %s %v", g.name, g.wg,
 						time.Duration((cur-begin)*int64(time.Second)).String(), g.runningmap())

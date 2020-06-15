@@ -440,7 +440,7 @@ func checkPingActive(wg *group.Group, sendch *common.Channel, recvch *common.Cha
 
 		if !proxyconn.established {
 			if time.Now().Sub(begin) > time.Second*time.Duration(estimeout) {
-				loggo.Error("checkPingActive established timeout %s", proxyconn.conn.Info())
+				loggo.Info("checkPingActive established timeout %s", proxyconn.conn.Info())
 				return errors.New("established timeout")
 			}
 		} else {
@@ -457,7 +457,7 @@ func checkPingActive(wg *group.Group, sendch *common.Channel, recvch *common.Cha
 			begin = time.Now()
 
 			if proxyconn.pinged > pingintertimeout {
-				loggo.Error("checkPingActive ping pong timeout %s", proxyconn.conn.Info())
+				loggo.Info("checkPingActive ping pong timeout %s", proxyconn.conn.Info())
 				return errors.New("ping pong timeout")
 			}
 
