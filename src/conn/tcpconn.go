@@ -3,7 +3,6 @@ package conn
 import (
 	"context"
 	"net"
-	"time"
 )
 
 type tcpConn struct {
