@@ -84,7 +84,7 @@ func (s *Server) listen() error {
 	for !s.wg.IsExit() {
 		conn, err := s.listenConn.Accept()
 		if err != nil {
-			loggo.Error("Server listen Accept fail %s", err)
+			loggo.Info("Server listen Accept fail %s", err)
 			continue
 		}
 

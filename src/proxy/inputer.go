@@ -140,7 +140,7 @@ func (i *Inputer) listen(targetAddr string) error {
 	for !i.fwg.IsExit() {
 		conn, err := i.listenconn.Accept()
 		if err != nil {
-			loggo.Error("Inputer listen Accept fail %s", err)
+			loggo.Info("Inputer listen Accept fail %s", err)
 			continue
 		}
 
@@ -169,7 +169,7 @@ func (i *Inputer) listenSocks5() error {
 	for !i.fwg.IsExit() {
 		conn, err := i.listenconn.Accept()
 		if err != nil {
-			loggo.Error("Inputer listen Accept fail %s", err)
+			loggo.Info("Inputer listen Accept fail %s", err)
 			continue
 		}
 
