@@ -35,8 +35,8 @@ type Config struct {
 func DefaultConfig() *Config {
 	return &Config{
 		MaxMsgSize:         1024 * 1024,
-		MainBuffer:         1024 * 1024,
-		ConnBuffer:         1024,
+		MainBuffer:         1024,
+		ConnBuffer:         128,
 		EstablishedTimeout: 10,
 		PingInter:          1,
 		PingTimeoutInter:   5,
