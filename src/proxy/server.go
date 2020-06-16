@@ -84,13 +84,13 @@ func (s *Server) listen() error {
 	for !s.wg.IsExit() {
 		conn, err := s.listenConn.Accept()
 		if err != nil {
-			loggo.Error("listen Accept fail %s", err)
+			loggo.Error("Server listen Accept fail %s", err)
 			continue
 		}
 
 		size := s.clientSize()
 		if size >= s.config.MaxClient {
-			loggo.Info("listen max client %s %d", conn.Info(), size)
+			loggo.Info("Server listen max client %s %d", conn.Info(), size)
 			conn.Close()
 			continue
 		}

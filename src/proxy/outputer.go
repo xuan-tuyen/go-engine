@@ -132,15 +132,24 @@ func (o *Outputer) processOpenFrame(f *ProxyFrame) {
 	id := f.OpenFrame.Id
 	targetAddr := f.OpenFrame.Toaddr
 
+	rf := &ProxyFrame{}
+	rf.Type = FRAME_TYPE_OPENRSP
+	rf.OpenRspFrame = &OpenConnRspFrame{}
+	rf.OpenRspFrame.Id = id
+	rf.OpenRspFrame.Ret = false
+
+	size := o.sonnySize()
+	if size >= o.config.MaxSonny {
+		rf.OpenRspFrame.Msg = "max sonny"
+		o.father.sendch.Write(rf)
+		loggo.Info("Outputer listen max sonny %s %d", id, size)
+		return
+	}
+
 	proxyconn := &ProxyConn{id: id, conn: nil, established: true}
 	_, loaded := o.sonny.LoadOrStore(proxyconn.id, proxyconn)
 	if loaded {
-		rf := &ProxyFrame{}
-		rf.Type = FRAME_TYPE_OPENRSP
-		rf.OpenRspFrame = &OpenConnRspFrame{}
-		rf.OpenRspFrame.Id = id
-		rf.OpenRspFrame.Ret = false
-		rf.OpenRspFrame.Msg = "Conn id fail "
+		rf.OpenRspFrame.Msg = "Conn id fail"
 		o.father.sendch.Write(rf)
 		loggo.Error("Outputer processOpenFrame LoadOrStore fail %s %s", targetAddr, id)
 		return
@@ -222,7 +231,7 @@ func (o *Outputer) processProxyConn(proxyConn *ProxyConn, targetAddr string) err
 	return nil
 }
 
-func (o *Outputer) clientSize() int {
+func (o *Outputer) sonnySize() int {
 	size := 0
 	o.sonny.Range(func(key, value interface{}) bool {
 		size++

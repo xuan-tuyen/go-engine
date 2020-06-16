@@ -140,8 +140,17 @@ func (i *Inputer) listen(targetAddr string) error {
 	for !i.fwg.IsExit() {
 		conn, err := i.listenconn.Accept()
 		if err != nil {
+			loggo.Error("Inputer listen Accept fail %s", err)
 			continue
 		}
+
+		size := i.sonnySize()
+		if size >= i.config.MaxSonny {
+			loggo.Info("Inputer listen max sonny %s %d", conn.Info(), size)
+			conn.Close()
+			continue
+		}
+
 		proxyconn := &ProxyConn{conn: conn}
 		i.fwg.Go("Inputer processProxyConn"+" "+targetAddr, func() error {
 			atomic.AddInt32(&gStateThreadNum.ThreadNum, 1)
@@ -160,8 +169,17 @@ func (i *Inputer) listenSocks5() error {
 	for !i.fwg.IsExit() {
 		conn, err := i.listenconn.Accept()
 		if err != nil {
+			loggo.Error("Inputer listen Accept fail %s", err)
 			continue
 		}
+
+		size := i.sonnySize()
+		if size >= i.config.MaxSonny {
+			loggo.Info("Inputer listen max sonny %s %d", conn.Info(), size)
+			conn.Close()
+			continue
+		}
+
 		proxyconn := &ProxyConn{conn: conn}
 		i.fwg.Go("Inputer processSocks5Conn"+" "+conn.Info(), func() error {
 			atomic.AddInt32(&gStateThreadNum.ThreadNum, 1)
@@ -312,7 +330,7 @@ func (i *Inputer) openConn(proxyConn *ProxyConn, targetAddr string) {
 	loggo.Info("Inputer openConn %s %s", proxyConn.id, targetAddr)
 }
 
-func (i *Inputer) clientSize() int {
+func (i *Inputer) sonnySize() int {
 	size := 0
 	i.sonny.Range(func(key, value interface{}) bool {
 		size++

@@ -15,22 +15,23 @@ import (
 )
 
 type Config struct {
-	MaxMsgSize         int // 消息最大长度
-	MainBuffer         int // 主通道buffer最大长度
-	ConnBuffer         int // 每个conn buffer最大长度
-	EstablishedTimeout int // 主通道登录超时
-	PingInter          int // 主通道ping间隔
-	PingTimeoutInter   int // 主通道ping超时间隔
-	ConnTimeout        int // 每个conn的不活跃超时时间
-	ConnectTimeout     int // 每个conn的连接超时
-	Proto              string
-	Key                string
-	Encrypt            string
-	Compress           int
-	ShowPing           bool
-	Username           string
-	Password           string
-	MaxClient          int
+	MaxMsgSize         int    // 消息最大长度
+	MainBuffer         int    // 主通道buffer最大长度
+	ConnBuffer         int    // 每个conn buffer最大长度
+	EstablishedTimeout int    // 主通道登录超时
+	PingInter          int    // 主通道ping间隔
+	PingTimeoutInter   int    // 主通道ping超时间隔
+	ConnTimeout        int    // 每个conn的不活跃超时时间
+	ConnectTimeout     int    // 每个conn的连接超时
+	Proto              string // 协议类型
+	Key                string // 连接密码
+	Encrypt            string // 加密密钥
+	Compress           int    // 压缩设置
+	ShowPing           bool   // 是否显示ping
+	Username           string // 登录用户名
+	Password           string // 登录密码
+	MaxClient          int    // 最大客户端数目
+	MaxSonny           int    // 最大连接数目
 }
 
 func DefaultConfig() *Config {
@@ -51,6 +52,7 @@ func DefaultConfig() *Config {
 		Username:           "",
 		Password:           "",
 		MaxClient:          8,
+		MaxSonny:           128,
 	}
 }
 
