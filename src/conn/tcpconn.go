@@ -78,7 +78,6 @@ func (c *tcpConn) Listen(dst string) (Conn, error) {
 }
 
 func (c *tcpConn) Accept() (Conn, error) {
-	c.listener.SetDeadline(time.Now().Add(time.Second))
 	conn, err := c.listener.Accept()
 	if err != nil {
 		return nil, err
