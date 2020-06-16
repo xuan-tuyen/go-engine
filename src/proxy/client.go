@@ -197,7 +197,7 @@ func (c *Client) process(wg *group.Group, sendch *common.Channel, recvch *common
 
 		ff := <-recvch.Ch()
 		if ff == nil {
-			return nil
+			break
 		}
 		f := ff.(*ProxyFrame)
 		switch f.Type {

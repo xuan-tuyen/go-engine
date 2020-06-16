@@ -186,7 +186,7 @@ func (s *Server) process(wg *group.Group, sendch *common.Channel, recvch *common
 	for !wg.IsExit() {
 		ff := <-recvch.Ch()
 		if ff == nil {
-			return nil
+			break
 		}
 		f := ff.(*ProxyFrame)
 		switch f.Type {
