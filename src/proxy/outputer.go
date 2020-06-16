@@ -221,3 +221,12 @@ func (o *Outputer) processProxyConn(proxyConn *ProxyConn, targetAddr string) err
 
 	return nil
 }
+
+func (o *Outputer) clientSize() int {
+	size := 0
+	o.sonny.Range(func(key, value interface{}) bool {
+		size++
+		return true
+	})
+	return size
+}

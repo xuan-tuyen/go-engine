@@ -80,7 +80,7 @@ func (s *Server) Close() {
 }
 
 func (s *Server) listen() error {
-
+	loggo.Info("listen start %s", s.listenaddr)
 	for !s.wg.IsExit() {
 		conn, err := s.listenConn.Accept()
 		if err != nil {
@@ -102,6 +102,7 @@ func (s *Server) listen() error {
 			return s.serveClient(clientconn)
 		})
 	}
+	loggo.Info("listen end %s", s.listenaddr)
 	return nil
 }
 
@@ -180,6 +181,8 @@ func (s *Server) serveClient(clientconn *ClientConn) error {
 
 func (s *Server) process(wg *group.Group, sendch *common.Channel, recvch *common.Channel, clientconn *ClientConn) error {
 
+	loggo.Info("process start %s", clientconn.conn.Info())
+
 	for !wg.IsExit() {
 		ff := <-recvch.Ch()
 		if ff == nil {
@@ -209,6 +212,7 @@ func (s *Server) process(wg *group.Group, sendch *common.Channel, recvch *common
 			s.processClose(f, clientconn)
 		}
 	}
+	loggo.Info("process end %s", clientconn.conn.Info())
 	return nil
 }
 

@@ -86,6 +86,7 @@ func (c *Client) Close() {
 }
 
 func (c *Client) connect(conn conn.Conn) error {
+	loggo.Info("connect start %s", c.server)
 
 	for !c.wg.IsExit() {
 		if c.serverconn == nil {
@@ -105,6 +106,7 @@ func (c *Client) connect(conn conn.Conn) error {
 			time.Sleep(time.Second)
 		}
 	}
+	loggo.Info("connect end %s", c.server)
 	return nil
 }
 
@@ -189,6 +191,8 @@ func (c *Client) login(sendch *common.Channel) {
 
 func (c *Client) process(wg *group.Group, sendch *common.Channel, recvch *common.Channel, serverconn *ServerConn) error {
 
+	loggo.Info("process start %s", serverconn.conn.Info())
+
 	for !wg.IsExit() {
 
 		ff := <-recvch.Ch()
@@ -219,6 +223,7 @@ func (c *Client) process(wg *group.Group, sendch *common.Channel, recvch *common
 			c.processClose(f, serverconn)
 		}
 	}
+	loggo.Info("process end %s", serverconn.conn.Info())
 	return nil
 }
 

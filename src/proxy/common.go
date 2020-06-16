@@ -649,6 +649,7 @@ var gStateThreadNum StateThreadNum
 var gState State
 
 func showState(wg *group.Group) error {
+	loggo.Info("showState start ")
 	begin := time.Now()
 	for !wg.IsExit() {
 		dur := time.Now().Sub(begin)
@@ -694,5 +695,6 @@ func showState(wg *group.Group) error {
 		}
 		time.Sleep(time.Second)
 	}
+	loggo.Info("showState end")
 	return nil
 }

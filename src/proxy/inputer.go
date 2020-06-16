@@ -9,7 +9,6 @@ import (
 	"github.com/esrrhs/go-engine/src/network"
 	"sync"
 	"sync/atomic"
-	"time"
 )
 
 type Inputer struct {
@@ -139,22 +138,18 @@ func (i *Inputer) listen(targetAddr string) error {
 	loggo.Info("Inputer start listen %s %s", i.addr, targetAddr)
 
 	for !i.fwg.IsExit() {
-		select {
-		case <-i.fwg.Done():
-			return nil
-		case <-time.After(time.Second):
-			conn, err := i.listenconn.Accept()
-			if err != nil {
-				continue
-			}
-			proxyconn := &ProxyConn{conn: conn}
-			i.fwg.Go("Inputer processProxyConn"+" "+targetAddr, func() error {
-				atomic.AddInt32(&gStateThreadNum.ThreadNum, 1)
-				defer atomic.AddInt32(&gStateThreadNum.ThreadNum, -1)
-				return i.processProxyConn(proxyconn, targetAddr)
-			})
+		conn, err := i.listenconn.Accept()
+		if err != nil {
+			continue
 		}
+		proxyconn := &ProxyConn{conn: conn}
+		i.fwg.Go("Inputer processProxyConn"+" "+targetAddr, func() error {
+			atomic.AddInt32(&gStateThreadNum.ThreadNum, 1)
+			defer atomic.AddInt32(&gStateThreadNum.ThreadNum, -1)
+			return i.processProxyConn(proxyconn, targetAddr)
+		})
 	}
+	loggo.Info("Inputer end listen %s", i.addr)
 	return nil
 }
 
@@ -163,26 +158,24 @@ func (i *Inputer) listenSocks5() error {
 	loggo.Info("Inputer start listenSocks5 %s", i.addr)
 
 	for !i.fwg.IsExit() {
-		select {
-		case <-i.fwg.Done():
-			return nil
-		case <-time.After(time.Second):
-			conn, err := i.listenconn.Accept()
-			if err != nil {
-				continue
-			}
-			proxyconn := &ProxyConn{conn: conn}
-			i.fwg.Go("Inputer processSocks5Conn"+" "+conn.Info(), func() error {
-				atomic.AddInt32(&gStateThreadNum.ThreadNum, 1)
-				defer atomic.AddInt32(&gStateThreadNum.ThreadNum, -1)
-				return i.processSocks5Conn(proxyconn)
-			})
+		conn, err := i.listenconn.Accept()
+		if err != nil {
+			continue
 		}
+		proxyconn := &ProxyConn{conn: conn}
+		i.fwg.Go("Inputer processSocks5Conn"+" "+conn.Info(), func() error {
+			atomic.AddInt32(&gStateThreadNum.ThreadNum, 1)
+			defer atomic.AddInt32(&gStateThreadNum.ThreadNum, -1)
+			return i.processSocks5Conn(proxyconn)
+		})
 	}
+	loggo.Info("Inputer end listenSocks5 %s", i.addr)
 	return nil
 }
 
 func (i *Inputer) processSocks5Conn(proxyConn *ProxyConn) error {
+
+	loggo.Info("processSocks5Conn start %s", proxyConn.conn.Info())
 
 	wg := group.NewGroup("Inputer processSocks5Conn"+" "+proxyConn.conn.Info(), i.fwg, func() {
 		loggo.Info("group start exit %s", proxyConn.conn.Info())
@@ -317,4 +310,13 @@ func (i *Inputer) openConn(proxyConn *ProxyConn, targetAddr string) {
 
 	i.father.sendch.Write(f)
 	loggo.Info("Inputer openConn %s %s", proxyConn.id, targetAddr)
+}
+
+func (i *Inputer) clientSize() int {
+	size := 0
+	i.sonny.Range(func(key, value interface{}) bool {
+		size++
+		return true
+	})
+	return size
 }
