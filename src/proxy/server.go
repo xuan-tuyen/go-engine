@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
-	"time"
 )
 
 type ClientConn struct {
@@ -83,23 +82,36 @@ func (s *Server) Close() {
 func (s *Server) listen() error {
 
 	for !s.wg.IsExit() {
-		select {
-		case <-s.wg.Done():
-			return nil
-		case <-time.After(time.Second):
-			conn, err := s.listenConn.Accept()
-			if err != nil {
-				continue
-			}
-			clientconn := &ClientConn{ProxyConn: ProxyConn{conn: conn}}
-			s.wg.Go("Server serveClient"+" "+conn.Info(), func() error {
-				atomic.AddInt32(&gStateThreadNum.ThreadNum, 1)
-				defer atomic.AddInt32(&gStateThreadNum.ThreadNum, -1)
-				return s.serveClient(clientconn)
-			})
+		conn, err := s.listenConn.Accept()
+		if err != nil {
+			loggo.Error("listen Accept fail %s", err)
+			continue
 		}
+
+		size := s.clientSize()
+		if size >= s.config.MaxClient {
+			loggo.Info("listen max client %s %d", conn.Info(), size)
+			conn.Close()
+			continue
+		}
+
+		clientconn := &ClientConn{ProxyConn: ProxyConn{conn: conn}}
+		s.wg.Go("Server serveClient"+" "+conn.Info(), func() error {
+			atomic.AddInt32(&gStateThreadNum.ThreadNum, 1)
+			defer atomic.AddInt32(&gStateThreadNum.ThreadNum, -1)
+			return s.serveClient(clientconn)
+		})
 	}
 	return nil
+}
+
+func (s *Server) clientSize() int {
+	size := 0
+	s.clients.Range(func(key, value interface{}) bool {
+		size++
+		return true
+	})
+	return size
 }
 
 func (s *Server) serveClient(clientconn *ClientConn) error {
@@ -169,36 +181,32 @@ func (s *Server) serveClient(clientconn *ClientConn) error {
 func (s *Server) process(wg *group.Group, sendch *common.Channel, recvch *common.Channel, clientconn *ClientConn) error {
 
 	for !wg.IsExit() {
-		select {
-		case <-wg.Done():
+		ff := <-recvch.Ch()
+		if ff == nil {
 			return nil
-		case ff := <-recvch.Ch():
-			if ff == nil {
-				return nil
-			}
-			f := ff.(*ProxyFrame)
-			switch f.Type {
-			case FRAME_TYPE_LOGIN:
-				s.processLogin(wg, f, sendch, clientconn)
+		}
+		f := ff.(*ProxyFrame)
+		switch f.Type {
+		case FRAME_TYPE_LOGIN:
+			s.processLogin(wg, f, sendch, clientconn)
 
-			case FRAME_TYPE_PING:
-				processPing(f, sendch, &clientconn.ProxyConn)
+		case FRAME_TYPE_PING:
+			processPing(f, sendch, &clientconn.ProxyConn)
 
-			case FRAME_TYPE_PONG:
-				processPong(f, sendch, &clientconn.ProxyConn, s.config.ShowPing)
+		case FRAME_TYPE_PONG:
+			processPong(f, sendch, &clientconn.ProxyConn, s.config.ShowPing)
 
-			case FRAME_TYPE_DATA:
-				s.processData(f, clientconn)
+		case FRAME_TYPE_DATA:
+			s.processData(f, clientconn)
 
-			case FRAME_TYPE_OPEN:
-				s.processOpen(f, clientconn)
+		case FRAME_TYPE_OPEN:
+			s.processOpen(f, clientconn)
 
-			case FRAME_TYPE_OPENRSP:
-				s.processOpenRsp(f, clientconn)
+		case FRAME_TYPE_OPENRSP:
+			s.processOpenRsp(f, clientconn)
 
-			case FRAME_TYPE_CLOSE:
-				s.processClose(f, clientconn)
-			}
+		case FRAME_TYPE_CLOSE:
+			s.processClose(f, clientconn)
 		}
 	}
 	return nil

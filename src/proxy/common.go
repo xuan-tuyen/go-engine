@@ -30,6 +30,7 @@ type Config struct {
 	ShowPing           bool
 	Username           string
 	Password           string
+	MaxClient          int
 }
 
 func DefaultConfig() *Config {
@@ -49,6 +50,7 @@ func DefaultConfig() *Config {
 		ShowPing:           false,
 		Username:           "",
 		Password:           "",
+		MaxClient:          8,
 	}
 }
 

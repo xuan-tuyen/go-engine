@@ -88,23 +88,21 @@ func (c *Client) Close() {
 func (c *Client) connect(conn conn.Conn) error {
 
 	for !c.wg.IsExit() {
-		select {
-		case <-c.wg.Done():
-			return nil
-		case <-time.After(time.Second):
-			if c.serverconn == nil {
-				targetconn, err := conn.Dial(c.server)
-				if err != nil {
-					loggo.Error("connect Dial fail: %s %s", c.server, err.Error())
-					continue
-				}
-				c.serverconn = &ServerConn{ProxyConn: ProxyConn{conn: targetconn}}
-				c.wg.Go("Client useServer"+" "+targetconn.Info(), func() error {
-					atomic.AddInt32(&gStateThreadNum.ThreadNum, 1)
-					defer atomic.AddInt32(&gStateThreadNum.ThreadNum, -1)
-					return c.useServer(c.serverconn)
-				})
+		if c.serverconn == nil {
+			targetconn, err := conn.Dial(c.server)
+			if err != nil {
+				loggo.Error("connect Dial fail: %s %s", c.server, err.Error())
+				time.Sleep(time.Second)
+				continue
 			}
+			c.serverconn = &ServerConn{ProxyConn: ProxyConn{conn: targetconn}}
+			c.wg.Go("Client useServer"+" "+targetconn.Info(), func() error {
+				atomic.AddInt32(&gStateThreadNum.ThreadNum, 1)
+				defer atomic.AddInt32(&gStateThreadNum.ThreadNum, -1)
+				return c.useServer(c.serverconn)
+			})
+		} else {
+			time.Sleep(time.Second)
 		}
 	}
 	return nil
@@ -192,36 +190,33 @@ func (c *Client) login(sendch *common.Channel) {
 func (c *Client) process(wg *group.Group, sendch *common.Channel, recvch *common.Channel, serverconn *ServerConn) error {
 
 	for !wg.IsExit() {
-		select {
-		case <-wg.Done():
+
+		ff := <-recvch.Ch()
+		if ff == nil {
 			return nil
-		case ff := <-recvch.Ch():
-			if ff == nil {
-				return nil
-			}
-			f := ff.(*ProxyFrame)
-			switch f.Type {
-			case FRAME_TYPE_LOGINRSP:
-				c.processLoginRsp(wg, f, sendch, serverconn)
+		}
+		f := ff.(*ProxyFrame)
+		switch f.Type {
+		case FRAME_TYPE_LOGINRSP:
+			c.processLoginRsp(wg, f, sendch, serverconn)
 
-			case FRAME_TYPE_PING:
-				processPing(f, sendch, &serverconn.ProxyConn)
+		case FRAME_TYPE_PING:
+			processPing(f, sendch, &serverconn.ProxyConn)
 
-			case FRAME_TYPE_PONG:
-				processPong(f, sendch, &serverconn.ProxyConn, c.config.ShowPing)
+		case FRAME_TYPE_PONG:
+			processPong(f, sendch, &serverconn.ProxyConn, c.config.ShowPing)
 
-			case FRAME_TYPE_DATA:
-				c.processData(f, serverconn)
+		case FRAME_TYPE_DATA:
+			c.processData(f, serverconn)
 
-			case FRAME_TYPE_OPEN:
-				c.processOpen(f, serverconn)
+		case FRAME_TYPE_OPEN:
+			c.processOpen(f, serverconn)
 
-			case FRAME_TYPE_OPENRSP:
-				c.processOpenRsp(f, serverconn)
+		case FRAME_TYPE_OPENRSP:
+			c.processOpenRsp(f, serverconn)
 
-			case FRAME_TYPE_CLOSE:
-				c.processClose(f, serverconn)
-			}
+		case FRAME_TYPE_CLOSE:
+			c.processClose(f, serverconn)
 		}
 	}
 	return nil
