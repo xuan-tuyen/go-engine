@@ -23,15 +23,15 @@ type Client struct {
 	server     string
 	name       string
 	clienttype CLIENT_TYPE
-	proxyproto PROXY_PROTO
-	fromaddr   string
-	toaddr     string
+	proxyproto []PROXY_PROTO
+	fromaddr   []string
+	toaddr     []string
 
 	wg         *group.Group
 	serverconn *ServerConn
 }
 
-func NewClient(config *Config, server string, name string, clienttypestr string, proxyprotostr string, fromaddr string, toaddr string) (*Client, error) {
+func NewClient(config *Config, server string, name string, clienttypestr string, proxyprotostr []string, fromaddr []string, toaddr []string) (*Client, error) {
 
 	if config == nil {
 		config = DefaultConfig()
@@ -48,34 +48,39 @@ func NewClient(config *Config, server string, name string, clienttypestr string,
 		return nil, errors.New("no CLIENT_TYPE " + clienttypestr)
 	}
 
-	proxyprotostr = strings.ToUpper(proxyprotostr)
-	proxyproto, ok := PROXY_PROTO_value[proxyprotostr]
-	if !ok {
-		return nil, errors.New("no PROXY_PROTO " + proxyprotostr)
+	var proxyproto []PROXY_PROTO
+	for i, _ := range proxyprotostr {
+		p, ok := PROXY_PROTO_value[strings.ToUpper(proxyprotostr[i])]
+		if !ok {
+			return nil, errors.New("no PROXY_PROTO " + proxyprotostr[i])
+		}
+		proxyproto = append(proxyproto, PROXY_PROTO(p))
 	}
 
-	wg := group.NewGroup("Clent"+" "+fromaddr+" "+toaddr, nil, nil)
+	wg := group.NewGroup("Clent"+" "+clienttypestr, nil, nil)
 
 	c := &Client{
 		config:     config,
 		server:     server,
 		name:       name,
 		clienttype: CLIENT_TYPE(clienttype),
-		proxyproto: PROXY_PROTO(proxyproto),
+		proxyproto: proxyproto,
 		fromaddr:   fromaddr,
 		toaddr:     toaddr,
 		wg:         wg,
 	}
 
-	wg.Go("Client connect"+" "+fromaddr+" "+toaddr, func() error {
-		atomic.AddInt32(&gStateThreadNum.ThreadNum, 1)
-		defer atomic.AddInt32(&gStateThreadNum.ThreadNum, -1)
-		return c.connect(conn)
-	})
-
-	wg.Go("Client state"+" "+fromaddr+" "+toaddr, func() error {
+	wg.Go("Client state"+" "+clienttypestr, func() error {
 		return showState(wg)
 	})
+
+	for i, _ := range proxyprotostr {
+		wg.Go("Client connect"+" "+fromaddr[i]+" "+toaddr[i], func() error {
+			atomic.AddInt32(&gStateThreadNum.ThreadNum, 1)
+			defer atomic.AddInt32(&gStateThreadNum.ThreadNum, -1)
+			return c.connect(i, conn)
+		})
+	}
 
 	return c, nil
 }
@@ -85,7 +90,7 @@ func (c *Client) Close() {
 	c.wg.Wait()
 }
 
-func (c *Client) connect(conn conn.Conn) error {
+func (c *Client) connect(index int, conn conn.Conn) error {
 	loggo.Info("connect start %s", c.server)
 
 	for !c.wg.IsExit() {
@@ -100,7 +105,7 @@ func (c *Client) connect(conn conn.Conn) error {
 			c.wg.Go("Client useServer"+" "+targetconn.Info(), func() error {
 				atomic.AddInt32(&gStateThreadNum.ThreadNum, 1)
 				defer atomic.AddInt32(&gStateThreadNum.ThreadNum, -1)
-				return c.useServer(c.serverconn)
+				return c.useServer(index, c.serverconn)
 			})
 		} else {
 			time.Sleep(time.Second)
@@ -110,7 +115,7 @@ func (c *Client) connect(conn conn.Conn) error {
 	return nil
 }
 
-func (c *Client) useServer(serverconn *ServerConn) error {
+func (c *Client) useServer(index int, serverconn *ServerConn) error {
 
 	loggo.Info("useServer %s", serverconn.conn.Info())
 
@@ -134,7 +139,7 @@ func (c *Client) useServer(serverconn *ServerConn) error {
 		loggo.Info("group end exit %s", serverconn.conn.Info())
 	})
 
-	c.login(sendch)
+	c.login(index, sendch)
 
 	wg.Go("Client recvFrom"+" "+serverconn.conn.Info(), func() error {
 		atomic.AddInt32(&gStateThreadNum.ThreadNum, 1)
@@ -163,7 +168,7 @@ func (c *Client) useServer(serverconn *ServerConn) error {
 	wg.Go("Client process"+" "+serverconn.conn.Info(), func() error {
 		atomic.AddInt32(&gStateThreadNum.ThreadNum, 1)
 		defer atomic.AddInt32(&gStateThreadNum.ThreadNum, -1)
-		return c.process(wg, sendch, recvch, serverconn)
+		return c.process(wg, index, sendch, recvch, serverconn)
 	})
 
 	wg.Wait()
@@ -173,14 +178,14 @@ func (c *Client) useServer(serverconn *ServerConn) error {
 	return nil
 }
 
-func (c *Client) login(sendch *common.Channel) {
+func (c *Client) login(index int, sendch *common.Channel) {
 	f := &ProxyFrame{}
 	f.Type = FRAME_TYPE_LOGIN
 	f.LoginFrame = &LoginFrame{}
-	f.LoginFrame.Proxyproto = c.proxyproto
+	f.LoginFrame.Proxyproto = c.proxyproto[index]
 	f.LoginFrame.Clienttype = c.clienttype
-	f.LoginFrame.Fromaddr = c.fromaddr
-	f.LoginFrame.Toaddr = c.toaddr
+	f.LoginFrame.Fromaddr = c.fromaddr[index]
+	f.LoginFrame.Toaddr = c.toaddr[index]
 	f.LoginFrame.Name = c.name
 	f.LoginFrame.Key = c.config.Key
 
@@ -189,7 +194,7 @@ func (c *Client) login(sendch *common.Channel) {
 	loggo.Info("start login %s %s", c.server, f.LoginFrame.String())
 }
 
-func (c *Client) process(wg *group.Group, sendch *common.Channel, recvch *common.Channel, serverconn *ServerConn) error {
+func (c *Client) process(wg *group.Group, index int, sendch *common.Channel, recvch *common.Channel, serverconn *ServerConn) error {
 
 	loggo.Info("process start %s", serverconn.conn.Info())
 
@@ -202,7 +207,7 @@ func (c *Client) process(wg *group.Group, sendch *common.Channel, recvch *common
 		f := ff.(*ProxyFrame)
 		switch f.Type {
 		case FRAME_TYPE_LOGINRSP:
-			c.processLoginRsp(wg, f, sendch, serverconn)
+			c.processLoginRsp(wg, index, f, sendch, serverconn)
 
 		case FRAME_TYPE_PING:
 			processPing(f, sendch, &serverconn.ProxyConn)
@@ -227,7 +232,7 @@ func (c *Client) process(wg *group.Group, sendch *common.Channel, recvch *common
 	return nil
 }
 
-func (c *Client) processLoginRsp(wg *group.Group, f *ProxyFrame, sendch *common.Channel, serverconn *ServerConn) {
+func (c *Client) processLoginRsp(wg *group.Group, index int, f *ProxyFrame, sendch *common.Channel, serverconn *ServerConn) {
 	if !f.LoginRspFrame.Ret {
 		serverconn.needclose = true
 		loggo.Error("processLoginRsp fail %s %s", c.server, f.LoginRspFrame.Msg)
@@ -236,7 +241,7 @@ func (c *Client) processLoginRsp(wg *group.Group, f *ProxyFrame, sendch *common.
 
 	loggo.Info("processLoginRsp ok %s", c.server)
 
-	err := c.iniService(wg, serverconn)
+	err := c.iniService(wg, index, serverconn)
 	if err != nil {
 		loggo.Error("processLoginRsp iniService fail %s %s", c.server, err)
 		return
@@ -245,28 +250,28 @@ func (c *Client) processLoginRsp(wg *group.Group, f *ProxyFrame, sendch *common.
 	serverconn.established = true
 }
 
-func (c *Client) iniService(wg *group.Group, serverConn *ServerConn) error {
+func (c *Client) iniService(wg *group.Group, index int, serverConn *ServerConn) error {
 	switch c.clienttype {
 	case CLIENT_TYPE_PROXY:
-		input, err := NewInputer(wg, c.proxyproto.String(), c.fromaddr, c.clienttype, c.config, &serverConn.ProxyConn, c.toaddr)
+		input, err := NewInputer(wg, c.proxyproto[index].String(), c.fromaddr[index], c.clienttype, c.config, &serverConn.ProxyConn, c.toaddr[index])
 		if err != nil {
 			return err
 		}
 		serverConn.input = input
 	case CLIENT_TYPE_REVERSE_PROXY:
-		output, err := NewOutputer(wg, c.proxyproto.String(), c.clienttype, c.config, &serverConn.ProxyConn)
+		output, err := NewOutputer(wg, c.proxyproto[index].String(), c.clienttype, c.config, &serverConn.ProxyConn)
 		if err != nil {
 			return err
 		}
 		serverConn.output = output
 	case CLIENT_TYPE_SOCKS5:
-		input, err := NewSocks5Inputer(wg, c.proxyproto.String(), c.fromaddr, c.clienttype, c.config, &serverConn.ProxyConn)
+		input, err := NewSocks5Inputer(wg, c.proxyproto[index].String(), c.fromaddr[index], c.clienttype, c.config, &serverConn.ProxyConn)
 		if err != nil {
 			return err
 		}
 		serverConn.input = input
 	case CLIENT_TYPE_REVERSE_SOCKS5:
-		output, err := NewOutputer(wg, c.proxyproto.String(), c.clienttype, c.config, &serverConn.ProxyConn)
+		output, err := NewOutputer(wg, c.proxyproto[index].String(), c.clienttype, c.config, &serverConn.ProxyConn)
 		if err != nil {
 			return err
 		}
