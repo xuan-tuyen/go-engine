@@ -26,12 +26,15 @@ type Client struct {
 	proxyproto []PROXY_PROTO
 	fromaddr   []string
 	toaddr     []string
-
+	serverconn []*ServerConn
 	wg         *group.Group
-	serverconn *ServerConn
 }
 
 func NewClient(config *Config, server string, name string, clienttypestr string, proxyprotostr []string, fromaddr []string, toaddr []string) (*Client, error) {
+
+	if len(fromaddr) != len(toaddr) || len(fromaddr) != len(proxyprotostr) {
+		return nil, errors.New("fromaddr toaddr proxyprotostr len fail")
+	}
 
 	if config == nil {
 		config = DefaultConfig()
@@ -67,6 +70,7 @@ func NewClient(config *Config, server string, name string, clienttypestr string,
 		proxyproto: proxyproto,
 		fromaddr:   fromaddr,
 		toaddr:     toaddr,
+		serverconn: make([]*ServerConn, len(proxyprotostr)),
 		wg:         wg,
 	}
 
@@ -94,18 +98,18 @@ func (c *Client) connect(index int, conn conn.Conn) error {
 	loggo.Info("connect start %s", c.server)
 
 	for !c.wg.IsExit() {
-		if c.serverconn == nil {
+		if c.serverconn[index] == nil {
 			targetconn, err := conn.Dial(c.server)
 			if err != nil {
 				loggo.Error("connect Dial fail: %s %s", c.server, err.Error())
 				time.Sleep(time.Second)
 				continue
 			}
-			c.serverconn = &ServerConn{ProxyConn: ProxyConn{conn: targetconn}}
+			c.serverconn[index] = &ServerConn{ProxyConn: ProxyConn{conn: targetconn}}
 			c.wg.Go("Client useServer"+" "+targetconn.Info(), func() error {
 				atomic.AddInt32(&gStateThreadNum.ThreadNum, 1)
 				defer atomic.AddInt32(&gStateThreadNum.ThreadNum, -1)
-				return c.useServer(index, c.serverconn)
+				return c.useServer(index, c.serverconn[index])
 			})
 		} else {
 			time.Sleep(time.Second)
@@ -172,7 +176,7 @@ func (c *Client) useServer(index int, serverconn *ServerConn) error {
 	})
 
 	wg.Wait()
-	c.serverconn = nil
+	c.serverconn[index] = nil
 	loggo.Info("useServer close %s %s", c.server, serverconn.conn.Info())
 
 	return nil
