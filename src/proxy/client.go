@@ -186,7 +186,7 @@ func (c *Client) login(index int, sendch *common.Channel) {
 	f.LoginFrame.Clienttype = c.clienttype
 	f.LoginFrame.Fromaddr = c.fromaddr[index]
 	f.LoginFrame.Toaddr = c.toaddr[index]
-	f.LoginFrame.Name = c.name
+	f.LoginFrame.Name = c.name + "_" + strconv.Itoa(index)
 	f.LoginFrame.Key = c.config.Key
 
 	sendch.Write(f)
