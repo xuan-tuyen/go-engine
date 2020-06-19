@@ -42,7 +42,7 @@ func (c *tcpConn) Info() string {
 	}
 	if c.conn != nil {
 		c.info = c.conn.LocalAddr().String() + "<--->" + c.conn.RemoteAddr().String()
-	} else {
+	} else if c.listener != nil {
 		c.info = c.listener.Addr().String()
 	}
 	return c.info
