@@ -288,7 +288,7 @@ func (i *Inputer) processProxyConn(proxyConn *ProxyConn, targetAddr string) erro
 	wg.Go("Inputer sendToSonny"+" "+proxyConn.conn.Info(), func() error {
 		atomic.AddInt32(&gStateThreadNum.ThreadNum, 1)
 		defer atomic.AddInt32(&gStateThreadNum.ThreadNum, -1)
-		return sendToSonny(wg, sendch, proxyConn.conn)
+		return sendToSonny(wg, sendch, proxyConn.conn, i.config.MaxMsgSize)
 	})
 
 	wg.Go("Inputer checkSonnyActive"+" "+proxyConn.conn.Info(), func() error {

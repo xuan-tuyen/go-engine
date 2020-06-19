@@ -200,7 +200,7 @@ func (o *Outputer) processProxyConn(proxyConn *ProxyConn, targetAddr string) err
 	wg.Go("Outputer sendToSonny"+" "+proxyConn.conn.Info(), func() error {
 		atomic.AddInt32(&gStateThreadNum.ThreadNum, 1)
 		defer atomic.AddInt32(&gStateThreadNum.ThreadNum, -1)
-		return sendToSonny(wg, sendch, proxyConn.conn)
+		return sendToSonny(wg, sendch, proxyConn.conn, o.config.MaxMsgSize)
 	})
 
 	wg.Go("Outputer checkSonnyActive"+" "+proxyConn.conn.Info(), func() error {

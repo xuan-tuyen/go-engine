@@ -183,6 +183,10 @@ func UnmarshalSrpFrame(b []byte, encrpyt string) (*ProxyFrame, error) {
 	return f, nil
 }
 
+const (
+	MAX_PROTO_PACK_SIZE = 100
+)
+
 func recvFrom(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxmsgsize int, encrypt string) error {
 
 	atomic.AddInt32(&gStateThreadNum.RecvThread, 1)
@@ -190,7 +194,7 @@ func recvFrom(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxmsgsiz
 
 	loggo.Info("recvFrom start %s", conn.Info())
 	bs := make([]byte, 4)
-	ds := make([]byte, maxmsgsize)
+	ds := make([]byte, maxmsgsize+MAX_PROTO_PACK_SIZE)
 
 	for !wg.IsExit() {
 		atomic.AddInt32(&gState.RecvFrames, 1)
@@ -205,7 +209,7 @@ func recvFrom(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxmsgsiz
 		}
 
 		msglen := binary.LittleEndian.Uint32(bs)
-		if msglen > uint32(maxmsgsize) || msglen <= 0 {
+		if msglen > uint32(maxmsgsize)+MAX_PROTO_PACK_SIZE || msglen <= 0 {
 			loggo.Error("recvFrom len fail: %s %d", conn.Info(), msglen)
 			return errors.New("msg len fail " + strconv.Itoa(int(msglen)))
 		}
@@ -271,7 +275,7 @@ func sendTo(wg *group.Group, sendch *common.Channel, conn conn.Conn, compress in
 		}
 
 		msglen := uint32(len(mb))
-		if msglen > uint32(maxmsgsize) || msglen <= 0 {
+		if msglen > uint32(maxmsgsize)+MAX_PROTO_PACK_SIZE || msglen <= 0 {
 			loggo.Error("sendTo len fail: %s %d", conn.Info(), msglen)
 			return errors.New("msg len fail " + strconv.Itoa(int(msglen)))
 		}
@@ -350,7 +354,9 @@ func recvFromSonny(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxm
 		f.DataFrame.Data = make([]byte, msglen)
 		copy(f.DataFrame.Data, ds[0:msglen])
 		f.DataFrame.Compress = false
-		f.DataFrame.Crc = common.GetCrc32(f.DataFrame.Data)
+		if loggo.IsDebug() {
+			f.DataFrame.Crc = common.GetCrc32(f.DataFrame.Data)
+		}
 		index++
 		f.DataFrame.Index = index % MAX_INDEX
 
@@ -367,7 +373,7 @@ func recvFromSonny(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxm
 	return nil
 }
 
-func sendToSonny(wg *group.Group, sendch *common.Channel, conn conn.Conn) error {
+func sendToSonny(wg *group.Group, sendch *common.Channel, conn conn.Conn, maxmsgsize int) error {
 
 	atomic.AddInt32(&gStateThreadNum.SendSonnyThread, 1)
 	defer atomic.AddInt32(&gStateThreadNum.SendSonnyThread, -1)
@@ -396,9 +402,16 @@ func sendToSonny(wg *group.Group, sendch *common.Channel, conn conn.Conn) error 
 			return errors.New("len error " + strconv.Itoa(len(f.DataFrame.Data)))
 		}
 
-		if f.DataFrame.Crc != common.GetCrc32(f.DataFrame.Data) {
-			loggo.Error("sendToSonny crc error: %s %d %s %s", conn.Info(), len(f.DataFrame.Data), f.DataFrame.Crc, common.GetCrc32(f.DataFrame.Data))
-			return errors.New("crc error")
+		if len(f.DataFrame.Data) > maxmsgsize {
+			loggo.Error("sendToSonny len error: %s %d", conn.Info(), len(f.DataFrame.Data))
+			return errors.New("len error " + strconv.Itoa(len(f.DataFrame.Data)))
+		}
+
+		if loggo.IsDebug() {
+			if f.DataFrame.Crc != common.GetCrc32(f.DataFrame.Data) {
+				loggo.Error("sendToSonny crc error: %s %d %s %s", conn.Info(), len(f.DataFrame.Data), f.DataFrame.Crc, common.GetCrc32(f.DataFrame.Data))
+				return errors.New("crc error")
+			}
 		}
 
 		index++
