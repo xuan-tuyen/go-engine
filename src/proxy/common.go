@@ -121,6 +121,7 @@ func MarshalSrpFrame(f *ProxyFrame, compress int, encrpyt string) ([]byte, error
 			if loggo.IsDebug() {
 				loggo.Debug("MarshalSrpFrame Compress from %d %d", len(f.DataFrame.Data), len(newb))
 			}
+			atomic.AddInt64(&gState.SendCompSaveSize, int64(len(f.DataFrame.Data)-len(newb)))
 			f.DataFrame.Data = newb
 			f.DataFrame.Compress = true
 		}
@@ -176,6 +177,7 @@ func UnmarshalSrpFrame(b []byte, encrpyt string) (*ProxyFrame, error) {
 		if loggo.IsDebug() {
 			loggo.Debug("UnmarshalSrpFrame Compress from %d %d", len(f.DataFrame.Data), len(newb))
 		}
+		atomic.AddInt64(&gState.RecvCompSaveSize, int64(len(newb)-len(f.DataFrame.Data)))
 		f.DataFrame.Data = newb
 		f.DataFrame.Compress = false
 	}
@@ -658,6 +660,9 @@ type State struct {
 	SendNum      int32
 	RecvSize     int64
 	SendSize     int64
+
+	RecvCompSaveSize int64
+	SendCompSaveSize int64
 }
 
 var gStateThreadNum StateThreadNum
