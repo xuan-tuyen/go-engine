@@ -32,16 +32,12 @@ type Client struct {
 
 func NewClient(config *Config, server string, name string, clienttypestr string, proxyprotostr []string, fromaddr []string, toaddr []string) (*Client, error) {
 
-	if len(fromaddr) != len(toaddr) || len(fromaddr) != len(proxyprotostr) {
-		return nil, errors.New("fromaddr toaddr proxyprotostr len fail")
-	}
-
 	if config == nil {
 		config = DefaultConfig()
 	}
 
-	conn, err := conn.NewConn(config.Proto)
-	if conn == nil {
+	cn, err := conn.NewConn(config.Proto)
+	if cn == nil {
 		return nil, err
 	}
 
@@ -83,7 +79,7 @@ func NewClient(config *Config, server string, name string, clienttypestr string,
 		wg.Go("Client connect"+" "+fromaddr[i]+" "+toaddr[i], func() error {
 			atomic.AddInt32(&gStateThreadNum.ThreadNum, 1)
 			defer atomic.AddInt32(&gStateThreadNum.ThreadNum, -1)
-			return c.connect(index, conn)
+			return c.connect(index, cn)
 		})
 	}
 
