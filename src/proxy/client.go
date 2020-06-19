@@ -79,10 +79,11 @@ func NewClient(config *Config, server string, name string, clienttypestr string,
 	})
 
 	for i, _ := range proxyprotostr {
+		index := i
 		wg.Go("Client connect"+" "+fromaddr[i]+" "+toaddr[i], func() error {
 			atomic.AddInt32(&gStateThreadNum.ThreadNum, 1)
 			defer atomic.AddInt32(&gStateThreadNum.ThreadNum, -1)
-			return c.connect(i, conn)
+			return c.connect(index, conn)
 		})
 	}
 
@@ -95,7 +96,7 @@ func (c *Client) Close() {
 }
 
 func (c *Client) connect(index int, conn conn.Conn) error {
-	loggo.Info("connect start %s", c.server)
+	loggo.Info("connect start %d %s", index, c.server)
 
 	for !c.wg.IsExit() {
 		if c.serverconn[index] == nil {
@@ -195,7 +196,7 @@ func (c *Client) login(index int, sendch *common.Channel) {
 
 	sendch.Write(f)
 
-	loggo.Info("start login %s %s", c.server, f.LoginFrame.String())
+	loggo.Info("start login %d %s %s", index, c.server, f.LoginFrame.String())
 }
 
 func (c *Client) process(wg *group.Group, index int, sendch *common.Channel, recvch *common.Channel, serverconn *ServerConn) error {
