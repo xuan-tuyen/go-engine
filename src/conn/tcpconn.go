@@ -44,6 +44,8 @@ func (c *tcpConn) Info() string {
 		c.info = c.conn.LocalAddr().String() + "<--->" + c.conn.RemoteAddr().String()
 	} else if c.listener != nil {
 		c.info = c.listener.Addr().String()
+	} else {
+		c.info = "empty conn"
 	}
 	return c.info
 }
