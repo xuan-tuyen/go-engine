@@ -241,7 +241,7 @@ func recvFrom(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxmsgsiz
 		}
 
 		atomic.AddInt32(&gState.MainRecvNum, 1)
-		atomic.AddInt32(&gState.MainRecvSize, int32(msglen)+4)
+		atomic.AddInt64(&gState.MainRecvSize, int64(msglen)+4)
 	}
 
 	loggo.Info("recvFrom end %s", conn.Info())
@@ -311,7 +311,7 @@ func sendTo(wg *group.Group, sendch *common.Channel, conn conn.Conn, compress in
 		}
 
 		atomic.AddInt32(&gState.MainSendNum, 1)
-		atomic.AddInt32(&gState.MainSendSize, int32(msglen)+4)
+		atomic.AddInt64(&gState.MainSendSize, int64(msglen)+4)
 	}
 	loggo.Info("sendTo end %s", conn.Info())
 	return nil
@@ -361,7 +361,7 @@ func recvFromSonny(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxm
 		}
 
 		atomic.AddInt32(&gState.RecvNum, 1)
-		atomic.AddInt32(&gState.RecvSize, int32(len(f.DataFrame.Data)))
+		atomic.AddInt64(&gState.RecvSize, int64(len(f.DataFrame.Data)))
 	}
 	loggo.Info("recvFromSonny end %s", conn.Info())
 	return nil
@@ -424,7 +424,7 @@ func sendToSonny(wg *group.Group, sendch *common.Channel, conn conn.Conn) error 
 		}
 
 		atomic.AddInt32(&gState.SendNum, 1)
-		atomic.AddInt32(&gState.SendSize, int32(len(f.DataFrame.Data)))
+		atomic.AddInt64(&gState.SendSize, int64(len(f.DataFrame.Data)))
 	}
 	loggo.Info("sendToSonny end %s", conn.Info())
 	return nil
@@ -639,12 +639,12 @@ type State struct {
 
 	MainRecvNum  int32
 	MainSendNum  int32
-	MainRecvSize int32
-	MainSendSize int32
+	MainRecvSize int64
+	MainSendSize int64
 	RecvNum      int32
 	SendNum      int32
-	RecvSize     int32
-	SendSize     int32
+	RecvSize     int64
+	SendSize     int64
 }
 
 var gStateThreadNum StateThreadNum
