@@ -120,7 +120,7 @@ func (i *Inputer) processOpenRspFrame(f *ProxyFrame) {
 	id := f.OpenRspFrame.Id
 	v, ok := i.sonny.Load(id)
 	if !ok {
-		loggo.Error("Inputer processOpenRspFrame no sonnny %s", id)
+		loggo.Info("Inputer processOpenRspFrame no sonnny %s", id)
 		return
 	}
 	sonny := v.(*ProxyConn)
