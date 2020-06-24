@@ -52,6 +52,9 @@ func (c *udpConn) Read(p []byte) (n int, err error) {
 	} else if c.listener != nil {
 		return 0, errors.New("listener can not be read")
 	} else if c.listenersonny != nil {
+		if c.listenersonny.isclose {
+			return 0, errors.New("read closed conn")
+		}
 		b := <-c.listenersonny.recvch.Ch()
 		data := b.([]byte)
 		if len(data) > len(p) {
@@ -69,6 +72,9 @@ func (c *udpConn) Write(p []byte) (n int, err error) {
 	} else if c.listener != nil {
 		return 0, errors.New("listener can not be write")
 	} else if c.listenersonny != nil {
+		if c.listenersonny.isclose {
+			return 0, errors.New("write closed conn")
+		}
 		c.listenersonny.fatherconn.WriteToUDP(p, c.listenersonny.dstaddr)
 	}
 	return 0, errors.New("empty conn")
@@ -81,8 +87,15 @@ func (c *udpConn) Close() error {
 	if c.dialer != nil {
 		return c.dialer.conn.Close()
 	} else if c.listener != nil {
-		return c.listener.listenerconn.Close()
+		c.listener.wg.Stop()
+		c.listener.wg.Wait()
+		c.listener.sonny.Range(func(key, value interface{}) bool {
+			u := value.(*udpConn)
+			u.Close()
+			return true
+		})
 	} else if c.listenersonny != nil {
+		c.listenersonny.recvch.Close()
 		c.listenersonny.isclose = true
 	}
 	return nil
@@ -127,14 +140,17 @@ func (c *udpConn) Listen(dst string) (Conn, error) {
 		return nil, err
 	}
 
+	ch := common.NewChannel(UDP_ACCEPT_CHAN_LEN)
+
 	wg := group.NewGroup("udpConn Listen"+" "+dst, nil, func() {
 		listenerconn.Close()
+		ch.Close()
 	})
 
 	listener := &udpConnListener{
 		listenerconn: listenerconn.(*net.UDPConn),
 		wg:           wg,
-		accept:       common.NewChannel(UDP_ACCEPT_CHAN_LEN),
+		accept:       ch,
 	}
 
 	u := &udpConn{listener: listener}
@@ -157,6 +173,9 @@ func (c *udpConn) Accept() (Conn, error) {
 		sonny := s.(*udpConn)
 		_, ok := c.listener.sonny.Load(sonny.listenersonny.dstaddr.String())
 		if !ok {
+			continue
+		}
+		if sonny.listenersonny.isclose {
 			continue
 		}
 		return sonny, nil
@@ -188,11 +207,19 @@ func (c *udpConn) loopRecv() error {
 			u.listenersonny.recvch.WriteTimeout(data, UDP_RECV_CHAN_PUSH_TIMEOUT)
 			c.listener.sonny.Store(srcaddrstr, u)
 
-			c.listener.accept.WriteTimeout(sonny, UDP_RECV_CHAN_PUSH_TIMEOUT)
+			c.listener.accept.WriteTimeout(u, UDP_RECV_CHAN_PUSH_TIMEOUT)
 		} else {
 			u := v.(*udpConn)
 			u.listenersonny.recvch.WriteTimeout(data, UDP_RECV_CHAN_PUSH_TIMEOUT)
 		}
+
+		c.listener.sonny.Range(func(key, value interface{}) bool {
+			u := value.(*udpConn)
+			if u.listenersonny.isclose {
+				c.listener.sonny.Delete(key)
+			}
+			return true
+		})
 	}
 	return nil
 }
