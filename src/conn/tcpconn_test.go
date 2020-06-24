@@ -90,3 +90,47 @@ func Test0003(t *testing.T) {
 
 	time.Sleep(time.Second)
 }
+
+func Test0004(t *testing.T) {
+	c, err := NewConn("tcp")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	cc, err := c.Listen(":58080")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	go func() {
+		cc.Accept()
+		fmt.Println("accept done")
+	}()
+
+	ccc, err := c.Dial(":58080")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	go func() {
+		buf := make([]byte, 1000)
+		for i := 0; i < 10000; i++ {
+			_, err := ccc.Write(buf)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+		}
+		fmt.Println("write done")
+	}()
+
+	time.Sleep(time.Second)
+
+	cc.Close()
+	ccc.Close()
+
+	time.Sleep(time.Second)
+}
