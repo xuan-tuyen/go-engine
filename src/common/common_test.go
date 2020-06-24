@@ -189,3 +189,14 @@ func Test0008(t *testing.T) {
 	c.Write(1)
 	c.Write(1)
 }
+
+func Test0009(t *testing.T) {
+	c := NewChannel(1)
+	c.Write(1)
+	fmt.Println(c.WriteTimeout(1, 1000))
+	fmt.Println(c.WriteTimeout(1, 1000))
+	i := <-c.ch
+	fmt.Println(i)
+	fmt.Println(c.WriteTimeout(1, 1000))
+	time.Sleep(time.Second)
+}

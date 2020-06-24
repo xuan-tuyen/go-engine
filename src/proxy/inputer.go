@@ -99,7 +99,10 @@ func (i *Inputer) processDataFrame(f *ProxyFrame) {
 		return
 	}
 	sonny := v.(*ProxyConn)
-	sonny.sendch.Write(f)
+	if !sonny.sendch.WriteTimeout(f, i.config.MainWriteChannelTimeoutMs) {
+		sonny.needclose = true
+		loggo.Error("Inputer processDataFrame timeout sonnny %s %d", f.DataFrame.Id, len(f.DataFrame.Data))
+	}
 	sonny.actived++
 	loggo.Debug("Inputer processDataFrame %s %d", f.DataFrame.Id, len(f.DataFrame.Data))
 }

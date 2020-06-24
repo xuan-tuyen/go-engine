@@ -15,44 +15,46 @@ import (
 )
 
 type Config struct {
-	MaxMsgSize         int    // 消息最大长度
-	MainBuffer         int    // 主通道buffer最大长度
-	ConnBuffer         int    // 每个conn buffer最大长度
-	EstablishedTimeout int    // 主通道登录超时
-	PingInter          int    // 主通道ping间隔
-	PingTimeoutInter   int    // 主通道ping超时间隔
-	ConnTimeout        int    // 每个conn的不活跃超时时间
-	ConnectTimeout     int    // 每个conn的连接超时
-	Proto              string // 协议类型
-	Key                string // 连接密码
-	Encrypt            string // 加密密钥
-	Compress           int    // 压缩设置
-	ShowPing           bool   // 是否显示ping
-	Username           string // 登录用户名
-	Password           string // 登录密码
-	MaxClient          int    // 最大客户端数目
-	MaxSonny           int    // 最大连接数目
+	MaxMsgSize                int    // 消息最大长度
+	MainBuffer                int    // 主通道buffer最大长度
+	ConnBuffer                int    // 每个conn buffer最大长度
+	EstablishedTimeout        int    // 主通道登录超时
+	PingInter                 int    // 主通道ping间隔
+	PingTimeoutInter          int    // 主通道ping超时间隔
+	ConnTimeout               int    // 每个conn的不活跃超时时间
+	ConnectTimeout            int    // 每个conn的连接超时
+	Proto                     string // 协议类型
+	Key                       string // 连接密码
+	Encrypt                   string // 加密密钥
+	Compress                  int    // 压缩设置
+	ShowPing                  bool   // 是否显示ping
+	Username                  string // 登录用户名
+	Password                  string // 登录密码
+	MaxClient                 int    // 最大客户端数目
+	MaxSonny                  int    // 最大连接数目
+	MainWriteChannelTimeoutMs int    // 主通道转发消息超时
 }
 
 func DefaultConfig() *Config {
 	return &Config{
-		MaxMsgSize:         1024 * 1024,
-		MainBuffer:         1024,
-		ConnBuffer:         128,
-		EstablishedTimeout: 10,
-		PingInter:          1,
-		PingTimeoutInter:   5,
-		ConnTimeout:        300,
-		ConnectTimeout:     10,
-		Proto:              "tcp",
-		Key:                "123456",
-		Encrypt:            "default",
-		Compress:           128,
-		ShowPing:           false,
-		Username:           "",
-		Password:           "",
-		MaxClient:          8,
-		MaxSonny:           128,
+		MaxMsgSize:                1024 * 1024,
+		MainBuffer:                1024,
+		ConnBuffer:                128,
+		EstablishedTimeout:        10,
+		PingInter:                 1,
+		PingTimeoutInter:          5,
+		ConnTimeout:               300,
+		ConnectTimeout:            10,
+		Proto:                     "tcp",
+		Key:                       "123456",
+		Encrypt:                   "default",
+		Compress:                  128,
+		ShowPing:                  false,
+		Username:                  "",
+		Password:                  "",
+		MaxClient:                 8,
+		MaxSonny:                  128,
+		MainWriteChannelTimeoutMs: 1000,
 	}
 }
 
