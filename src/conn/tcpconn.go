@@ -2,6 +2,7 @@ package conn
 
 import (
 	"context"
+	"errors"
 	"net"
 )
 
@@ -17,21 +18,27 @@ func (c *tcpConn) Name() string {
 }
 
 func (c *tcpConn) Read(p []byte) (n int, err error) {
-	return c.conn.Read(p)
+	if c.conn != nil {
+		return c.conn.Read(p)
+	}
+	return 0, errors.New("empty conn")
 }
 
 func (c *tcpConn) Write(p []byte) (n int, err error) {
-	return c.conn.Write(p)
+	if c.conn != nil {
+		return c.conn.Write(p)
+	}
+	return 0, errors.New("empty conn")
 }
 
 func (c *tcpConn) Close() error {
+	if c.cancel != nil {
+		c.cancel()
+	}
 	if c.conn != nil {
 		return c.conn.Close()
 	} else if c.listener != nil {
 		return c.listener.Close()
-	}
-	if c.cancel != nil {
-		c.cancel()
 	}
 	return nil
 }
@@ -41,11 +48,11 @@ func (c *tcpConn) Info() string {
 		return c.info
 	}
 	if c.conn != nil {
-		c.info = c.conn.LocalAddr().String() + "<--->" + c.conn.RemoteAddr().String()
+		c.info = c.conn.LocalAddr().String() + "<--tcp-->" + c.conn.RemoteAddr().String()
 	} else if c.listener != nil {
-		c.info = c.listener.Addr().String()
+		c.info = "tcp--" + c.listener.Addr().String()
 	} else {
-		c.info = "empty conn"
+		c.info = "empty tcp conn"
 	}
 	return c.info
 }

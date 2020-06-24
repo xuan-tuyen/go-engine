@@ -23,6 +23,8 @@ func NewConn(proto string) (Conn, error) {
 	proto = strings.ToLower(proto)
 	if proto == "tcp" {
 		return &tcpConn{}, nil
+	} else if proto == "udp" {
+		return &udpConn{}, nil
 	}
 	return nil, errors.New("undefined proto " + proto)
 }
