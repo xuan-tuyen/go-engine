@@ -254,9 +254,15 @@ func checkDate(config Config) {
 	nowt, _ := time.Parse("2006-01-02", now)
 	nowunix := nowt.Unix()
 
-	files, err := ioutil.ReadDir("./")
+	dir, err := os.Getwd()
 	if err != nil {
-		Error("loggo checkDate ReadDir fail %v ", err)
+		Error("loggo checkDate Getwd fail %v ", err)
+		return
+	}
+
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		Error("loggo checkDate ReadDir fail %v %v", dir, err)
 		return
 	}
 
