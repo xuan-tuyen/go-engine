@@ -43,7 +43,7 @@ func DefaultConfig() *Config {
 		EstablishedTimeout:        10,
 		PingInter:                 1,
 		PingTimeoutInter:          5,
-		ConnTimeout:               300,
+		ConnTimeout:               60,
 		ConnectTimeout:            10,
 		Proto:                     "tcp",
 		Key:                       "123456",
