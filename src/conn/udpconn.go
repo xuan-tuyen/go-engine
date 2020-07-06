@@ -56,6 +56,9 @@ func (c *udpConn) Read(p []byte) (n int, err error) {
 			return 0, errors.New("read closed conn")
 		}
 		b := <-c.listenersonny.recvch.Ch()
+		if b == nil {
+			return 0, errors.New("read closed conn")
+		}
 		data := b.([]byte)
 		if len(data) > len(p) {
 			return 0, errors.New("read buffer too small")
