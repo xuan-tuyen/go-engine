@@ -78,7 +78,7 @@ func (c *udpConn) Write(p []byte) (n int, err error) {
 		if c.listenersonny.isclose {
 			return 0, errors.New("write closed conn")
 		}
-		c.listenersonny.fatherconn.WriteToUDP(p, c.listenersonny.dstaddr)
+		return c.listenersonny.fatherconn.WriteToUDP(p, c.listenersonny.dstaddr)
 	}
 	return 0, errors.New("empty conn")
 }
