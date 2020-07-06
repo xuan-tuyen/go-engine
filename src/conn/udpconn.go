@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/esrrhs/go-engine/src/common"
 	"github.com/esrrhs/go-engine/src/group"
+	"github.com/esrrhs/go-engine/src/loggo"
 	"net"
 	"sync"
 )
@@ -207,13 +208,19 @@ func (c *udpConn) loopRecv() error {
 			}
 
 			u := &udpConn{listenersonny: sonny}
-			u.listenersonny.recvch.WriteTimeout(data, UDP_RECV_CHAN_PUSH_TIMEOUT)
+			if !u.listenersonny.recvch.WriteTimeout(data, UDP_RECV_CHAN_PUSH_TIMEOUT) {
+				loggo.Debug("udp conn %s push %d data to %s recv channel timeout", c.Info(), len(data), u.Info())
+			}
 			c.listener.sonny.Store(srcaddrstr, u)
 
-			c.listener.accept.WriteTimeout(u, UDP_RECV_CHAN_PUSH_TIMEOUT)
+			if !c.listener.accept.WriteTimeout(u, UDP_RECV_CHAN_PUSH_TIMEOUT) {
+				loggo.Debug("udp conn %s push %s to accept channel timeout", c.Info(), u.Info())
+			}
 		} else {
 			u := v.(*udpConn)
-			u.listenersonny.recvch.WriteTimeout(data, UDP_RECV_CHAN_PUSH_TIMEOUT)
+			if !u.listenersonny.recvch.WriteTimeout(data, UDP_RECV_CHAN_PUSH_TIMEOUT) {
+				loggo.Debug("udp conn %s push %d data to %s recv channel timeout", c.Info(), len(data), u.Info())
+			}
 		}
 
 		c.listener.sonny.Range(func(key, value interface{}) bool {
