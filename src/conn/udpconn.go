@@ -139,7 +139,13 @@ func (c *udpConn) Dial(dst string) (Conn, error) {
 }
 
 func (c *udpConn) Listen(dst string) (Conn, error) {
-	listenerconn, err := net.ListenPacket("udp", dst)
+
+	ipaddr, err := net.ResolveUDPAddr("udp", dst)
+	if err != nil {
+		return nil, err
+	}
+
+	listenerconn, err := net.ListenUDP("udp", ipaddr)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +158,7 @@ func (c *udpConn) Listen(dst string) (Conn, error) {
 	})
 
 	listener := &udpConnListener{
-		listenerconn: listenerconn.(*net.UDPConn),
+		listenerconn: listenerconn,
 		wg:           wg,
 		accept:       ch,
 	}
