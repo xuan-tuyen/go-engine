@@ -219,9 +219,7 @@ func (c *udpConn) loopRecv() error {
 			}
 			c.listener.sonny.Store(srcaddrstr, u)
 
-			if !c.listener.accept.WriteTimeout(u, UDP_RECV_CHAN_PUSH_TIMEOUT) {
-				loggo.Debug("udp conn %s push %s to accept channel timeout", c.Info(), u.Info())
-			}
+			c.listener.accept.Write(u)
 		} else {
 			u := v.(*udpConn)
 			if !u.listenersonny.recvch.WriteTimeout(data, UDP_RECV_CHAN_PUSH_TIMEOUT) {
