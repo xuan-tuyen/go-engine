@@ -118,6 +118,9 @@ func (g *Group) Done() <-chan int {
 func (g *Group) Go(name string, f func() error) {
 	g.lock.Lock()
 	defer g.lock.Unlock()
+	if g.isexit {
+		return
+	}
 	g.add()
 	g.sonname[name]++
 
