@@ -48,16 +48,18 @@ type rudpConn struct {
 	listenersonny *rudpConnListenerSonny
 	listener      *rudpConnListener
 	cancel        context.CancelFunc
+	isclose       bool
 }
 
 type rudpConnDialer struct {
-	conn *net.UDPConn
+	conn    *net.UDPConn
+	fm      *frame.FrameMgr
+	isclose bool
 }
 
 type rudpConnListenerSonny struct {
 	dstaddr    *net.UDPAddr
 	fatherconn *net.UDPConn
-	isclose    bool
 	fm         *frame.FrameMgr
 	wg         *group.Group
 }
@@ -73,6 +75,7 @@ const (
 	MAX_RUDP_PACKET      = 10240
 	RUDP_RECV_CHAN_LEN   = 128
 	RUDP_ACCEPT_CHAN_LEN = 128
+	CONNECT_TIMEOUTMS    = 10000
 )
 
 func (c *rudpConn) Name() string {
@@ -101,15 +104,113 @@ func (c *rudpConn) Close() error {
 func (c *rudpConn) Info() string {
 	c.checkConfig()
 
-	// TODO
-	return ""
+	if c.info != "" {
+		return c.info
+	}
+	if c.dialer != nil {
+		c.info = c.dialer.conn.LocalAddr().String() + "<--rudp-->" + c.dialer.conn.RemoteAddr().String()
+	} else if c.listener != nil {
+		c.info = "rudp--" + c.listener.listenerconn.LocalAddr().String()
+	} else if c.listenersonny != nil {
+		c.info = c.listenersonny.fatherconn.LocalAddr().String() + "<--rudp-->" + c.listenersonny.dstaddr.String()
+	} else {
+		c.info = "empty rudp conn"
+	}
+	return c.info
 }
 
 func (c *rudpConn) Dial(dst string) (Conn, error) {
 	c.checkConfig()
 
+	addr, err := net.ResolveUDPAddr("udp", dst)
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	c.cancel = cancel
+	var d net.Dialer
+	conn, err := d.DialContext(ctx, "udp", addr.String())
+	if err != nil {
+		return nil, err
+	}
+	c.cancel = nil
+
+	id := common.Guid()
+	fm := frame.NewFrameMgr(c.config.CutSize, c.config.MaxId, c.config.BufferSize, c.config.MaxWin, c.config.ResendTimems, c.config.Compress, c.config.Stat)
+	fm.SetDebugid(id)
+
+	dialer := &rudpConnDialer{conn: conn.(*net.UDPConn), fm: fm}
+
+	u := &rudpConn{config: c.config, dialer: dialer}
+
+	loggo.Debug("start connect remote rudp %s", u.Info())
+
+	startConnectTime := time.Now()
+	buf := make([]byte, MAX_RUDP_PACKET)
+	for {
+		if u.dialer.fm.IsConnected() {
+			break
+		}
+
+		u.dialer.fm.Update()
+
+		// send udp
+		sendlist := u.dialer.fm.GetSendList()
+		for e := sendlist.Front(); e != nil; e = e.Next() {
+			f := e.Value.(*frame.Frame)
+			mb, _ := u.dialer.fm.MarshalFrame(f)
+			u.dialer.conn.SetReadDeadline(time.Now().Add(time.Millisecond * 100))
+			u.dialer.conn.Write(mb)
+		}
+
+		// recv udp
+		u.dialer.conn.SetReadDeadline(time.Now().Add(time.Millisecond * 100))
+		n, _ := u.dialer.conn.Read(buf)
+		if n > 0 {
+			f := &frame.Frame{}
+			err := proto.Unmarshal(buf[0:n], f)
+			if err == nil {
+				u.dialer.fm.OnRecvFrame(f)
+			} else {
+				loggo.Error("%s %s Unmarshal fail %s", c.Info(), u.Info(), err)
+				break
+			}
+		}
+
+		if c.isclose {
+			loggo.Debug("can not connect remote rudp %s", u.Info())
+			break
+		}
+
+		// timeout
+		now := time.Now()
+		diffclose := now.Sub(startConnectTime)
+		if diffclose > time.Millisecond*time.Duration(CONNECT_TIMEOUTMS) {
+			loggo.Debug("can not connect remote rudp %s", u.Info())
+			break
+		}
+
+		time.Sleep(time.Millisecond * 10)
+	}
+
+	if c.isclose {
+		u.Close()
+		return nil, errors.New("closed conn")
+	}
+
+	if u.isclose {
+		return nil, errors.New("closed conn")
+	}
+
+	if !u.dialer.fm.IsConnected() {
+		return nil, errors.New("connect timeout")
+	}
+
+	loggo.Debug("connect remote ok rudp %s", u.Info())
+
 	// TODO
-	return nil, nil
+
+	return &rudpConn{dialer: dialer}, nil
 }
 
 func (c *rudpConn) Listen(dst string) (Conn, error) {
@@ -149,8 +250,25 @@ func (c *rudpConn) Listen(dst string) (Conn, error) {
 func (c *rudpConn) Accept() (Conn, error) {
 	c.checkConfig()
 
-	// TODO
-	return nil, nil
+	if c.listener.wg == nil {
+		return nil, errors.New("not listen")
+	}
+	for !c.listener.wg.IsExit() {
+		s := <-c.listener.accept.Ch()
+		if s == nil {
+			break
+		}
+		sonny := s.(*rudpConn)
+		_, ok := c.listener.sonny.Load(sonny.listenersonny.dstaddr.String())
+		if !ok {
+			continue
+		}
+		if sonny.isclose {
+			continue
+		}
+		return sonny, nil
+	}
+	return nil, errors.New("listener close")
 }
 
 func (c *rudpConn) checkConfig() {
