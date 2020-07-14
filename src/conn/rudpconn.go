@@ -14,6 +14,7 @@ import (
 )
 
 type RudpConfig struct {
+	MaxPacketSize    int
 	CutSize          int
 	MaxId            int
 	BufferSize       int
@@ -28,6 +29,7 @@ type RudpConfig struct {
 
 func DefaultRudpConfig() *RudpConfig {
 	return &RudpConfig{
+		MaxPacketSize:    10240,
 		CutSize:          500,
 		MaxId:            1000000,
 		BufferSize:       10240,
@@ -36,8 +38,8 @@ func DefaultRudpConfig() *RudpConfig {
 		Compress:         0,
 		Stat:             0,
 		HBTimeoutms:      3000,
-		ConnectTimeoutMs: 1000,
-		CloseTimeoutMs:   10000,
+		ConnectTimeoutMs: 10000,
+		CloseTimeoutMs:   60000,
 	}
 }
 
@@ -52,9 +54,9 @@ type rudpConn struct {
 }
 
 type rudpConnDialer struct {
-	conn    *net.UDPConn
-	fm      *frame.FrameMgr
-	isclose bool
+	conn *net.UDPConn
+	fm   *frame.FrameMgr
+	wg   *group.Group
 }
 
 type rudpConnListenerSonny struct {
@@ -71,27 +73,76 @@ type rudpConnListener struct {
 	accept       *common.Channel
 }
 
-const (
-	MAX_RUDP_PACKET      = 10240
-	RUDP_RECV_CHAN_LEN   = 128
-	RUDP_ACCEPT_CHAN_LEN = 128
-	CONNECT_TIMEOUTMS    = 10000
-)
-
 func (c *rudpConn) Name() string {
 	return "rudp"
 }
 
 func (c *rudpConn) Read(p []byte) (n int, err error) {
 	c.checkConfig()
-	// TODO
-	return 0, nil
+
+	if c.isclose {
+		return 0, errors.New("read closed conn")
+	}
+
+	var fm *frame.FrameMgr
+	if c.dialer != nil {
+		fm = c.dialer.fm
+	} else if c.listener != nil {
+		return 0, errors.New("listener can not be read")
+	} else if c.listenersonny != nil {
+		fm = c.listenersonny.fm
+	} else {
+		return 0, errors.New("empty conn")
+	}
+
+	for !c.isclose {
+		if fm.GetRecvBufferSize() <= 0 {
+			time.Sleep(time.Millisecond * 10)
+			continue
+		}
+
+		size := copy(p, fm.GetRecvReadLineBuffer())
+		fm.SkipRecvBuffer(size)
+		return size, nil
+	}
+
+	return 0, errors.New("read closed conn")
 }
 
 func (c *rudpConn) Write(p []byte) (n int, err error) {
 	c.checkConfig()
-	// TODO
-	return 0, nil
+
+	if c.isclose {
+		return 0, errors.New("write closed conn")
+	}
+
+	var fm *frame.FrameMgr
+	if c.dialer != nil {
+		fm = c.dialer.fm
+	} else if c.listener != nil {
+		return 0, errors.New("listener can not be write")
+	} else if c.listenersonny != nil {
+		fm = c.listenersonny.fm
+	} else {
+		return 0, errors.New("empty conn")
+	}
+
+	for !c.isclose {
+		size := len(p)
+		if size > fm.GetSendBufferLeft() {
+			size = fm.GetSendBufferLeft()
+		}
+
+		if size <= 0 {
+			time.Sleep(time.Millisecond * 10)
+			continue
+		}
+
+		fm.WriteSendBuffer(p[0:size])
+		return size, nil
+	}
+
+	return 0, errors.New("write closed conn")
 }
 
 func (c *rudpConn) Close() error {
@@ -146,7 +197,7 @@ func (c *rudpConn) Dial(dst string) (Conn, error) {
 	loggo.Debug("start connect remote rudp %s", u.Info())
 
 	startConnectTime := time.Now()
-	buf := make([]byte, MAX_RUDP_PACKET)
+	buf := make([]byte, c.config.MaxPacketSize)
 	for {
 		if u.dialer.fm.IsConnected() {
 			break
@@ -185,7 +236,7 @@ func (c *rudpConn) Dial(dst string) (Conn, error) {
 		// timeout
 		now := time.Now()
 		diffclose := now.Sub(startConnectTime)
-		if diffclose > time.Millisecond*time.Duration(CONNECT_TIMEOUTMS) {
+		if diffclose > time.Millisecond*time.Duration(c.config.ConnectTimeoutMs) {
 			loggo.Debug("can not connect remote rudp %s", u.Info())
 			break
 		}
@@ -208,7 +259,15 @@ func (c *rudpConn) Dial(dst string) (Conn, error) {
 
 	loggo.Debug("connect remote ok rudp %s", u.Info())
 
-	// TODO
+	wg := group.NewGroup("rudpConn serveListenerSonny"+" "+u.Info(), nil, func() {
+		u.Close()
+	})
+
+	u.dialer.wg = wg
+
+	wg.Go("rudpConn updateDialerSonny"+" "+u.Info(), func() error {
+		return u.updateDialerSonny()
+	})
 
 	return &rudpConn{dialer: dialer}, nil
 }
@@ -282,7 +341,7 @@ func (c *rudpConn) SetConfig(config *RudpConfig) {
 }
 
 func (c *rudpConn) loopListenerRecv() error {
-	buf := make([]byte, MAX_RUDP_PACKET)
+	buf := make([]byte, c.config.MaxPacketSize)
 	for !c.listener.wg.IsExit() {
 		n, srcaddr, err := c.listener.listenerconn.ReadFromUDP(buf)
 		if err != nil {
@@ -383,13 +442,13 @@ func (c *rudpConn) accept(u *rudpConn) error {
 
 	c.listener.accept.Write(u)
 
-	wg := group.NewGroup("rudpConn serveListenerSonny"+" "+c.Info(), c.listener.wg, func() {
+	wg := group.NewGroup("rudpConn ListenerSonny"+" "+u.Info(), c.listener.wg, func() {
 		u.Close()
 	})
 
 	u.listenersonny.wg = wg
 
-	wg.Go("", func() error {
+	wg.Go("rudpConn updateListenerSonny"+" "+u.Info(), func() error {
 		return u.updateListenerSonny()
 	})
 
@@ -477,6 +536,116 @@ func (c *rudpConn) updateListenerSonny() error {
 	}
 
 	loggo.Debug("close rudp conn %s", c.Info())
+
+	return errors.New("closed")
+}
+
+func (c *rudpConn) updateDialerSonny() error {
+
+	loggo.Debug("start rudp conn %s", c.Info())
+
+	bytes := make([]byte, c.config.MaxPacketSize)
+
+	for !c.dialer.wg.IsExit() {
+		sleep := true
+
+		c.dialer.fm.Update()
+
+		// send udp
+		sendlist := c.dialer.fm.GetSendList()
+		if sendlist.Len() > 0 {
+			sleep = false
+			for e := sendlist.Front(); e != nil; e = e.Next() {
+				f := e.Value.(*frame.Frame)
+				mb, err := c.dialer.fm.MarshalFrame(f)
+				if err != nil {
+					loggo.Error("MarshalFrame fail %s", err)
+					break
+				}
+				c.dialer.conn.SetReadDeadline(time.Now().Add(time.Millisecond * 100))
+				c.dialer.conn.Write(mb)
+			}
+		}
+
+		// recv udp
+		c.dialer.conn.SetReadDeadline(time.Now().Add(time.Millisecond * 100))
+		n, _ := c.dialer.conn.Read(bytes)
+		if n > 0 {
+			f := &frame.Frame{}
+			err := proto.Unmarshal(bytes[0:n], f)
+			if err == nil {
+				c.dialer.fm.OnRecvFrame(f)
+			} else {
+				loggo.Error("Unmarshal fail from %s %s", c.Info(), err)
+			}
+		}
+
+		// timeout
+		if c.dialer.fm.IsHBTimeout(c.config.HBTimeoutms) {
+			loggo.Debug("close inactive conn %s", c.Info())
+			break
+		}
+
+		if c.dialer.fm.IsRemoteClosed() {
+			loggo.Debug("closed by remote conn %s", c.Info())
+			break
+		}
+
+		if sleep {
+			time.Sleep(time.Millisecond * 10)
+		}
+	}
+
+	c.dialer.fm.Close()
+
+	startCloseTime := time.Now()
+	for {
+		now := time.Now()
+
+		c.dialer.fm.Update()
+
+		// send udp
+		sendlist := c.dialer.fm.GetSendList()
+		for e := sendlist.Front(); e != nil; e = e.Next() {
+			f := e.Value.(*frame.Frame)
+			mb, err := c.dialer.fm.MarshalFrame(f)
+			if err != nil {
+				loggo.Error("MarshalFrame fail %s", err)
+				break
+			}
+			c.dialer.conn.SetReadDeadline(time.Now().Add(time.Millisecond * 10))
+			c.dialer.conn.Write(mb)
+		}
+
+		// recv udp
+		c.dialer.conn.SetReadDeadline(time.Now().Add(time.Millisecond * 10))
+		n, _ := c.dialer.conn.Read(bytes)
+		if n > 0 {
+			f := &frame.Frame{}
+			err := proto.Unmarshal(bytes[0:n], f)
+			if err == nil {
+				c.dialer.fm.OnRecvFrame(f)
+			} else {
+				loggo.Error("Unmarshal fail from %s", c.Info())
+			}
+		}
+
+		diffclose := now.Sub(startCloseTime)
+		if diffclose > time.Millisecond*time.Duration(c.config.CloseTimeoutMs) {
+			loggo.Info("close conn had timeout %s", c.Info())
+			break
+		}
+
+		remoteclosed := c.dialer.fm.IsRemoteClosed()
+		if remoteclosed {
+			loggo.Info("remote conn had closed %s", c.Info())
+			break
+		}
+
+		time.Sleep(time.Millisecond * 10)
+	}
+
+	loggo.Info("close rudp conn %s", c.Info())
 
 	return errors.New("closed")
 }
