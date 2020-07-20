@@ -28,6 +28,7 @@ type JobDB struct {
 	gPeekJobStmt   *sql.Stmt
 	gDeleteJobStmt *sql.Stmt
 	gHasJobStmt    *sql.Stmt
+	gDropStmt      *sql.Stmt
 }
 
 type DoneDB struct {
@@ -37,6 +38,7 @@ type DoneDB struct {
 	gSizeDoneStmt   *sql.Stmt
 	gDeleteDoneStmt *sql.Stmt
 	gHasDoneStmt    *sql.Stmt
+	gDropStmt       *sql.Stmt
 }
 
 type DBLinkInfo struct {
@@ -144,12 +146,17 @@ func Load(dsn string, conn int, name string, expireday int) *DB {
 	return ret
 }
 
+func dropJob(db *JobDB) {
+	db.gDropStmt.Exec()
+}
+
 func closeJob(db *JobDB) {
 	db.gInsertJobStmt.Close()
 	db.gSizeJobStmt.Close()
 	db.gPeekJobStmt.Close()
 	db.gDeleteJobStmt.Close()
 	db.gHasJobStmt.Close()
+	db.gDropStmt.Close()
 	db.gdb.Close()
 }
 
@@ -235,10 +242,21 @@ func loadJob(dsn string, conn int, src string) *JobDB {
 	}
 	ret.gHasJobStmt = stmt
 
+	stmt, err = gdb.Prepare("drop table spiderjob." + host + "")
+	if err != nil {
+		loggo.Error("Prepare Job fail %v", err)
+		return nil
+	}
+	ret.gDropStmt = stmt
+
 	num := getJobSize(ret)
 	loggo.Info("Job size %v %v", src, num)
 
 	return ret
+}
+
+func dropDone(db *DoneDB) {
+	db.gDropStmt.Exec()
 }
 
 func closeDone(db *DoneDB) {
@@ -246,6 +264,7 @@ func closeDone(db *DoneDB) {
 	db.gSizeDoneStmt.Close()
 	db.gDeleteDoneStmt.Close()
 	db.gHasDoneStmt.Close()
+	db.gDropStmt.Close()
 	db.gdb.Close()
 }
 
@@ -323,6 +342,13 @@ func loadDone(dsn string, conn int, src string) *DoneDB {
 		return nil
 	}
 	ret.gHasDoneStmt = stmt
+
+	stmt, err = gdb.Prepare("drop table spiderdone." + host + "")
+	if err != nil {
+		loggo.Error("Prepare Job fail %v", err)
+		return nil
+	}
+	ret.gDropStmt = stmt
 
 	////
 

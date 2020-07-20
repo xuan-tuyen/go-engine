@@ -246,6 +246,9 @@ func Start(ctx *Content, config Config, url string, stat *Stat) {
 
 	loggo.Info("Spider end %v %v", url, getDoneSize(dbd))
 
+	dropJob(jbd)
+	dropDone(dbd)
+
 	closeJob(jbd)
 	closeDone(dbd)
 }
