@@ -148,7 +148,24 @@ func (c *rudpConn) Write(p []byte) (n int, err error) {
 func (c *rudpConn) Close() error {
 	c.checkConfig()
 
-	// TODO
+	if c.cancel != nil {
+		c.cancel()
+	}
+	if c.dialer != nil {
+		c.dialer.wg.Stop()
+		c.dialer.wg.Wait()
+	} else if c.listener != nil {
+		c.listener.wg.Stop()
+		c.listener.wg.Wait()
+		c.listener.sonny.Range(func(key, value interface{}) bool {
+			u := value.(*udpConn)
+			u.Close()
+			return true
+		})
+	} else if c.listenersonny != nil {
+		c.listenersonny.wg.Stop()
+		c.listenersonny.wg.Wait()
+	}
 	return nil
 }
 
