@@ -14,6 +14,24 @@ func init() {
 	mrand.Seed(time.Now().UnixNano())
 }
 
+func HasInt(data []int, dst int) bool {
+	for _, i := range data {
+		if i == dst {
+			return true
+		}
+	}
+	return false
+}
+
+func HasString(data []string, dst string) bool {
+	for _, i := range data {
+		if i == dst {
+			return true
+		}
+	}
+	return false
+}
+
 func MinOfInt(vars ...int) int {
 	min := vars[0]
 

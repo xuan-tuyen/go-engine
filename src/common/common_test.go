@@ -200,3 +200,21 @@ func Test0009(t *testing.T) {
 	fmt.Println(c.WriteTimeout(1, 1000))
 	time.Sleep(time.Second)
 }
+
+func Test0010(t *testing.T) {
+	a := make([]int, 3)
+	a[0] = 1
+	a[1] = 111
+	a[2] = 1111
+	fmt.Println(HasInt(a, 1))
+	fmt.Println(HasInt(a, 12))
+}
+
+func Test0011(t *testing.T) {
+	a := make([]string, 3)
+	a[0] = "1"
+	a[1] = "111"
+	a[2] = "1111"
+	fmt.Println(HasString(a, "1"))
+	fmt.Println(HasString(a, "12"))
+}
