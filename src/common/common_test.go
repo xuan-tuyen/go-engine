@@ -218,3 +218,7 @@ func Test0011(t *testing.T) {
 	fmt.Println(HasString(a, "1"))
 	fmt.Println(HasString(a, "12"))
 }
+
+func Test0012(t *testing.T) {
+	Copy("common.go", "common.go.1")
+}
