@@ -3,6 +3,7 @@ package common
 import (
 	"encoding/json"
 	"io"
+	"io/ioutil"
 	"os"
 )
 
@@ -76,4 +77,22 @@ func Copy(src, dst string) error {
 		return err
 	}
 	return out.Close()
+}
+
+func FileExists(filename string) bool {
+	info, err := os.Stat(filename)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return !info.IsDir()
+}
+
+func FileMd5(filename string) (string, error) {
+
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return "", err
+	}
+	md5 := GetMd5String(string(data))
+	return md5, nil
 }
