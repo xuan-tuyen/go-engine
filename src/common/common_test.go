@@ -223,4 +223,5 @@ func Test0012(t *testing.T) {
 	Copy("common.go", "common.go.1")
 	fmt.Println(FileExists("common.go.1"))
 	fmt.Println(FileMd5("common.go.1"))
+	fmt.Println(FileReplace("common.go.1", "func", "fuck"))
 }

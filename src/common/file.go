@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"strings"
 )
 
 func LoadJson(filename string, conf interface{}) error {
@@ -95,4 +96,23 @@ func FileMd5(filename string) (string, error) {
 	}
 	md5 := GetMd5String(string(data))
 	return md5, nil
+}
+
+func FileReplace(filename string, from string, to string) error {
+
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+	str := string(data)
+	str = strings.Replace(str, from, to, -1)
+
+	out, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	out.WriteString(str)
+	return nil
 }
