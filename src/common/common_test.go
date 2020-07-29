@@ -2,6 +2,7 @@ package common
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"testing"
 	"time"
@@ -225,4 +226,11 @@ func Test0012(t *testing.T) {
 	fmt.Println(FileMd5("common.go.1"))
 	fmt.Println(FileReplace("common.go.1", "func", "fuck"))
 	fmt.Println(IsSymlink("common.go.1"))
+}
+
+func Test0013(t *testing.T) {
+	Walk("./", func(path string, info os.FileInfo, err error) error {
+		fmt.Println(path)
+		return nil
+	})
 }
