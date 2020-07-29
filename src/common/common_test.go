@@ -224,4 +224,5 @@ func Test0012(t *testing.T) {
 	fmt.Println(FileExists("common.go.1"))
 	fmt.Println(FileMd5("common.go.1"))
 	fmt.Println(FileReplace("common.go.1", "func", "fuck"))
+	fmt.Println(IsSymlink("common.go.1"))
 }

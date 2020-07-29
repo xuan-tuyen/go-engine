@@ -116,3 +116,15 @@ func FileReplace(filename string, from string, to string) error {
 	out.WriteString(str)
 	return nil
 }
+
+func IsSymlink(filename string) bool {
+	fi, err := os.Lstat(filename)
+	if err != nil {
+		return false
+	}
+	if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
+		return true
+	} else {
+		return false
+	}
+}
