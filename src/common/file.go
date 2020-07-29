@@ -118,6 +118,23 @@ func FileReplace(filename string, from string, to string) error {
 	return nil
 }
 
+func FileFind(filename string, dst string) int {
+
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return 0
+	}
+	str := string(data)
+
+	n := 0
+	for _, str := range strings.Split(str, "\n") {
+		if strings.Contains(str, dst) {
+			n++
+		}
+	}
+	return n
+}
+
 func IsSymlink(filename string) bool {
 	fi, err := os.Lstat(filename)
 	if err != nil {
