@@ -147,7 +147,7 @@ func walk(filename string, linkDirname string, walkFn filepath.WalkFunc) error {
 		}
 
 		if err == nil && info.Mode()&os.ModeSymlink == os.ModeSymlink {
-			finalPath, err := filepath.EvalSymlinks(path)
+			finalPath, err := EvalSymlinks(path)
 			if err != nil {
 				return err
 			}

@@ -234,3 +234,7 @@ func Test0013(t *testing.T) {
 		return nil
 	})
 }
+
+func Test0014(t *testing.T) {
+	fmt.Println(EvalSymlinks("./"))
+}
