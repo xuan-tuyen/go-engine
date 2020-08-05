@@ -25,6 +25,8 @@ func NewConn(proto string) (Conn, error) {
 		return &tcpConn{}, nil
 	} else if proto == "udp" {
 		return &udpConn{}, nil
+	} else if proto == "rudp" {
+		return &rudpConn{}, nil
 	}
 	return nil, errors.New("undefined proto " + proto)
 }

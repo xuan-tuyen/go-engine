@@ -152,8 +152,10 @@ func (c *rudpConn) Close() error {
 		c.cancel()
 	}
 	if c.dialer != nil {
-		c.dialer.wg.Stop()
-		c.dialer.wg.Wait()
+		if c.dialer.wg != nil {
+			c.dialer.wg.Stop()
+			c.dialer.wg.Wait()
+		}
 	} else if c.listener != nil {
 		c.listener.wg.Stop()
 		c.listener.wg.Wait()
@@ -166,6 +168,7 @@ func (c *rudpConn) Close() error {
 		c.listenersonny.wg.Stop()
 		c.listenersonny.wg.Wait()
 	}
+	c.isclose = true
 	return nil
 }
 
@@ -286,7 +289,7 @@ func (c *rudpConn) Dial(dst string) (Conn, error) {
 		return u.updateDialerSonny()
 	})
 
-	return &rudpConn{dialer: dialer}, nil
+	return u, nil
 }
 
 func (c *rudpConn) Listen(dst string) (Conn, error) {
@@ -315,7 +318,7 @@ func (c *rudpConn) Listen(dst string) (Conn, error) {
 		accept:       ch,
 	}
 
-	u := &rudpConn{listener: listener}
+	u := &rudpConn{config: c.config, listener: listener}
 	wg.Go("rudpConn loopListenerRecv"+" "+dst, func() error {
 		return u.loopListenerRecv()
 	})

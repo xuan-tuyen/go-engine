@@ -12,6 +12,7 @@ import (
 
 type udpConn struct {
 	info          string
+	config        *UdpConfig
 	dialer        *udpConnDialer
 	listenersonny *udpConnListenerSonny
 	listener      *udpConnListener
@@ -43,11 +44,29 @@ const (
 	UDP_RECV_CHAN_PUSH_TIMEOUT = 100
 )
 
+type UdpConfig struct {
+	MaxPacketSize       int
+	RecvChanLen         int
+	AcceptChanLen       int
+	RecvChanPushTimeout int
+}
+
+func DefaultUdpConfig() *UdpConfig {
+	return &UdpConfig{
+		MaxPacketSize:       10240,
+		RecvChanLen:         128,
+		AcceptChanLen:       128,
+		RecvChanPushTimeout: 100,
+	}
+}
+
 func (c *udpConn) Name() string {
 	return "udp"
 }
 
 func (c *udpConn) Read(p []byte) (n int, err error) {
+	c.checkConfig()
+
 	if c.dialer != nil {
 		return c.dialer.conn.Read(p)
 	} else if c.listener != nil {
@@ -71,6 +90,8 @@ func (c *udpConn) Read(p []byte) (n int, err error) {
 }
 
 func (c *udpConn) Write(p []byte) (n int, err error) {
+	c.checkConfig()
+
 	if c.dialer != nil {
 		return c.dialer.conn.Write(p)
 	} else if c.listener != nil {
@@ -85,6 +106,8 @@ func (c *udpConn) Write(p []byte) (n int, err error) {
 }
 
 func (c *udpConn) Close() error {
+	c.checkConfig()
+
 	if c.cancel != nil {
 		c.cancel()
 	}
@@ -106,6 +129,8 @@ func (c *udpConn) Close() error {
 }
 
 func (c *udpConn) Info() string {
+	c.checkConfig()
+
 	if c.info != "" {
 		return c.info
 	}
@@ -122,6 +147,8 @@ func (c *udpConn) Info() string {
 }
 
 func (c *udpConn) Dial(dst string) (Conn, error) {
+	c.checkConfig()
+
 	addr, err := net.ResolveUDPAddr("udp", dst)
 	if err != nil {
 		return nil, err
@@ -139,6 +166,7 @@ func (c *udpConn) Dial(dst string) (Conn, error) {
 }
 
 func (c *udpConn) Listen(dst string) (Conn, error) {
+	c.checkConfig()
 
 	ipaddr, err := net.ResolveUDPAddr("udp", dst)
 	if err != nil {
@@ -172,6 +200,8 @@ func (c *udpConn) Listen(dst string) (Conn, error) {
 }
 
 func (c *udpConn) Accept() (Conn, error) {
+	c.checkConfig()
+
 	if c.listener.wg == nil {
 		return nil, errors.New("not listen")
 	}
@@ -236,4 +266,14 @@ func (c *udpConn) loopRecv() error {
 		})
 	}
 	return nil
+}
+
+func (c *udpConn) checkConfig() {
+	if c.config == nil {
+		c.config = DefaultUdpConfig()
+	}
+}
+
+func (c *udpConn) SetConfig(config *UdpConfig) {
+	c.config = config
 }
