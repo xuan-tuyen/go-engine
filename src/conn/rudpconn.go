@@ -160,13 +160,15 @@ func (c *rudpConn) Close() error {
 		c.listener.wg.Stop()
 		c.listener.wg.Wait()
 		c.listener.sonny.Range(func(key, value interface{}) bool {
-			u := value.(*udpConn)
+			u := value.(*rudpConn)
 			u.Close()
 			return true
 		})
 	} else if c.listenersonny != nil {
-		c.listenersonny.wg.Stop()
-		c.listenersonny.wg.Wait()
+		if c.listenersonny.wg != nil {
+			c.listenersonny.wg.Stop()
+			c.listenersonny.wg.Wait()
+		}
 	}
 	c.isclose = true
 	return nil
@@ -215,6 +217,8 @@ func (c *rudpConn) Dial(dst string) (Conn, error) {
 	u := &rudpConn{config: c.config, dialer: dialer}
 
 	loggo.Debug("start connect remote rudp %s", u.Info())
+
+	u.dialer.fm.Connect()
 
 	startConnectTime := time.Now()
 	buf := make([]byte, c.config.MaxPacketSize)
@@ -402,8 +406,8 @@ func (c *rudpConn) loopListenerRecv() error {
 		}
 
 		c.listener.sonny.Range(func(key, value interface{}) bool {
-			u := value.(*udpConn)
-			if u.listenersonny.isclose {
+			u := value.(*rudpConn)
+			if u.isclose {
 				c.listener.sonny.Delete(key)
 			}
 			return true
@@ -459,6 +463,8 @@ func (c *rudpConn) accept(u *rudpConn) error {
 		u.Close()
 		return nil
 	}
+
+	loggo.Debug("server accept rudp ok %s", u.Info())
 
 	c.listener.accept.Write(u)
 
@@ -522,7 +528,7 @@ func (c *rudpConn) updateListenerSonny() error {
 	c.listenersonny.fm.Close()
 
 	startCloseTime := time.Now()
-	for {
+	for !c.listenersonny.wg.IsExit() {
 		now := time.Now()
 
 		c.listenersonny.fm.Update()
@@ -619,7 +625,7 @@ func (c *rudpConn) updateDialerSonny() error {
 	c.dialer.fm.Close()
 
 	startCloseTime := time.Now()
-	for {
+	for !c.dialer.wg.IsExit() {
 		now := time.Now()
 
 		c.dialer.fm.Update()

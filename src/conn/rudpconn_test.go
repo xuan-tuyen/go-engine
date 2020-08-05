@@ -56,3 +56,44 @@ func Test0002RUDP(t *testing.T) {
 
 	time.Sleep(time.Second)
 }
+
+func Test0003RUCP(t *testing.T) {
+	c, err := NewConn("rudp")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	cc, err := c.Listen(":58080")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	go func() {
+		cc.Accept()
+		fmt.Println("accept done")
+	}()
+
+	ccc, err := c.Dial(":58080")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	go func() {
+		buf := make([]byte, 100)
+		_, err := ccc.Read(buf)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+	}()
+
+	time.Sleep(time.Second)
+
+	cc.Close()
+	ccc.Close()
+
+	time.Sleep(time.Second)
+}
