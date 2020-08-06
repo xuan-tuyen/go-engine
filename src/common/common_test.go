@@ -227,6 +227,7 @@ func Test0012(t *testing.T) {
 	fmt.Println(FileReplace("common.go.1", "func", "fuck"))
 	fmt.Println(IsSymlink("common.go.1"))
 	fmt.Println(FileFind("common.go.1", "fuck ini()"))
+	fmt.Println(FileLineCount("common.go.1"))
 }
 
 func Test0013(t *testing.T) {

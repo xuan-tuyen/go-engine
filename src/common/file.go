@@ -1,6 +1,7 @@
 package common
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
 	"io/ioutil"
@@ -133,6 +134,18 @@ func FileFind(filename string, dst string) int {
 		}
 	}
 	return n
+}
+
+func FileLineCount(filename string) int {
+
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return 0
+	}
+
+	lineSep := []byte{'\n'}
+
+	return bytes.Count(data, lineSep) + 1
 }
 
 func IsSymlink(filename string) bool {
