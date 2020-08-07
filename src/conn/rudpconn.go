@@ -39,7 +39,7 @@ func DefaultRudpConfig() *RudpConfig {
 		Stat:             0,
 		HBTimeoutms:      3000,
 		ConnectTimeoutMs: 10000,
-		CloseTimeoutMs:   60000,
+		CloseTimeoutMs:   10000,
 	}
 }
 
@@ -492,38 +492,62 @@ func (c *rudpConn) accept(u *rudpConn) error {
 }
 
 func (c *rudpConn) updateListenerSonny() error {
+	return c.update_rudp(c.listenersonny.wg, c.listenersonny.fm, c.listenersonny.fatherconn, false)
+}
+
+func (c *rudpConn) updateDialerSonny() error {
+	return c.update_rudp(c.dialer.wg, c.dialer.fm, c.dialer.conn, true)
+}
+
+func (c *rudpConn) update_rudp(wg *group.Group, fm *frame.FrameMgr, conn *net.UDPConn, readconn bool) error {
 
 	loggo.Debug("start rudp conn %s", c.Info())
 
-	for !c.listenersonny.wg.IsExit() {
+	bytes := make([]byte, c.config.MaxPacketSize)
 
+	for !wg.IsExit() {
 		sleep := true
 
-		c.listenersonny.fm.Update()
+		fm.Update()
 
 		// send udp
-		sendlist := c.listenersonny.fm.GetSendList()
+		sendlist := fm.GetSendList()
 		if sendlist.Len() > 0 {
 			sleep = false
 			for e := sendlist.Front(); e != nil; e = e.Next() {
 				f := e.Value.(*frame.Frame)
-				mb, err := c.listenersonny.fm.MarshalFrame(f)
+				mb, err := fm.MarshalFrame(f)
 				if err != nil {
 					loggo.Error("MarshalFrame fail %s", err)
 					break
 				}
-				c.listenersonny.fatherconn.SetWriteDeadline(time.Now().Add(time.Millisecond * 100))
-				c.listenersonny.fatherconn.WriteToUDP(mb, c.listenersonny.dstaddr)
+				conn.SetWriteDeadline(time.Now().Add(time.Millisecond * 100))
+				conn.Write(mb)
+			}
+		}
+
+		// recv udp
+		if readconn {
+			conn.SetReadDeadline(time.Now().Add(time.Millisecond * 100))
+			n, _ := conn.Read(bytes)
+			if n > 0 {
+				f := &frame.Frame{}
+				err := proto.Unmarshal(bytes[0:n], f)
+				if err == nil {
+					fm.OnRecvFrame(f)
+				} else {
+					loggo.Error("Unmarshal fail from %s %s", c.Info(), err)
+				}
 			}
 		}
 
 		// timeout
-		if c.listenersonny.fm.IsHBTimeout(c.config.HBTimeoutms) {
+		if fm.IsHBTimeout(c.config.HBTimeoutms) {
 			loggo.Debug("close inactive conn %s", c.Info())
 			break
 		}
 
-		if c.listenersonny.fm.IsRemoteClosed() {
+		if fm.IsRemoteClosed() {
 			loggo.Debug("closed by remote conn %s", c.Info())
 			break
 		}
@@ -533,25 +557,40 @@ func (c *rudpConn) updateListenerSonny() error {
 		}
 	}
 
-	c.listenersonny.fm.Close()
+	fm.Close()
 
 	startCloseTime := time.Now()
-	for !c.listenersonny.wg.IsExit() {
+	for !wg.IsExit() {
 		now := time.Now()
 
-		c.listenersonny.fm.Update()
+		fm.Update()
 
 		// send udp
-		sendlist := c.listenersonny.fm.GetSendList()
+		sendlist := fm.GetSendList()
 		for e := sendlist.Front(); e != nil; e = e.Next() {
 			f := e.Value.(*frame.Frame)
-			mb, err := c.listenersonny.fm.MarshalFrame(f)
+			mb, err := fm.MarshalFrame(f)
 			if err != nil {
 				loggo.Error("MarshalFrame fail %s", err)
 				break
 			}
-			c.listenersonny.fatherconn.SetWriteDeadline(time.Now().Add(time.Millisecond * 10))
-			c.listenersonny.fatherconn.WriteToUDP(mb, c.listenersonny.dstaddr)
+			conn.SetWriteDeadline(time.Now().Add(time.Millisecond * 10))
+			conn.Write(mb)
+		}
+
+		// recv udp
+		if readconn {
+			conn.SetReadDeadline(time.Now().Add(time.Millisecond * 10))
+			n, _ := conn.Read(bytes)
+			if n > 0 {
+				f := &frame.Frame{}
+				err := proto.Unmarshal(bytes[0:n], f)
+				if err == nil {
+					fm.OnRecvFrame(f)
+				} else {
+					loggo.Error("Unmarshal fail from %s", c.Info())
+				}
+			}
 		}
 
 		diffclose := now.Sub(startCloseTime)
@@ -560,7 +599,7 @@ func (c *rudpConn) updateListenerSonny() error {
 			break
 		}
 
-		remoteclosed := c.listenersonny.fm.IsRemoteClosed()
+		remoteclosed := fm.IsRemoteClosed()
 		if remoteclosed {
 			loggo.Debug("remote conn had closed %s", c.Info())
 			break
@@ -570,116 +609,6 @@ func (c *rudpConn) updateListenerSonny() error {
 	}
 
 	loggo.Debug("close rudp conn %s", c.Info())
-
-	return errors.New("closed")
-}
-
-func (c *rudpConn) updateDialerSonny() error {
-
-	loggo.Debug("start rudp conn %s", c.Info())
-
-	bytes := make([]byte, c.config.MaxPacketSize)
-
-	for !c.dialer.wg.IsExit() {
-		sleep := true
-
-		c.dialer.fm.Update()
-
-		// send udp
-		sendlist := c.dialer.fm.GetSendList()
-		if sendlist.Len() > 0 {
-			sleep = false
-			for e := sendlist.Front(); e != nil; e = e.Next() {
-				f := e.Value.(*frame.Frame)
-				mb, err := c.dialer.fm.MarshalFrame(f)
-				if err != nil {
-					loggo.Error("MarshalFrame fail %s", err)
-					break
-				}
-				c.dialer.conn.SetWriteDeadline(time.Now().Add(time.Millisecond * 100))
-				c.dialer.conn.Write(mb)
-			}
-		}
-
-		// recv udp
-		c.dialer.conn.SetReadDeadline(time.Now().Add(time.Millisecond * 100))
-		n, _ := c.dialer.conn.Read(bytes)
-		if n > 0 {
-			f := &frame.Frame{}
-			err := proto.Unmarshal(bytes[0:n], f)
-			if err == nil {
-				c.dialer.fm.OnRecvFrame(f)
-			} else {
-				loggo.Error("Unmarshal fail from %s %s", c.Info(), err)
-			}
-		}
-
-		// timeout
-		if c.dialer.fm.IsHBTimeout(c.config.HBTimeoutms) {
-			loggo.Debug("close inactive conn %s", c.Info())
-			break
-		}
-
-		if c.dialer.fm.IsRemoteClosed() {
-			loggo.Debug("closed by remote conn %s", c.Info())
-			break
-		}
-
-		if sleep {
-			time.Sleep(time.Millisecond * 10)
-		}
-	}
-
-	c.dialer.fm.Close()
-
-	startCloseTime := time.Now()
-	for !c.dialer.wg.IsExit() {
-		now := time.Now()
-
-		c.dialer.fm.Update()
-
-		// send udp
-		sendlist := c.dialer.fm.GetSendList()
-		for e := sendlist.Front(); e != nil; e = e.Next() {
-			f := e.Value.(*frame.Frame)
-			mb, err := c.dialer.fm.MarshalFrame(f)
-			if err != nil {
-				loggo.Error("MarshalFrame fail %s", err)
-				break
-			}
-			c.dialer.conn.SetWriteDeadline(time.Now().Add(time.Millisecond * 10))
-			c.dialer.conn.Write(mb)
-		}
-
-		// recv udp
-		c.dialer.conn.SetReadDeadline(time.Now().Add(time.Millisecond * 10))
-		n, _ := c.dialer.conn.Read(bytes)
-		if n > 0 {
-			f := &frame.Frame{}
-			err := proto.Unmarshal(bytes[0:n], f)
-			if err == nil {
-				c.dialer.fm.OnRecvFrame(f)
-			} else {
-				loggo.Error("Unmarshal fail from %s", c.Info())
-			}
-		}
-
-		diffclose := now.Sub(startCloseTime)
-		if diffclose > time.Millisecond*time.Duration(c.config.CloseTimeoutMs) {
-			loggo.Info("close conn had timeout %s", c.Info())
-			break
-		}
-
-		remoteclosed := c.dialer.fm.IsRemoteClosed()
-		if remoteclosed {
-			loggo.Info("remote conn had closed %s", c.Info())
-			break
-		}
-
-		time.Sleep(time.Millisecond * 10)
-	}
-
-	loggo.Info("close rudp conn %s", c.Info())
 
 	return errors.New("closed")
 }
