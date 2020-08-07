@@ -90,10 +90,13 @@ func Test0003RUCP(t *testing.T) {
 		}
 	}()
 
-	time.Sleep(time.Second)
-
+	time.Sleep(time.Second * 5)
+	fmt.Println("start close listener")
 	cc.Close()
+	fmt.Println("close listener ok")
+	fmt.Println("start close client")
 	ccc.Close()
+	fmt.Println("close client ok")
 
 	time.Sleep(time.Second)
 }

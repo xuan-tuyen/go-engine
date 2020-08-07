@@ -148,29 +148,43 @@ func (c *rudpConn) Write(p []byte) (n int, err error) {
 func (c *rudpConn) Close() error {
 	c.checkConfig()
 
+	if c.isclose {
+		return nil
+	}
+
+	loggo.Debug("start Close %s", c.Info())
+
 	if c.cancel != nil {
 		c.cancel()
 	}
 	if c.dialer != nil {
 		if c.dialer.wg != nil {
+			loggo.Debug("start Close dialer %s", c.Info())
 			c.dialer.wg.Stop()
 			c.dialer.wg.Wait()
 		}
 	} else if c.listener != nil {
-		c.listener.wg.Stop()
-		c.listener.wg.Wait()
-		c.listener.sonny.Range(func(key, value interface{}) bool {
-			u := value.(*rudpConn)
-			u.Close()
-			return true
-		})
+		if c.listener.wg != nil {
+			loggo.Debug("start Close listener %s", c.Info())
+			c.listener.wg.Stop()
+			c.listener.sonny.Range(func(key, value interface{}) bool {
+				u := value.(*rudpConn)
+				u.Close()
+				return true
+			})
+			c.listener.wg.Wait()
+		}
 	} else if c.listenersonny != nil {
 		if c.listenersonny.wg != nil {
+			loggo.Debug("start Close listenersonny %s", c.Info())
 			c.listenersonny.wg.Stop()
 			c.listenersonny.wg.Wait()
 		}
 	}
 	c.isclose = true
+
+	loggo.Debug("Close ok %s", c.Info())
+
 	return nil
 }
 
@@ -283,9 +297,7 @@ func (c *rudpConn) Dial(dst string) (Conn, error) {
 
 	loggo.Debug("connect remote ok rudp %s", u.Info())
 
-	wg := group.NewGroup("rudpConn serveListenerSonny"+" "+u.Info(), nil, func() {
-		u.Close()
-	})
+	wg := group.NewGroup("rudpConn serveListenerSonny"+" "+u.Info(), nil, nil)
 
 	u.dialer.wg = wg
 
@@ -311,10 +323,7 @@ func (c *rudpConn) Listen(dst string) (Conn, error) {
 
 	ch := common.NewChannel(UDP_ACCEPT_CHAN_LEN)
 
-	wg := group.NewGroup("rudpConn Listen"+" "+dst, nil, func() {
-		listenerconn.Close()
-		ch.Close()
-	})
+	wg := group.NewGroup("rudpConn Listen"+" "+dst, nil, nil)
 
 	listener := &rudpConnListener{
 		listenerconn: listenerconn,
@@ -367,9 +376,10 @@ func (c *rudpConn) SetConfig(config *RudpConfig) {
 func (c *rudpConn) loopListenerRecv() error {
 	buf := make([]byte, c.config.MaxPacketSize)
 	for !c.listener.wg.IsExit() {
+		c.listener.listenerconn.SetReadDeadline(time.Now().Add(time.Millisecond * 100))
 		n, srcaddr, err := c.listener.listenerconn.ReadFromUDP(buf)
 		if err != nil {
-			return err
+			continue
 		}
 
 		srcaddrstr := srcaddr.String()
@@ -440,7 +450,7 @@ func (c *rudpConn) accept(u *rudpConn) error {
 				loggo.Error("MarshalFrame fail %s", err)
 				break
 			}
-			u.listenersonny.fatherconn.SetReadDeadline(time.Now().Add(time.Millisecond * 100))
+			u.listenersonny.fatherconn.SetWriteDeadline(time.Now().Add(time.Millisecond * 100))
 			u.listenersonny.fatherconn.WriteToUDP(mb, u.listenersonny.dstaddr)
 		}
 
@@ -468,9 +478,7 @@ func (c *rudpConn) accept(u *rudpConn) error {
 
 	c.listener.accept.Write(u)
 
-	wg := group.NewGroup("rudpConn ListenerSonny"+" "+u.Info(), c.listener.wg, func() {
-		u.Close()
-	})
+	wg := group.NewGroup("rudpConn ListenerSonny"+" "+u.Info(), c.listener.wg, nil)
 
 	u.listenersonny.wg = wg
 
@@ -478,7 +486,7 @@ func (c *rudpConn) accept(u *rudpConn) error {
 		return u.updateListenerSonny()
 	})
 
-	wg.Wait()
+	loggo.Debug("accept rudp finish %s", u.Info())
 
 	return nil
 }
@@ -504,7 +512,7 @@ func (c *rudpConn) updateListenerSonny() error {
 					loggo.Error("MarshalFrame fail %s", err)
 					break
 				}
-				c.listenersonny.fatherconn.SetReadDeadline(time.Now().Add(time.Millisecond * 100))
+				c.listenersonny.fatherconn.SetWriteDeadline(time.Now().Add(time.Millisecond * 100))
 				c.listenersonny.fatherconn.WriteToUDP(mb, c.listenersonny.dstaddr)
 			}
 		}
@@ -542,7 +550,7 @@ func (c *rudpConn) updateListenerSonny() error {
 				loggo.Error("MarshalFrame fail %s", err)
 				break
 			}
-			c.listenersonny.fatherconn.SetReadDeadline(time.Now().Add(time.Millisecond * 10))
+			c.listenersonny.fatherconn.SetWriteDeadline(time.Now().Add(time.Millisecond * 10))
 			c.listenersonny.fatherconn.WriteToUDP(mb, c.listenersonny.dstaddr)
 		}
 
@@ -588,7 +596,7 @@ func (c *rudpConn) updateDialerSonny() error {
 					loggo.Error("MarshalFrame fail %s", err)
 					break
 				}
-				c.dialer.conn.SetReadDeadline(time.Now().Add(time.Millisecond * 100))
+				c.dialer.conn.SetWriteDeadline(time.Now().Add(time.Millisecond * 100))
 				c.dialer.conn.Write(mb)
 			}
 		}
@@ -639,7 +647,7 @@ func (c *rudpConn) updateDialerSonny() error {
 				loggo.Error("MarshalFrame fail %s", err)
 				break
 			}
-			c.dialer.conn.SetReadDeadline(time.Now().Add(time.Millisecond * 10))
+			c.dialer.conn.SetWriteDeadline(time.Now().Add(time.Millisecond * 10))
 			c.dialer.conn.Write(mb)
 		}
 
