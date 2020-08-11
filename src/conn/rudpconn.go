@@ -51,6 +51,7 @@ type rudpConn struct {
 	listener      *rudpConnListener
 	cancel        context.CancelFunc
 	isclose       bool
+	closelock     sync.Mutex
 }
 
 type rudpConnDialer struct {
@@ -85,18 +86,24 @@ func (c *rudpConn) Read(p []byte) (n int, err error) {
 	}
 
 	var fm *frame.FrameMgr
+	var wg *group.Group
 	if c.dialer != nil {
 		fm = c.dialer.fm
+		wg = c.dialer.wg
 	} else if c.listener != nil {
 		return 0, errors.New("listener can not be read")
 	} else if c.listenersonny != nil {
 		fm = c.listenersonny.fm
+		wg = c.listenersonny.wg
 	} else {
 		return 0, errors.New("empty conn")
 	}
 
 	for !c.isclose {
 		if fm.GetRecvBufferSize() <= 0 {
+			if wg != nil && wg.IsExit() {
+				return 0, errors.New("closed conn")
+			}
 			time.Sleep(time.Millisecond * 10)
 			continue
 		}
@@ -117,12 +124,15 @@ func (c *rudpConn) Write(p []byte) (n int, err error) {
 	}
 
 	var fm *frame.FrameMgr
+	var wg *group.Group
 	if c.dialer != nil {
 		fm = c.dialer.fm
+		wg = c.dialer.wg
 	} else if c.listener != nil {
 		return 0, errors.New("listener can not be write")
 	} else if c.listenersonny != nil {
 		fm = c.listenersonny.fm
+		wg = c.listenersonny.wg
 	} else {
 		return 0, errors.New("empty conn")
 	}
@@ -134,6 +144,9 @@ func (c *rudpConn) Write(p []byte) (n int, err error) {
 		}
 
 		if size <= 0 {
+			if wg != nil && wg.IsExit() {
+				return 0, errors.New("closed conn")
+			}
 			time.Sleep(time.Millisecond * 10)
 			continue
 		}
@@ -151,6 +164,9 @@ func (c *rudpConn) Close() error {
 	if c.isclose {
 		return nil
 	}
+
+	c.closelock.Lock()
+	defer c.closelock.Unlock()
 
 	loggo.Debug("start Close %s", c.Info())
 
