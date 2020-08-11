@@ -2,6 +2,7 @@ package conn
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -182,7 +183,7 @@ func Test0005UDP(t *testing.T) {
 
 	go func() {
 		for i := 0; i < 10000; i++ {
-			_, err := ccc.Write([]byte("hahaha"))
+			_, err := ccc.Write([]byte("hahaha" + strconv.Itoa(i)))
 			if err != nil {
 				fmt.Println(err)
 				return
