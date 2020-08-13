@@ -14,32 +14,34 @@ import (
 )
 
 type RudpConfig struct {
-	MaxPacketSize    int
-	CutSize          int
-	MaxId            int
-	BufferSize       int
-	MaxWin           int
-	ResendTimems     int
-	Compress         int
-	Stat             int
-	HBTimeoutms      int
-	ConnectTimeoutMs int
-	CloseTimeoutMs   int
+	MaxPacketSize      int
+	CutSize            int
+	MaxId              int
+	BufferSize         int
+	MaxWin             int
+	ResendTimems       int
+	Compress           int
+	Stat               int
+	HBTimeoutms        int
+	ConnectTimeoutMs   int
+	CloseTimeoutMs     int
+	CloseWaitTimeoutMs int
 }
 
 func DefaultRudpConfig() *RudpConfig {
 	return &RudpConfig{
-		MaxPacketSize:    10240,
-		CutSize:          500,
-		MaxId:            1000000,
-		BufferSize:       10240,
-		MaxWin:           10000,
-		ResendTimems:     200,
-		Compress:         0,
-		Stat:             0,
-		HBTimeoutms:      3000,
-		ConnectTimeoutMs: 10000,
-		CloseTimeoutMs:   10000,
+		MaxPacketSize:      10240,
+		CutSize:            500,
+		MaxId:              1000000,
+		BufferSize:         10240,
+		MaxWin:             10000,
+		ResendTimems:       200,
+		Compress:           0,
+		Stat:               0,
+		HBTimeoutms:        3000,
+		ConnectTimeoutMs:   10000,
+		CloseTimeoutMs:     5000,
+		CloseWaitTimeoutMs: 5000,
 	}
 }
 
@@ -574,6 +576,7 @@ func (c *rudpConn) update_rudp(wg *group.Group, fm *frame.FrameMgr, conn *net.UD
 	}
 
 	fm.Close()
+	loggo.Debug("close rudp conn fm %s", c.Info())
 
 	startCloseTime := time.Now()
 	for !wg.IsExit() {
@@ -618,6 +621,26 @@ func (c *rudpConn) update_rudp(wg *group.Group, fm *frame.FrameMgr, conn *net.UD
 		remoteclosed := fm.IsRemoteClosed()
 		if remoteclosed {
 			loggo.Debug("remote conn had closed %s", c.Info())
+			break
+		}
+
+		time.Sleep(time.Millisecond * 10)
+	}
+
+	loggo.Debug("close rudp conn update %s", c.Info())
+
+	startEndTime := time.Now()
+	for !wg.IsExit() {
+		now := time.Now()
+
+		diffclose := now.Sub(startEndTime)
+		if diffclose > time.Millisecond*time.Duration(c.config.CloseWaitTimeoutMs) {
+			loggo.Debug("close wait conn had timeout %s", c.Info())
+			break
+		}
+
+		if fm.GetRecvBufferSize() <= 0 {
+			loggo.Debug("conn had no data %s", c.Info())
 			break
 		}
 
