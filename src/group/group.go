@@ -53,7 +53,7 @@ func (g *Group) removeson(son *Group) {
 	g.lock.Lock()
 	defer g.lock.Unlock()
 	if g.son[son] == 0 {
-		loggo.Error("removeson fail no son %s %s", g.name, son.name)
+		//loggo.Debug("removeson fail no son %s %s", g.name, son.name)
 	}
 	delete(g.son, son)
 	if g.son[son] != 0 {

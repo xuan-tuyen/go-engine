@@ -177,7 +177,7 @@ func (fm *FrameMgr) cutSendBufferToWindow(cur int64) {
 		if err != nil {
 			loggo.Error("sendwin Set fail %v", err)
 		}
-		//loggo.Debug("debugid %v cut frame push to send win %v %v %v", fm.debugid, f.Id, fm.frame_max_size, fm.sendwin.Len())
+		//loggo.Debug("debugid %v cut frame push to send win %v %v %v", fm.debugid, f.Id, fm.frame_max_size, fm.sendwin.Size())
 	}
 
 	if sendall && fm.sendb.Size() > 0 && fm.sendwin.Size() < int(fm.windowsize) {
@@ -206,7 +206,7 @@ func (fm *FrameMgr) cutSendBufferToWindow(cur int64) {
 		if err != nil {
 			loggo.Error("sendwin Set fail %v", err)
 		}
-		//loggo.Debug("debugid %v cut small frame push to send win %v %v %v", fm.debugid, f.Id, len(f.Data.Data), fm.sendwin.Len())
+		//loggo.Debug("debugid %v cut small frame push to send win %v %v %v", fm.debugid, f.Id, len(f.Data.Data), fm.sendwin.Size())
 	}
 
 	if fm.sendb.Empty() && fm.close && !fm.closesend && fm.sendwin.Size() < int(fm.windowsize) {
@@ -607,6 +607,7 @@ func (fm *FrameMgr) hb() {
 		if err != nil {
 			loggo.Error("sendwin Set fail %v", err)
 		}
+		//loggo.Debug("debugid %v send hb %v", fm.debugid, f.Id)
 	}
 }
 

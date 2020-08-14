@@ -248,7 +248,7 @@ func (c *rudpConn) Dial(dst string) (Conn, error) {
 
 	u := &rudpConn{config: c.config, dialer: dialer}
 
-	loggo.Debug("start connect remote rudp %s", u.Info())
+	loggo.Debug("start connect remote rudp %s %s", u.Info(), id)
 
 	u.dialer.fm.Connect()
 
@@ -421,6 +421,7 @@ func (c *rudpConn) loopListenerRecv() error {
 				return c.accept(u)
 			})
 
+			loggo.Debug("start accept remote rudp %s %s", u.Info(), id)
 		} else {
 			u := v.(*rudpConn)
 
@@ -510,14 +511,14 @@ func (c *rudpConn) accept(u *rudpConn) error {
 }
 
 func (c *rudpConn) updateListenerSonny() error {
-	return c.update_rudp(c.listenersonny.wg, c.listenersonny.fm, c.listenersonny.fatherconn, false)
+	return c.update_rudp(c.listenersonny.wg, c.listenersonny.fm, c.listenersonny.fatherconn, c.listenersonny.dstaddr, false)
 }
 
 func (c *rudpConn) updateDialerSonny() error {
-	return c.update_rudp(c.dialer.wg, c.dialer.fm, c.dialer.conn, true)
+	return c.update_rudp(c.dialer.wg, c.dialer.fm, c.dialer.conn, nil, true)
 }
 
-func (c *rudpConn) update_rudp(wg *group.Group, fm *frame.FrameMgr, conn *net.UDPConn, readconn bool) error {
+func (c *rudpConn) update_rudp(wg *group.Group, fm *frame.FrameMgr, conn *net.UDPConn, dstaddr *net.UDPAddr, readconn bool) error {
 
 	loggo.Debug("start rudp conn %s", c.Info())
 
@@ -540,7 +541,11 @@ func (c *rudpConn) update_rudp(wg *group.Group, fm *frame.FrameMgr, conn *net.UD
 					break
 				}
 				conn.SetWriteDeadline(time.Now().Add(time.Millisecond * 100))
-				conn.Write(mb)
+				if dstaddr != nil {
+					conn.WriteToUDP(mb, dstaddr)
+				} else {
+					conn.Write(mb)
+				}
 			}
 		}
 
@@ -594,7 +599,11 @@ func (c *rudpConn) update_rudp(wg *group.Group, fm *frame.FrameMgr, conn *net.UD
 				break
 			}
 			conn.SetWriteDeadline(time.Now().Add(time.Millisecond * 10))
-			conn.Write(mb)
+			if dstaddr != nil {
+				conn.WriteToUDP(mb, dstaddr)
+			} else {
+				conn.Write(mb)
+			}
 		}
 
 		// recv udp
