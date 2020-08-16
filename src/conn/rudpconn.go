@@ -33,7 +33,7 @@ func DefaultRudpConfig() *RudpConfig {
 		MaxPacketSize:      10240,
 		CutSize:            500,
 		MaxId:              1000000,
-		BufferSize:         10240,
+		BufferSize:         1024 * 1024,
 		MaxWin:             10000,
 		ResendTimems:       200,
 		Compress:           0,
