@@ -106,7 +106,7 @@ func (c *rudpConn) Read(p []byte) (n int, err error) {
 			if wg != nil && wg.IsExit() {
 				return 0, errors.New("closed conn")
 			}
-			time.Sleep(time.Millisecond * 10)
+			time.Sleep(time.Millisecond * 100)
 			continue
 		}
 
@@ -151,7 +151,7 @@ func (c *rudpConn) Write(p []byte) (n int, err error) {
 			if wg != nil && wg.IsExit() {
 				return 0, errors.New("closed conn")
 			}
-			time.Sleep(time.Millisecond * 10)
+			time.Sleep(time.Millisecond * 100)
 			continue
 		}
 
@@ -162,6 +162,7 @@ func (c *rudpConn) Write(p []byte) (n int, err error) {
 		}
 
 		p = p[size:]
+		time.Sleep(time.Millisecond * 100)
 	}
 
 	return 0, errors.New("write closed conn")
