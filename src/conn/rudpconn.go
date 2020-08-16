@@ -437,6 +437,7 @@ func (c *rudpConn) loopListenerRecv() error {
 			err := proto.Unmarshal(buf[0:n], f)
 			if err == nil {
 				u.listenersonny.fm.OnRecvFrame(f)
+				loggo.Debug("%s recv frame %d", u.Info(), f.Id)
 			} else {
 				loggo.Error("%s %s Unmarshal fail %s", c.Info(), u.Info(), err)
 			}
@@ -446,6 +447,7 @@ func (c *rudpConn) loopListenerRecv() error {
 			u := value.(*rudpConn)
 			if u.isclose {
 				c.listener.sonny.Delete(key)
+				loggo.Debug("delete sonny from map %s %s", u.Info())
 			}
 			return true
 		})
@@ -551,8 +553,10 @@ func (c *rudpConn) update_rudp(wg *group.Group, fm *frame.FrameMgr, conn *net.UD
 				conn.SetWriteDeadline(time.Now().Add(time.Millisecond * 100))
 				if dstaddr != nil {
 					conn.WriteToUDP(mb, dstaddr)
+					loggo.Debug("%s send frame to %s %d", c.Info(), dstaddr, f.Id)
 				} else {
 					conn.Write(mb)
+					loggo.Debug("%s send frame %d", c.Info(), f.Id)
 				}
 			}
 		}
@@ -566,6 +570,7 @@ func (c *rudpConn) update_rudp(wg *group.Group, fm *frame.FrameMgr, conn *net.UD
 				err := proto.Unmarshal(bytes[0:n], f)
 				if err == nil {
 					fm.OnRecvFrame(f)
+					loggo.Debug("%s recv frame %d", c.Info(), f.Id)
 				} else {
 					loggo.Error("Unmarshal fail from %s %s", c.Info(), err)
 				}
