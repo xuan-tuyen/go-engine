@@ -139,6 +139,8 @@ func (c *rudpConn) Write(p []byte) (n int, err error) {
 		return 0, errors.New("empty conn")
 	}
 
+	totalsize := len(p)
+
 	for !c.isclose {
 		size := len(p)
 		if size > fm.GetSendBufferLeft() {
@@ -156,7 +158,7 @@ func (c *rudpConn) Write(p []byte) (n int, err error) {
 		fm.WriteSendBuffer(p[0:size])
 
 		if size >= len(p) {
-			return size, nil
+			return totalsize, nil
 		}
 
 		p = p[size:]
