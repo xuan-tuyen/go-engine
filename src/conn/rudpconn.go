@@ -30,14 +30,14 @@ type RudpConfig struct {
 
 func DefaultRudpConfig() *RudpConfig {
 	return &RudpConfig{
-		MaxPacketSize:      10240,
+		MaxPacketSize:      1024,
 		CutSize:            500,
 		MaxId:              1000000,
 		BufferSize:         1024 * 1024,
 		MaxWin:             10000,
 		ResendTimems:       200,
 		Compress:           0,
-		Stat:               0,
+		Stat:               1,
 		HBTimeoutms:        10000,
 		ConnectTimeoutMs:   10000,
 		CloseTimeoutMs:     5000,
@@ -87,6 +87,10 @@ func (c *rudpConn) Read(p []byte) (n int, err error) {
 		return 0, errors.New("read closed conn")
 	}
 
+	if len(p) <= 0 {
+		return 0, errors.New("read empty buffer")
+	}
+
 	var fm *frame.FrameMgr
 	var wg *group.Group
 	if c.dialer != nil {
@@ -125,6 +129,10 @@ func (c *rudpConn) Write(p []byte) (n int, err error) {
 		return 0, errors.New("write closed conn")
 	}
 
+	if len(p) <= 0 {
+		return 0, errors.New("write empty data")
+	}
+
 	var fm *frame.FrameMgr
 	var wg *group.Group
 	if c.dialer != nil {
@@ -140,11 +148,13 @@ func (c *rudpConn) Write(p []byte) (n int, err error) {
 	}
 
 	totalsize := len(p)
+	cur := 0
 
 	for !c.isclose {
-		size := len(p)
-		if size > fm.GetSendBufferLeft() {
-			size = fm.GetSendBufferLeft()
+		size := totalsize - cur
+		svleft := fm.GetSendBufferLeft()
+		if size > svleft {
+			size = svleft
 		}
 
 		if size <= 0 {
@@ -155,13 +165,13 @@ func (c *rudpConn) Write(p []byte) (n int, err error) {
 			continue
 		}
 
-		fm.WriteSendBuffer(p[0:size])
+		fm.WriteSendBuffer(p[cur : cur+size])
+		cur += size
 
-		if size >= len(p) {
+		if cur >= totalsize {
 			return totalsize, nil
 		}
 
-		p = p[size:]
 		time.Sleep(time.Millisecond * 100)
 	}
 
@@ -437,7 +447,7 @@ func (c *rudpConn) loopListenerRecv() error {
 			err := proto.Unmarshal(buf[0:n], f)
 			if err == nil {
 				u.listenersonny.fm.OnRecvFrame(f)
-				loggo.Debug("%s recv frame %d", u.Info(), f.Id)
+				//loggo.Debug("%s recv frame %d", u.Info(), f.Id)
 			} else {
 				loggo.Error("%s %s Unmarshal fail %s", c.Info(), u.Info(), err)
 			}
@@ -447,7 +457,7 @@ func (c *rudpConn) loopListenerRecv() error {
 			u := value.(*rudpConn)
 			if u.isclose {
 				c.listener.sonny.Delete(key)
-				loggo.Debug("delete sonny from map %s %s", u.Info())
+				loggo.Debug("delete sonny from map %s", u.Info())
 			}
 			return true
 		})
@@ -553,10 +563,10 @@ func (c *rudpConn) update_rudp(wg *group.Group, fm *frame.FrameMgr, conn *net.UD
 				conn.SetWriteDeadline(time.Now().Add(time.Millisecond * 100))
 				if dstaddr != nil {
 					conn.WriteToUDP(mb, dstaddr)
-					loggo.Debug("%s send frame to %s %d", c.Info(), dstaddr, f.Id)
+					//loggo.Debug("%s send frame to %s %d", c.Info(), dstaddr, f.Id)
 				} else {
 					conn.Write(mb)
-					loggo.Debug("%s send frame %d", c.Info(), f.Id)
+					//loggo.Debug("%s send frame %d", c.Info(), f.Id)
 				}
 			}
 		}
@@ -570,7 +580,7 @@ func (c *rudpConn) update_rudp(wg *group.Group, fm *frame.FrameMgr, conn *net.UD
 				err := proto.Unmarshal(bytes[0:n], f)
 				if err == nil {
 					fm.OnRecvFrame(f)
-					loggo.Debug("%s recv frame %d", c.Info(), f.Id)
+					//loggo.Debug("%s recv frame %d", c.Info(), f.Id)
 				} else {
 					loggo.Error("Unmarshal fail from %s %s", c.Info(), err)
 				}

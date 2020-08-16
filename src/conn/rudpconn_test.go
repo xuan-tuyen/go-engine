@@ -2,6 +2,7 @@ package conn
 
 import (
 	"fmt"
+	"github.com/esrrhs/go-engine/src/loggo"
 	"strconv"
 	"testing"
 	"time"
@@ -356,6 +357,87 @@ func Test0007RUDP(t *testing.T) {
 	time.Sleep(time.Second * 5)
 
 	fmt.Println("start close")
+	cc.Close()
+	ccc.Close()
+
+	time.Sleep(time.Second)
+}
+
+func Test0008RUDP(t *testing.T) {
+	c, err := NewConn("rudp")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	cc, err := c.Listen(":58080")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	go func() {
+		cc, err := cc.Accept()
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		fmt.Println("accept done")
+		data := make([]byte, 1024*1024)
+		start := time.Now()
+		speed := 0
+		for {
+			//fmt.Println("start Write")
+			_, err := cc.Write(data)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			//fmt.Println("end Write")
+			speed += len(data)
+			if time.Now().Sub(start) > time.Second {
+				speed = speed / 1024 / 1024
+				loggo.Info("write speed %v MB per second", float64(speed)/float64(time.Now().Sub(start)/time.Second))
+				speed = 0
+				start = time.Now()
+			}
+		}
+		fmt.Println("write done")
+	}()
+
+	ccc, err := c.Dial(":58080")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	go func() {
+		fmt.Println("start client")
+		buf := make([]byte, 1024*1024)
+		start := time.Now()
+		speed := 0
+		for {
+			//fmt.Println("start Read")
+			n, err := ccc.Read(buf)
+			//fmt.Println("start Read")
+			if err != nil {
+				fmt.Println(err)
+				fmt.Println("Read done")
+				return
+			}
+			speed += n
+			if time.Now().Sub(start) > time.Second {
+				speed = speed / 1024 / 1024
+				loggo.Info("read speed %v MB per second", float64(speed)/float64(time.Now().Sub(start)/time.Second))
+				speed = 0
+				start = time.Now()
+			}
+		}
+		fmt.Println("write done")
+	}()
+
+	time.Sleep(time.Second * 60)
+
 	cc.Close()
 	ccc.Close()
 
