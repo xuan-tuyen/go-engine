@@ -154,7 +154,12 @@ func (c *rudpConn) Write(p []byte) (n int, err error) {
 		}
 
 		fm.WriteSendBuffer(p[0:size])
-		return size, nil
+
+		if size >= len(p) {
+			return size, nil
+		}
+
+		p = p[size:]
 	}
 
 	return 0, errors.New("write closed conn")
