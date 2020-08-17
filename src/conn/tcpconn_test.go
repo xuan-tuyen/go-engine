@@ -196,6 +196,65 @@ func Test0005TCP(t *testing.T) {
 	time.Sleep(time.Second)
 }
 
+func Test0005TCP1(t *testing.T) {
+	c, err := NewConn("tcp")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	cc, err := c.Listen(":58080")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	go func() {
+		cc, err := cc.Accept()
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		fmt.Println("accept done")
+		for i := 0; i < 10000; i++ {
+			_, err := cc.Write([]byte("hahaha" + strconv.Itoa(i)))
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+		}
+		fmt.Println("write done")
+	}()
+
+	ccc, err := c.Dial(":58080")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	go func() {
+		buf := make([]byte, 10)
+		for {
+			n, err := ccc.Read(buf)
+			if err != nil {
+				fmt.Println(err)
+				fmt.Println("Read done")
+				return
+			}
+			fmt.Println(string(buf[0:n]))
+			time.Sleep(time.Millisecond * 100)
+		}
+		fmt.Println("write done")
+	}()
+
+	time.Sleep(time.Second)
+
+	cc.Close()
+	ccc.Close()
+
+	time.Sleep(time.Second)
+}
+
 func Test0006TCP(t *testing.T) {
 	c, err := NewConn("tcp")
 	if err != nil {

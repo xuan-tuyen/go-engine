@@ -2,6 +2,7 @@ package conn
 
 import (
 	"fmt"
+	"github.com/esrrhs/go-engine/src/loggo"
 	"strconv"
 	"testing"
 	"time"
@@ -193,6 +194,155 @@ func Test0005UDP(t *testing.T) {
 	}()
 
 	time.Sleep(time.Second)
+
+	cc.Close()
+	ccc.Close()
+
+	time.Sleep(time.Second)
+}
+
+func Test0005UDP1(t *testing.T) {
+	c, err := NewConn("udp")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	cc, err := c.Listen(":58080")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	go func() {
+		fmt.Println("start Accept")
+		cc, err := cc.Accept()
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		fmt.Println("accept done")
+		for i := 0; i < 10000; i++ {
+			_, err := cc.Write([]byte("hahaha" + strconv.Itoa(i)))
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+		}
+		fmt.Println("write done")
+	}()
+
+	fmt.Println("start Dial")
+	ccc, err := c.Dial(":58080")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println("Dial done")
+
+	go func() {
+		buf := make([]byte, 10)
+		ccc.Write([]byte("hahaha"))
+		ccc.Write([]byte("hahaha"))
+		ccc.Write([]byte("hahaha"))
+		for {
+			n, err := ccc.Read(buf)
+			if err != nil {
+				fmt.Println(err)
+				fmt.Println("Read done")
+				return
+			}
+			fmt.Println(string(buf[0:n]))
+			time.Sleep(time.Millisecond * 100)
+		}
+		fmt.Println("write done")
+	}()
+
+	time.Sleep(time.Second)
+
+	cc.Close()
+	ccc.Close()
+
+	time.Sleep(time.Second)
+}
+
+func Test0008UDP(t *testing.T) {
+	c, err := NewConn("udp")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	cc, err := c.Listen(":58080")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	go func() {
+		cc, err := cc.Accept()
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		fmt.Println("accept done")
+		data := make([]byte, 1024)
+		start := time.Now()
+		speed := 0
+		for {
+			//fmt.Println("start Write")
+			_, err := cc.Write(data)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			//fmt.Println("end Write")
+			speed += len(data)
+			if time.Now().Sub(start) > time.Second {
+				speed = speed / 1024 / 1024
+				loggo.Info("write speed %v MB per second", float64(speed)/float64(time.Now().Sub(start)/time.Second))
+				speed = 0
+				start = time.Now()
+			}
+		}
+		fmt.Println("write done")
+	}()
+
+	ccc, err := c.Dial(":58080")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	go func() {
+		fmt.Println("start client")
+		ccc.Write([]byte("hahaha"))
+		ccc.Write([]byte("hahaha"))
+		ccc.Write([]byte("hahaha"))
+		buf := make([]byte, 1024)
+		start := time.Now()
+		speed := 0
+		for {
+			//fmt.Println("start Read")
+			n, err := ccc.Read(buf)
+			//fmt.Println("start Read")
+			if err != nil {
+				fmt.Println(err)
+				fmt.Println("Read done")
+				return
+			}
+			speed += n
+			if time.Now().Sub(start) > time.Second {
+				speed = speed / 1024 / 1024
+				loggo.Info("read speed %v MB per second", float64(speed)/float64(time.Now().Sub(start)/time.Second))
+				speed = 0
+				start = time.Now()
+			}
+		}
+		fmt.Println("write done")
+	}()
+
+	time.Sleep(time.Second * 60)
 
 	cc.Close()
 	ccc.Close()
