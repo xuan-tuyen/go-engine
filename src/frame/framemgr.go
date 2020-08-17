@@ -382,6 +382,7 @@ func (fm *FrameMgr) processRecvList(tmpreq map[int32]int, tmpack map[int32]int, 
 						Dataid: tmp[0:index]}
 					fm.sendlist.PushBack(f)
 					index = 0
+					tmp = make([]int32, len(tmpackto))
 					//loggo.Debug("debugid %v send ack %v %v", fm.debugid, f.Id, common.Int32ArrayToString(f.Dataid, ","))
 				}
 				//loggo.Debug("debugid %v add data to win %v %v", fm.debugid, rf.Id, len(rf.Data.Data))
