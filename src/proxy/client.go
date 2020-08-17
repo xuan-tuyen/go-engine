@@ -141,6 +141,7 @@ func (c *Client) useServer(index int, serverconn *ServerConn) error {
 	})
 
 	c.login(index, sendch)
+	var pingflag int32
 
 	wg.Go("Client recvFrom"+" "+serverconn.conn.Info(), func() error {
 		atomic.AddInt32(&gStateThreadNum.ThreadNum, 1)
@@ -151,13 +152,13 @@ func (c *Client) useServer(index int, serverconn *ServerConn) error {
 	wg.Go("Client sendTo"+" "+serverconn.conn.Info(), func() error {
 		atomic.AddInt32(&gStateThreadNum.ThreadNum, 1)
 		defer atomic.AddInt32(&gStateThreadNum.ThreadNum, -1)
-		return sendTo(wg, sendch, serverconn.conn, c.config.Compress, c.config.MaxMsgSize, c.config.Encrypt)
+		return sendTo(wg, sendch, serverconn.conn, c.config.Compress, c.config.MaxMsgSize, c.config.Encrypt, &pingflag)
 	})
 
 	wg.Go("Client checkPingActive"+" "+serverconn.conn.Info(), func() error {
 		atomic.AddInt32(&gStateThreadNum.ThreadNum, 1)
 		defer atomic.AddInt32(&gStateThreadNum.ThreadNum, -1)
-		return checkPingActive(wg, sendch, recvch, &serverconn.ProxyConn, c.config.EstablishedTimeout, c.config.PingInter, c.config.PingTimeoutInter, c.config.ShowPing)
+		return checkPingActive(wg, sendch, recvch, &serverconn.ProxyConn, c.config.EstablishedTimeout, c.config.PingInter, c.config.PingTimeoutInter, c.config.ShowPing, &pingflag)
 	})
 
 	wg.Go("Client checkNeedClose"+" "+serverconn.conn.Info(), func() error {
