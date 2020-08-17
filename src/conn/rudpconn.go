@@ -37,7 +37,7 @@ func DefaultRudpConfig() *RudpConfig {
 		MaxWin:             10000,
 		ResendTimems:       200,
 		Compress:           0,
-		Stat:               1,
+		Stat:               0,
 		HBTimeoutms:        10000,
 		ConnectTimeoutMs:   10000,
 		CloseTimeoutMs:     5000,
