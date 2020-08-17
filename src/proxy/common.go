@@ -256,7 +256,7 @@ func recvFrom(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxmsgsiz
 	return nil
 }
 
-func sendTo(wg *group.Group, sendch *common.Channel, conn conn.Conn, compress int, maxmsgsize int, encrypt string, pingflag *int32) error {
+func sendTo(wg *group.Group, sendch *common.Channel, conn conn.Conn, compress int, maxmsgsize int, encrypt string) error {
 
 	atomic.AddInt32(&gStateThreadNum.SendThread, 1)
 	defer atomic.AddInt32(&gStateThreadNum.SendThread, -1)
@@ -267,20 +267,11 @@ func sendTo(wg *group.Group, sendch *common.Channel, conn conn.Conn, compress in
 	for !wg.IsExit() {
 		atomic.AddInt32(&gState.SendFrames, 1)
 
-		var f *ProxyFrame
-		if *pingflag > 0 {
-			f = &ProxyFrame{}
-			f.Type = FRAME_TYPE_PING
-			f.PingFrame = &PingFrame{}
-			f.PingFrame.Time = time.Now().UnixNano()
-			atomic.AddInt32(pingflag, -1)
-		} else {
-			ff := <-sendch.Ch()
-			if ff == nil {
-				break
-			}
-			f = ff.(*ProxyFrame)
+		ff := <-sendch.Ch()
+		if ff == nil {
+			break
 		}
+		f := ff.(*ProxyFrame)
 		mb, err := MarshalSrpFrame(f, compress, encrypt)
 		if err != nil {
 			loggo.Error("sendTo MarshalSrpFrame fail: %s %s", conn.Info(), err.Error())
@@ -457,7 +448,7 @@ func sendToSonny(wg *group.Group, sendch *common.Channel, conn conn.Conn, maxmsg
 }
 
 func checkPingActive(wg *group.Group, sendch *common.Channel, recvch *common.Channel, proxyconn *ProxyConn,
-	estimeout int, pinginter int, pingintertimeout int, showping bool, pingflag *int32) error {
+	estimeout int, pinginter int, pingintertimeout int, showping bool) error {
 
 	atomic.AddInt32(&gStateThreadNum.CheckThread, 1)
 	defer atomic.AddInt32(&gStateThreadNum.CheckThread, -1)
@@ -491,7 +482,12 @@ func checkPingActive(wg *group.Group, sendch *common.Channel, recvch *common.Cha
 				return errors.New("ping pong timeout")
 			}
 
-			atomic.AddInt32(pingflag, 1)
+			f := &ProxyFrame{}
+			f.Type = FRAME_TYPE_PING
+			f.PingFrame = &PingFrame{}
+			f.PingFrame.Time = time.Now().UnixNano()
+
+			sendch.Write(f)
 
 			proxyconn.pinged++
 			if showping {
