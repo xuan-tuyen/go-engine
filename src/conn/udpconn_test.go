@@ -286,7 +286,7 @@ func Test0008UDP(t *testing.T) {
 			return
 		}
 		fmt.Println("accept done")
-		data := make([]byte, 1300)
+		data := make([]byte, 500)
 		start := time.Now()
 		speed := 0
 		for {
@@ -319,7 +319,7 @@ func Test0008UDP(t *testing.T) {
 		ccc.Write([]byte("hahaha"))
 		ccc.Write([]byte("hahaha"))
 		ccc.Write([]byte("hahaha"))
-		buf := make([]byte, 1300)
+		buf := make([]byte, 500)
 		start := time.Now()
 		speed := 0
 		for {
