@@ -218,6 +218,8 @@ func recvFrom(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxmsgsiz
 			return errors.New("msg len fail " + strconv.Itoa(int(msglen)))
 		}
 
+		gDeadLock.recvTime = time.Now()
+
 		if loggo.IsDebug() {
 			loggo.Debug("recvFrom start ReadFull body %s %d", conn.Info(), msglen)
 		}
@@ -283,6 +285,8 @@ func sendTo(wg *group.Group, sendch *common.Channel, conn conn.Conn, compress in
 			loggo.Error("sendTo len fail: %s %d", conn.Info(), msglen)
 			return errors.New("msg len fail " + strconv.Itoa(int(msglen)))
 		}
+
+		gDeadLock.sendTime = time.Now()
 
 		if loggo.IsDebug() {
 			loggo.Debug("sendTo start Write len %s", conn.Info())
@@ -667,8 +671,14 @@ type State struct {
 	SendCompSaveSize int64
 }
 
+type DeadLock struct {
+	sendTime time.Time
+	recvTime time.Time
+}
+
 var gStateThreadNum StateThreadNum
 var gState State
+var gDeadLock DeadLock
 
 func showState(wg *group.Group) error {
 	loggo.Info("showState start ")
@@ -718,5 +728,26 @@ func showState(wg *group.Group) error {
 		time.Sleep(time.Second)
 	}
 	loggo.Info("showState end")
+	return nil
+}
+
+func checkDeadLock(wg *group.Group) error {
+	loggo.Info("checkDeadLock start ")
+	begin := time.Now()
+	for !wg.IsExit() {
+		dur := time.Now().Sub(begin)
+		if dur > time.Second {
+			begin = time.Now()
+
+			if time.Now().Sub(gDeadLock.sendTime) > time.Second {
+				panic("send dead lock")
+			}
+			if time.Now().Sub(gDeadLock.recvTime) > time.Second {
+				panic("recv dead lock")
+			}
+		}
+		time.Sleep(time.Millisecond * 300)
+	}
+	loggo.Info("checkDeadLock end")
 	return nil
 }

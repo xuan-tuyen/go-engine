@@ -74,6 +74,10 @@ func NewClient(config *Config, server string, name string, clienttypestr string,
 		return showState(wg)
 	})
 
+	wg.Go("Client check deadlock"+" "+clienttypestr, func() error {
+		return checkDeadLock(wg)
+	})
+
 	for i, _ := range proxyprotostr {
 		index := i
 		wg.Go("Client connect"+" "+fromaddr[i]+" "+toaddr[i], func() error {
