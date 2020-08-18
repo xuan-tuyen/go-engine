@@ -528,7 +528,7 @@ func processPing(f *ProxyFrame, sendch *common.Channel, proxyconn *ProxyConn) {
 	rf.Type = FRAME_TYPE_PONG
 	rf.PongFrame = &PongFrame{}
 	rf.PongFrame.Time = f.PingFrame.Time
-	sendch.Write(rf)
+	sendch.WriteTimeout(rf, 100)
 }
 
 func processPong(f *ProxyFrame, sendch *common.Channel, proxyconn *ProxyConn, showping bool) {
