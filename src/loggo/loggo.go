@@ -6,6 +6,7 @@ import (
 	"github.com/esrrhs/go-engine/src/termcolor"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -25,6 +26,7 @@ type Config struct {
 	NoLogFile  bool
 	NoPrint    bool
 	NoLogColor bool
+	FullPath   bool
 }
 
 var gConfig Config
@@ -176,6 +178,9 @@ func Error(format string, a ...interface{}) {
 
 func genLog(level int, format string, a ...interface{}) string {
 	file, funcName, line := getFunc()
+	if !gConfig.FullPath {
+		file = filepath.Base(file)
+	}
 	t := time.Now().Format(time.RFC3339Nano)
 	str := fmt.Sprintf(format, a...)
 	ret := fmt.Sprintf("[%v] [%v] [%v:%v] [%v] %v\n", levelName(level), t, file, line, funcName, str)
