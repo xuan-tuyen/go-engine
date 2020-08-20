@@ -542,50 +542,61 @@ func (c *rudpConn) update_rudp(wg *group.Group, fm *frame.FrameMgr, conn *net.UD
 
 	loggo.Debug("start rudp conn %s", c.Info())
 
-	bytes := make([]byte, c.config.MaxPacketSize)
+	stage := "open"
+	wg.Go("rudpConn update_rudp send"+" "+c.Info(), func() error {
+		for !wg.IsExit() && stage != "closewait" {
+			// send udp
+			sendlist := fm.GetSendList()
+			if sendlist.Len() > 0 {
+				for e := sendlist.Front(); e != nil; e = e.Next() {
+					f := e.Value.(*frame.Frame)
+					mb, err := fm.MarshalFrame(f)
+					if err != nil {
+						loggo.Error("MarshalFrame fail %s", err)
+						return err
+					}
+					conn.SetWriteDeadline(time.Now().Add(time.Millisecond * 100))
+					if dstaddr != nil {
+						conn.WriteToUDP(mb, dstaddr)
+						//loggo.Debug("%s send frame to %s %d", c.Info(), dstaddr, f.Id)
+					} else {
+						conn.Write(mb)
+						//loggo.Debug("%s send frame %d", c.Info(), f.Id)
+					}
+				}
+			} else {
+				time.Sleep(time.Millisecond * 100)
+			}
+		}
+		return nil
+	})
+
+	if readconn {
+		wg.Go("rudpConn update_rudp recv"+" "+c.Info(), func() error {
+			bytes := make([]byte, c.config.MaxPacketSize)
+			for !wg.IsExit() && stage != "closewait" {
+				// recv udp
+				conn.SetReadDeadline(time.Now().Add(time.Millisecond * 100))
+				n, _ := conn.Read(bytes)
+				if n > 0 {
+					f := &frame.Frame{}
+					err := proto.Unmarshal(bytes[0:n], f)
+					if err == nil {
+						fm.OnRecvFrame(f)
+						//loggo.Debug("%s recv frame %d", c.Info(), f.Id)
+					} else {
+						loggo.Error("Unmarshal fail from %s %s", c.Info(), err)
+					}
+				}
+			}
+
+			return nil
+		})
+	}
 
 	for !wg.IsExit() {
-		sleep := true
 
-		fm.Update()
-
-		// send udp
-		sendlist := fm.GetSendList()
-		if sendlist.Len() > 0 {
-			sleep = false
-			for e := sendlist.Front(); e != nil; e = e.Next() {
-				f := e.Value.(*frame.Frame)
-				mb, err := fm.MarshalFrame(f)
-				if err != nil {
-					loggo.Error("MarshalFrame fail %s", err)
-					break
-				}
-				conn.SetWriteDeadline(time.Now().Add(time.Millisecond * 100))
-				if dstaddr != nil {
-					conn.WriteToUDP(mb, dstaddr)
-					//loggo.Debug("%s send frame to %s %d", c.Info(), dstaddr, f.Id)
-				} else {
-					conn.Write(mb)
-					//loggo.Debug("%s send frame %d", c.Info(), f.Id)
-				}
-			}
-		}
-
-		// recv udp
-		if readconn {
-			conn.SetReadDeadline(time.Now().Add(time.Millisecond * 100))
-			n, _ := conn.Read(bytes)
-			if n > 0 {
-				f := &frame.Frame{}
-				err := proto.Unmarshal(bytes[0:n], f)
-				if err == nil {
-					fm.OnRecvFrame(f)
-					//loggo.Debug("%s recv frame %d", c.Info(), f.Id)
-				} else {
-					loggo.Error("Unmarshal fail from %s %s", c.Info(), err)
-				}
-			}
-		}
+		avctive := fm.Update()
 
 		// timeout
 		if fm.IsHBTimeout(c.config.HBTimeoutms) {
@@ -598,11 +609,12 @@ func (c *rudpConn) update_rudp(wg *group.Group, fm *frame.FrameMgr, conn *net.UD
 			break
 		}
 
-		if sleep {
+		if !avctive {
 			time.Sleep(time.Millisecond * 10)
 		}
 	}
 
+	stage = "close"
 	fm.Close()
 	loggo.Debug("close rudp conn fm %s", c.Info())
 
@@ -611,38 +623,6 @@ func (c *rudpConn) update_rudp(wg *group.Group, fm *frame.FrameMgr, conn *net.UD
 		now := time.Now()
 
 		fm.Update()
-
-		// send udp
-		sendlist := fm.GetSendList()
-		for e := sendlist.Front(); e != nil; e = e.Next() {
-			f := e.Value.(*frame.Frame)
-			mb, err := fm.MarshalFrame(f)
-			if err != nil {
-				loggo.Error("MarshalFrame fail %s", err)
-				break
-			}
-			conn.SetWriteDeadline(time.Now().Add(time.Millisecond * 10))
-			if dstaddr != nil {
-				conn.WriteToUDP(mb, dstaddr)
-			} else {
-				conn.Write(mb)
-			}
-		}
-
-		// recv udp
-		if readconn {
-			conn.SetReadDeadline(time.Now().Add(time.Millisecond * 10))
-			n, _ := conn.Read(bytes)
-			if n > 0 {
-				f := &frame.Frame{}
-				err := proto.Unmarshal(bytes[0:n], f)
-				if err == nil {
-					fm.OnRecvFrame(f)
-				} else {
-					loggo.Error("Unmarshal fail from %s", c.Info())
-				}
-			}
-		}
 
 		diffclose := now.Sub(startCloseTime)
 		if diffclose > time.Millisecond*time.Duration(c.config.CloseTimeoutMs) {
@@ -659,6 +639,7 @@ func (c *rudpConn) update_rudp(wg *group.Group, fm *frame.FrameMgr, conn *net.UD
 		time.Sleep(time.Millisecond * 10)
 	}
 
+	stage = "closewait"
 	loggo.Debug("close rudp conn update %s", c.Info())
 
 	startEndTime := time.Now()

@@ -42,6 +42,7 @@ type FrameMgr struct {
 	recvblock sync.Locker
 
 	recvlock      sync.Locker
+	sendlock      sync.Locker
 	windowsize    int32
 	resend_timems int
 	compress      int
@@ -88,7 +89,7 @@ func NewFrameMgr(frame_max_size int, frame_max_id int, buffersize int, windowsiz
 	fm := &FrameMgr{frame_max_size: frame_max_size, frame_max_id: int32(frame_max_id),
 		sendb: sendb, recvb: recvb,
 		sendblock: &sync.Mutex{}, recvblock: &sync.Mutex{},
-		recvlock:   &sync.Mutex{},
+		recvlock: &sync.Mutex{}, sendlock: &sync.Mutex{},
 		windowsize: int32(windowsize), resend_timems: resend_timems, compress: compress,
 		sendwin:  rbuffergo.NewROBuffer(windowsize, 0, frame_max_id),
 		sendlist: list.New(), sendid: 0,
@@ -120,14 +121,13 @@ func (fm *FrameMgr) WriteSendBuffer(data []byte) {
 	//loggo.Debug("debugid %v WriteSendBuffer %v %v", fm.debugid, fm.sendb.Size(), len(data))
 }
 
-func (fm *FrameMgr) Update() {
+func (fm *FrameMgr) Update() bool {
 	cur := time.Now().UnixNano()
 
 	fm.cutSendBufferToWindow(cur)
 
-	fm.sendlist.Init()
-
 	tmpreq, tmpack, tmpackto := fm.preProcessRecvList()
+	avtive := len(tmpreq) + len(tmpack) + len(tmpackto)
 	fm.processRecvList(tmpreq, tmpack, tmpackto)
 
 	fm.combineWindowToRecvBuffer(cur)
@@ -138,6 +138,8 @@ func (fm *FrameMgr) Update() {
 	fm.hb()
 
 	fm.printStat(cur)
+
+	return avtive > 0
 }
 
 func (fm *FrameMgr) cutSendBufferToWindow(cur int64) {
@@ -237,7 +239,7 @@ func (fm *FrameMgr) calSendList(cur int64) {
 		if !f.Acked && (f.Resend || cur-f.Sendtime > int64(fm.resend_timems*(int)(time.Millisecond))) &&
 			cur-f.Sendtime > fm.rttns {
 			f.Sendtime = cur
-			fm.sendlist.PushBack(f)
+			fm.sendFrame(f)
 			f.Resend = false
 			if fm.openstat > 0 {
 				fm.fs.sendDataNum++
@@ -249,7 +251,21 @@ func (fm *FrameMgr) calSendList(cur int64) {
 }
 
 func (fm *FrameMgr) GetSendList() *list.List {
-	return fm.sendlist
+	fm.sendlock.Lock()
+	defer fm.sendlock.Unlock()
+	ret := list.New()
+	for e := fm.sendlist.Front(); e != nil; e = e.Next() {
+		f := e.Value.(*Frame)
+		ret.PushBack(f)
+	}
+	fm.sendlist.Init()
+	return ret
+}
+
+func (fm *FrameMgr) sendFrame(f *Frame) {
+	fm.sendlock.Lock()
+	defer fm.sendlock.Unlock()
+	fm.sendlist.PushBack(f)
 }
 
 func (fm *FrameMgr) OnRecvFrame(f *Frame) {
@@ -381,7 +397,7 @@ func (fm *FrameMgr) processRecvList(tmpreq map[int32]int, tmpack map[int32]int, 
 					f := &Frame{Type: (int32)(Frame_ACK), Resend: false, Sendtime: 0,
 						Id:     0,
 						Dataid: tmp[0:index]}
-					fm.sendlist.PushBack(f)
+					fm.sendFrame(f)
 					index = 0
 					tmp = make([]int32, len(tmpackto))
 					//loggo.Debug("debugid %v send ack %v %v", fm.debugid, f.Id, common.Int32ArrayToString(f.Dataid, ","))
@@ -393,7 +409,7 @@ func (fm *FrameMgr) processRecvList(tmpreq map[int32]int, tmpack map[int32]int, 
 			f := &Frame{Type: (int32)(Frame_ACK), Resend: false, Sendtime: 0,
 				Id:     0,
 				Dataid: tmp[0:index]}
-			fm.sendlist.PushBack(f)
+			fm.sendFrame(f)
 			//loggo.Debug("debugid %v send ack %v %v", fm.debugid, f.Id, common.Int32ArrayToString(f.Dataid, ","))
 		}
 	}
@@ -538,7 +554,7 @@ func (fm *FrameMgr) combineWindowToRecvBuffer(cur int64) {
 				fm.fs.sendReqNumsMap[id]++
 			}
 		}
-		fm.sendlist.PushBack(f)
+		fm.sendFrame(f)
 		//loggo.Debug("debugid %v send req %v %v", fm.debugid, f.Id, common.Int32ArrayToString(f.Dataid, ","))
 	}
 }
@@ -581,7 +597,7 @@ func (fm *FrameMgr) ping() {
 		fm.lastPingTime = cur
 		f := &Frame{Type: (int32)(Frame_PING), Resend: false, Sendtime: cur,
 			Id: 0}
-		fm.sendlist.PushBack(f)
+		fm.sendFrame(f)
 		//loggo.Debug("debugid %v send ping %v", fm.debugid, cur)
 		if fm.openstat > 0 {
 			fm.fs.sendping++
@@ -616,7 +632,7 @@ func (fm *FrameMgr) hb() {
 func (fm *FrameMgr) processPing(f *Frame) {
 	rf := &Frame{Type: (int32)(Frame_PONG), Resend: false, Sendtime: f.Sendtime,
 		Id: 0}
-	fm.sendlist.PushBack(rf)
+	fm.sendFrame(rf)
 	if fm.openstat > 0 {
 		fm.fs.recvping++
 		fm.fs.sendpong++
