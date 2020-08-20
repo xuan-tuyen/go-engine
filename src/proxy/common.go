@@ -286,11 +286,23 @@ func sendTo(wg *group.Group, sendch *common.Channel, conn conn.Conn, compress in
 			f.PongFrame = &PongFrame{}
 			f.PongFrame.Time = *pongtime
 		} else {
-			ff := <-sendch.Ch()
-			if ff == nil {
+			exit := false
+			select {
+			case ff := <-sendch.Ch():
+				if ff == nil {
+					exit = true
+					break
+				}
+				f = ff.(*ProxyFrame)
+			case <-time.After(time.Second):
 				break
 			}
-			f = ff.(*ProxyFrame)
+			if f == nil {
+				if exit {
+					break
+				}
+				continue
+			}
 		}
 		mb, err := MarshalSrpFrame(f, compress, encrypt)
 		if err != nil {
