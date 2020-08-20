@@ -329,9 +329,6 @@ func sendTo(wg *group.Group, sendch *common.Channel, conn conn.Conn, compress in
 			return err
 		}
 
-		gDeadLock.sendTime = time.Now()
-		gDeadLock.sending = true
-
 		if loggo.IsDebug() {
 			loggo.Debug("sendTo start Write body %s %d", conn.Info(), msglen)
 		}
