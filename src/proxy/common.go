@@ -770,10 +770,11 @@ func checkDeadLock(wg *group.Group) error {
 			begin = time.Now()
 
 			if gDeadLock.sending && time.Now().Sub(gDeadLock.sendTime) > 5*time.Second {
-				panic("send dead lock")
+				loggo.Error("send dead lock %v", time.Now().Sub(gDeadLock.sendTime))
 			}
 			if gDeadLock.recving && time.Now().Sub(gDeadLock.recvTime) > 5*time.Second {
-				panic("recv dead lock")
+				loggo.Error("recv dead lock")
+				loggo.Error("send dead lock %v", time.Now().Sub(gDeadLock.recvTime))
 			}
 		}
 		time.Sleep(time.Millisecond * 300)
