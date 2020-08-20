@@ -302,6 +302,9 @@ func sendTo(wg *group.Group, sendch *common.Channel, conn conn.Conn, compress in
 			return err
 		}
 
+		gDeadLock.sendTime = time.Now()
+		gDeadLock.sending = true
+
 		if loggo.IsDebug() {
 			loggo.Debug("sendTo start Write body %s %d", conn.Info(), msglen)
 		}
@@ -747,10 +750,10 @@ func checkDeadLock(wg *group.Group) error {
 		if dur > time.Second {
 			begin = time.Now()
 
-			if gDeadLock.sending && time.Now().Sub(gDeadLock.sendTime) > time.Second {
+			if gDeadLock.sending && time.Now().Sub(gDeadLock.sendTime) > 5*time.Second {
 				panic("send dead lock")
 			}
-			if gDeadLock.recving && time.Now().Sub(gDeadLock.recvTime) > time.Second {
+			if gDeadLock.recving && time.Now().Sub(gDeadLock.recvTime) > 5*time.Second {
 				panic("recv dead lock")
 			}
 		}
