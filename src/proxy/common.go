@@ -404,6 +404,7 @@ func sendToSonny(wg *group.Group, sendch *common.Channel, conn conn.Conn, maxmsg
 		if ff == nil {
 			break
 		}
+		loggo.Info("Outputer sendToSonny sendch len %v", len(sendch.Ch()))
 		f := ff.(*ProxyFrame)
 		if f.Type == FRAME_TYPE_CLOSE {
 			loggo.Info("sendToSonny close by remote: %s", conn.Info())

@@ -188,6 +188,7 @@ func (s *Server) process(wg *group.Group, sendch *common.Channel, recvch *common
 		if ff == nil {
 			break
 		}
+		loggo.Info("Server recvch len %v", len(recvch.Ch()))
 		f := ff.(*ProxyFrame)
 		switch f.Type {
 		case FRAME_TYPE_LOGIN:

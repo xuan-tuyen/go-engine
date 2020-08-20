@@ -52,6 +52,7 @@ func (o *Outputer) processDataFrame(f *ProxyFrame) {
 		return
 	}
 	sonny := v.(*ProxyConn)
+	loggo.Info("Outputer processDataFrame sendch len %v", len(sonny.sendch.Ch()))
 	if !sonny.sendch.WriteTimeout(f, o.config.MainWriteChannelTimeoutMs) {
 		sonny.needclose = true
 		loggo.Error("Outputer processDataFrame timeout sonnny %s %d", f.DataFrame.Id, len(f.DataFrame.Data))
