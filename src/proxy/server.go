@@ -139,6 +139,10 @@ func (s *Server) serveClient(clientconn *ClientConn) error {
 		loggo.Info("group end exit %s", clientconn.conn.Info())
 	})
 
+	var pingflag int32
+	var pongflag int32
+	var pongtime int64
+
 	wg.Go("Server recvFrom"+" "+clientconn.conn.Info(), func() error {
 		atomic.AddInt32(&gStateThreadNum.ThreadNum, 1)
 		defer atomic.AddInt32(&gStateThreadNum.ThreadNum, -1)
@@ -148,13 +152,13 @@ func (s *Server) serveClient(clientconn *ClientConn) error {
 	wg.Go("Server sendTo"+" "+clientconn.conn.Info(), func() error {
 		atomic.AddInt32(&gStateThreadNum.ThreadNum, 1)
 		defer atomic.AddInt32(&gStateThreadNum.ThreadNum, -1)
-		return sendTo(wg, sendch, clientconn.conn, s.config.Compress, s.config.MaxMsgSize, s.config.Encrypt)
+		return sendTo(wg, sendch, clientconn.conn, s.config.Compress, s.config.MaxMsgSize, s.config.Encrypt, &pingflag, &pongflag, &pongtime)
 	})
 
 	wg.Go("Server checkPingActive"+" "+clientconn.conn.Info(), func() error {
 		atomic.AddInt32(&gStateThreadNum.ThreadNum, 1)
 		defer atomic.AddInt32(&gStateThreadNum.ThreadNum, -1)
-		return checkPingActive(wg, sendch, recvch, &clientconn.ProxyConn, s.config.EstablishedTimeout, s.config.PingInter, s.config.PingTimeoutInter, s.config.ShowPing)
+		return checkPingActive(wg, sendch, recvch, &clientconn.ProxyConn, s.config.EstablishedTimeout, s.config.PingInter, s.config.PingTimeoutInter, s.config.ShowPing, &pingflag)
 	})
 
 	wg.Go("Server checkNeedClose"+" "+clientconn.conn.Info(), func() error {
@@ -166,7 +170,7 @@ func (s *Server) serveClient(clientconn *ClientConn) error {
 	wg.Go("Server process"+" "+clientconn.conn.Info(), func() error {
 		atomic.AddInt32(&gStateThreadNum.ThreadNum, 1)
 		defer atomic.AddInt32(&gStateThreadNum.ThreadNum, -1)
-		return s.process(wg, sendch, recvch, clientconn)
+		return s.process(wg, sendch, recvch, clientconn, &pongflag, &pongtime)
 	})
 
 	wg.Wait()
@@ -179,7 +183,7 @@ func (s *Server) serveClient(clientconn *ClientConn) error {
 	return nil
 }
 
-func (s *Server) process(wg *group.Group, sendch *common.Channel, recvch *common.Channel, clientconn *ClientConn) error {
+func (s *Server) process(wg *group.Group, sendch *common.Channel, recvch *common.Channel, clientconn *ClientConn, pongflag *int32, pongtime *int64) error {
 
 	loggo.Info("process start %s", clientconn.conn.Info())
 
@@ -188,14 +192,13 @@ func (s *Server) process(wg *group.Group, sendch *common.Channel, recvch *common
 		if ff == nil {
 			break
 		}
-		loggo.Info("Server recvch len %v", len(recvch.Ch()))
 		f := ff.(*ProxyFrame)
 		switch f.Type {
 		case FRAME_TYPE_LOGIN:
 			s.processLogin(wg, f, sendch, clientconn)
 
 		case FRAME_TYPE_PING:
-			processPing(f, sendch, &clientconn.ProxyConn)
+			processPing(f, sendch, &clientconn.ProxyConn, pongflag, pongtime)
 
 		case FRAME_TYPE_PONG:
 			processPong(f, sendch, &clientconn.ProxyConn, s.config.ShowPing)

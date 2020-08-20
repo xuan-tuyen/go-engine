@@ -261,7 +261,7 @@ func recvFrom(wg *group.Group, recvch *common.Channel, conn conn.Conn, maxmsgsiz
 	return nil
 }
 
-func sendTo(wg *group.Group, sendch *common.Channel, conn conn.Conn, compress int, maxmsgsize int, encrypt string) error {
+func sendTo(wg *group.Group, sendch *common.Channel, conn conn.Conn, compress int, maxmsgsize int, encrypt string, pingflag *int32, pongflag *int32, pongtime *int64) error {
 
 	atomic.AddInt32(&gStateThreadNum.SendThread, 1)
 	defer atomic.AddInt32(&gStateThreadNum.SendThread, -1)
@@ -272,11 +272,26 @@ func sendTo(wg *group.Group, sendch *common.Channel, conn conn.Conn, compress in
 	for !wg.IsExit() {
 		atomic.AddInt32(&gState.SendFrames, 1)
 
-		ff := <-sendch.Ch()
-		if ff == nil {
-			break
+		var f *ProxyFrame
+		if *pingflag > 0 {
+			*pingflag = 0
+			f = &ProxyFrame{}
+			f.Type = FRAME_TYPE_PING
+			f.PingFrame = &PingFrame{}
+			f.PingFrame.Time = time.Now().UnixNano()
+		} else if *pongflag > 0 {
+			*pongflag = 0
+			f = &ProxyFrame{}
+			f.Type = FRAME_TYPE_PONG
+			f.PongFrame = &PongFrame{}
+			f.PongFrame.Time = *pongtime
+		} else {
+			ff := <-sendch.Ch()
+			if ff == nil {
+				break
+			}
+			f = ff.(*ProxyFrame)
 		}
-		f := ff.(*ProxyFrame)
 		mb, err := MarshalSrpFrame(f, compress, encrypt)
 		if err != nil {
 			loggo.Error("sendTo MarshalSrpFrame fail: %s %s", conn.Info(), err.Error())
@@ -404,7 +419,6 @@ func sendToSonny(wg *group.Group, sendch *common.Channel, conn conn.Conn, maxmsg
 		if ff == nil {
 			break
 		}
-		loggo.Info("Outputer sendToSonny sendch len %v", len(sendch.Ch()))
 		f := ff.(*ProxyFrame)
 		if f.Type == FRAME_TYPE_CLOSE {
 			loggo.Info("sendToSonny close by remote: %s", conn.Info())
@@ -462,7 +476,7 @@ func sendToSonny(wg *group.Group, sendch *common.Channel, conn conn.Conn, maxmsg
 }
 
 func checkPingActive(wg *group.Group, sendch *common.Channel, recvch *common.Channel, proxyconn *ProxyConn,
-	estimeout int, pinginter int, pingintertimeout int, showping bool) error {
+	estimeout int, pinginter int, pingintertimeout int, showping bool, pingflag *int32) error {
 
 	atomic.AddInt32(&gStateThreadNum.CheckThread, 1)
 	defer atomic.AddInt32(&gStateThreadNum.CheckThread, -1)
@@ -496,12 +510,7 @@ func checkPingActive(wg *group.Group, sendch *common.Channel, recvch *common.Cha
 				return errors.New("ping pong timeout")
 			}
 
-			f := &ProxyFrame{}
-			f.Type = FRAME_TYPE_PING
-			f.PingFrame = &PingFrame{}
-			f.PingFrame.Time = time.Now().UnixNano()
-
-			sendch.Write(f)
+			atomic.AddInt32(pingflag, 1)
 
 			proxyconn.pinged++
 			if showping {
@@ -537,12 +546,9 @@ func checkNeedClose(wg *group.Group, proxyconn *ProxyConn) error {
 	return nil
 }
 
-func processPing(f *ProxyFrame, sendch *common.Channel, proxyconn *ProxyConn) {
-	rf := &ProxyFrame{}
-	rf.Type = FRAME_TYPE_PONG
-	rf.PongFrame = &PongFrame{}
-	rf.PongFrame.Time = f.PingFrame.Time
-	sendch.WriteTimeout(rf, 100)
+func processPing(f *ProxyFrame, sendch *common.Channel, proxyconn *ProxyConn, pongflag *int32, pongtime *int64) {
+	atomic.AddInt32(pongflag, 1)
+	*pongtime = f.PingFrame.Time
 }
 
 func processPong(f *ProxyFrame, sendch *common.Channel, proxyconn *ProxyConn, showping bool) {

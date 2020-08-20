@@ -146,6 +146,10 @@ func (c *Client) useServer(index int, serverconn *ServerConn) error {
 
 	c.login(index, sendch)
 
+	var pingflag int32
+	var pongflag int32
+	var pongtime int64
+
 	wg.Go("Client recvFrom"+" "+serverconn.conn.Info(), func() error {
 		atomic.AddInt32(&gStateThreadNum.ThreadNum, 1)
 		defer atomic.AddInt32(&gStateThreadNum.ThreadNum, -1)
@@ -155,13 +159,13 @@ func (c *Client) useServer(index int, serverconn *ServerConn) error {
 	wg.Go("Client sendTo"+" "+serverconn.conn.Info(), func() error {
 		atomic.AddInt32(&gStateThreadNum.ThreadNum, 1)
 		defer atomic.AddInt32(&gStateThreadNum.ThreadNum, -1)
-		return sendTo(wg, sendch, serverconn.conn, c.config.Compress, c.config.MaxMsgSize, c.config.Encrypt)
+		return sendTo(wg, sendch, serverconn.conn, c.config.Compress, c.config.MaxMsgSize, c.config.Encrypt, &pingflag, &pongflag, &pongtime)
 	})
 
 	wg.Go("Client checkPingActive"+" "+serverconn.conn.Info(), func() error {
 		atomic.AddInt32(&gStateThreadNum.ThreadNum, 1)
 		defer atomic.AddInt32(&gStateThreadNum.ThreadNum, -1)
-		return checkPingActive(wg, sendch, recvch, &serverconn.ProxyConn, c.config.EstablishedTimeout, c.config.PingInter, c.config.PingTimeoutInter, c.config.ShowPing)
+		return checkPingActive(wg, sendch, recvch, &serverconn.ProxyConn, c.config.EstablishedTimeout, c.config.PingInter, c.config.PingTimeoutInter, c.config.ShowPing, &pingflag)
 	})
 
 	wg.Go("Client checkNeedClose"+" "+serverconn.conn.Info(), func() error {
@@ -173,7 +177,7 @@ func (c *Client) useServer(index int, serverconn *ServerConn) error {
 	wg.Go("Client process"+" "+serverconn.conn.Info(), func() error {
 		atomic.AddInt32(&gStateThreadNum.ThreadNum, 1)
 		defer atomic.AddInt32(&gStateThreadNum.ThreadNum, -1)
-		return c.process(wg, index, sendch, recvch, serverconn)
+		return c.process(wg, index, sendch, recvch, serverconn, &pongflag, &pongtime)
 	})
 
 	wg.Wait()
@@ -199,7 +203,7 @@ func (c *Client) login(index int, sendch *common.Channel) {
 	loggo.Info("start login %d %s %s", index, c.server, f.LoginFrame.String())
 }
 
-func (c *Client) process(wg *group.Group, index int, sendch *common.Channel, recvch *common.Channel, serverconn *ServerConn) error {
+func (c *Client) process(wg *group.Group, index int, sendch *common.Channel, recvch *common.Channel, serverconn *ServerConn, pongflag *int32, pongtime *int64) error {
 
 	loggo.Info("process start %s", serverconn.conn.Info())
 
@@ -215,7 +219,7 @@ func (c *Client) process(wg *group.Group, index int, sendch *common.Channel, rec
 			c.processLoginRsp(wg, index, f, sendch, serverconn)
 
 		case FRAME_TYPE_PING:
-			processPing(f, sendch, &serverconn.ProxyConn)
+			processPing(f, sendch, &serverconn.ProxyConn, pongflag, pongtime)
 
 		case FRAME_TYPE_PONG:
 			processPong(f, sendch, &serverconn.ProxyConn, c.config.ShowPing)
