@@ -37,13 +37,6 @@ type udpConnListener struct {
 	accept       *common.Channel
 }
 
-const (
-	MAX_UDP_PACKET             = 10240
-	UDP_RECV_CHAN_LEN          = 128
-	UDP_ACCEPT_CHAN_LEN        = 128
-	UDP_RECV_CHAN_PUSH_TIMEOUT = 100
-)
-
 type UdpConfig struct {
 	MaxPacketSize       int
 	RecvChanLen         int
@@ -178,7 +171,7 @@ func (c *udpConn) Listen(dst string) (Conn, error) {
 		return nil, err
 	}
 
-	ch := common.NewChannel(UDP_ACCEPT_CHAN_LEN)
+	ch := common.NewChannel(c.config.AcceptChanLen)
 
 	wg := group.NewGroup("udpConn Listen"+" "+dst, nil, func() {
 		listenerconn.Close()
@@ -224,7 +217,9 @@ func (c *udpConn) Accept() (Conn, error) {
 }
 
 func (c *udpConn) loopRecv() error {
-	buf := make([]byte, MAX_UDP_PACKET)
+	c.checkConfig()
+
+	buf := make([]byte, c.config.MaxPacketSize)
 	for !c.listener.wg.IsExit() {
 		n, srcaddr, err := c.listener.listenerconn.ReadFromUDP(buf)
 		if err != nil {
@@ -240,11 +235,11 @@ func (c *udpConn) loopRecv() error {
 			sonny := &udpConnListenerSonny{
 				dstaddr:    srcaddr,
 				fatherconn: c.listener.listenerconn,
-				recvch:     common.NewChannel(UDP_RECV_CHAN_LEN),
+				recvch:     common.NewChannel(c.config.RecvChanLen),
 			}
 
 			u := &udpConn{listenersonny: sonny}
-			if !u.listenersonny.recvch.WriteTimeout(data, UDP_RECV_CHAN_PUSH_TIMEOUT) {
+			if !u.listenersonny.recvch.WriteTimeout(data, c.config.RecvChanPushTimeout) {
 				loggo.Debug("udp conn %s push %d data to %s recv channel timeout", c.Info(), len(data), u.Info())
 			}
 			c.listener.sonny.Store(srcaddrstr, u)
@@ -252,7 +247,7 @@ func (c *udpConn) loopRecv() error {
 			c.listener.accept.Write(u)
 		} else {
 			u := v.(*udpConn)
-			if !u.listenersonny.recvch.WriteTimeout(data, UDP_RECV_CHAN_PUSH_TIMEOUT) {
+			if !u.listenersonny.recvch.WriteTimeout(data, c.config.RecvChanPushTimeout) {
 				loggo.Debug("udp conn %s push %d data to %s recv channel timeout", c.Info(), len(data), u.Info())
 			}
 		}

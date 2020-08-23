@@ -1,19 +1,19 @@
 package conn
 
 import (
-	"context"
 	"errors"
 	"github.com/esrrhs/go-engine/src/common"
 	"github.com/esrrhs/go-engine/src/frame"
 	"github.com/esrrhs/go-engine/src/group"
 	"github.com/esrrhs/go-engine/src/loggo"
 	"github.com/golang/protobuf/proto"
+	"golang.org/x/net/icmp"
 	"net"
 	"sync"
 	"time"
 )
 
-type RudpConfig struct {
+type RicmpConfig struct {
 	MaxPacketSize      int
 	CutSize            int
 	MaxId              int
@@ -29,10 +29,10 @@ type RudpConfig struct {
 	AcceptChanLen      int
 }
 
-func DefaultRudpConfig() *RudpConfig {
-	return &RudpConfig{
-		MaxPacketSize:      1024,
-		CutSize:            500,
+func DefaultRicmpConfig() *RicmpConfig {
+	return &RicmpConfig{
+		MaxPacketSize:      2048,
+		CutSize:            800,
 		MaxId:              1000000,
 		BufferSize:         1024 * 1024,
 		MaxWin:             10000,
@@ -47,42 +47,42 @@ func DefaultRudpConfig() *RudpConfig {
 	}
 }
 
-type rudpConn struct {
+type ricmpConn struct {
 	info          string
-	config        *RudpConfig
-	dialer        *rudpConnDialer
-	listenersonny *rudpConnListenerSonny
-	listener      *rudpConnListener
-	cancel        context.CancelFunc
+	config        *RicmpConfig
+	dialer        *ricmpConnDialer
+	listenersonny *ricmpConnListenerSonny
+	listener      *ricmpConnListener
 	isclose       bool
 	closelock     sync.Mutex
 }
 
-type rudpConnDialer struct {
-	conn *net.UDPConn
-	fm   *frame.FrameMgr
-	wg   *group.Group
-}
-
-type rudpConnListenerSonny struct {
-	dstaddr    *net.UDPAddr
-	fatherconn *net.UDPConn
+type ricmpConnDialer struct {
+	serveraddr *net.IPAddr
+	conn       *icmp.PacketConn
 	fm         *frame.FrameMgr
 	wg         *group.Group
 }
 
-type rudpConnListener struct {
-	listenerconn *net.UDPConn
+type ricmpConnListenerSonny struct {
+	dstaddr    *net.IPAddr
+	fatherconn *icmp.PacketConn
+	fm         *frame.FrameMgr
+	wg         *group.Group
+}
+
+type ricmpConnListener struct {
+	listenerconn *icmp.PacketConn
 	wg           *group.Group
 	sonny        sync.Map
 	accept       *common.Channel
 }
 
-func (c *rudpConn) Name() string {
-	return "rudp"
+func (c *ricmpConn) Name() string {
+	return "ricmp"
 }
 
-func (c *rudpConn) Read(p []byte) (n int, err error) {
+func (c *ricmpConn) Read(p []byte) (n int, err error) {
 	c.checkConfig()
 
 	if c.isclose {
@@ -124,7 +124,7 @@ func (c *rudpConn) Read(p []byte) (n int, err error) {
 	return 0, errors.New("read closed conn")
 }
 
-func (c *rudpConn) Write(p []byte) (n int, err error) {
+func (c *ricmpConn) Write(p []byte) (n int, err error) {
 	c.checkConfig()
 
 	if c.isclose {
@@ -180,7 +180,7 @@ func (c *rudpConn) Write(p []byte) (n int, err error) {
 	return 0, errors.New("write closed conn")
 }
 
-func (c *rudpConn) Close() error {
+func (c *ricmpConn) Close() error {
 	c.checkConfig()
 
 	if c.isclose {
@@ -192,9 +192,6 @@ func (c *rudpConn) Close() error {
 
 	loggo.Debug("start Close %s", c.Info())
 
-	if c.cancel != nil {
-		c.cancel()
-	}
 	if c.dialer != nil {
 		if c.dialer.wg != nil {
 			loggo.Debug("start Close dialer %s", c.Info())
@@ -209,7 +206,7 @@ func (c *rudpConn) Close() error {
 			loggo.Debug("start Close listener %s", c.Info())
 			c.listener.wg.Stop()
 			c.listener.sonny.Range(func(key, value interface{}) bool {
-				u := value.(*rudpConn)
+				u := value.(*ricmpConn)
 				u.Close()
 				return true
 			})
@@ -232,49 +229,46 @@ func (c *rudpConn) Close() error {
 	return nil
 }
 
-func (c *rudpConn) Info() string {
+func (c *ricmpConn) Info() string {
 	c.checkConfig()
 
 	if c.info != "" {
 		return c.info
 	}
 	if c.dialer != nil {
-		c.info = c.dialer.conn.LocalAddr().String() + "<--rudp-->" + c.dialer.conn.RemoteAddr().String()
+		c.info = c.dialer.conn.LocalAddr().String() + "<--ricmp-->" + c.dialer.serveraddr.String()
 	} else if c.listener != nil {
-		c.info = "rudp--" + c.listener.listenerconn.LocalAddr().String()
+		c.info = "ricmp--" + c.listener.listenerconn.LocalAddr().String()
 	} else if c.listenersonny != nil {
-		c.info = c.listenersonny.fatherconn.LocalAddr().String() + "<--rudp-->" + c.listenersonny.dstaddr.String()
+		c.info = c.listenersonny.fatherconn.LocalAddr().String() + "<--ricmp-->" + c.listenersonny.dstaddr.String()
 	} else {
-		c.info = "empty rudp conn"
+		c.info = "empty ricmp conn"
 	}
 	return c.info
 }
 
-func (c *rudpConn) Dial(dst string) (Conn, error) {
+func (c *ricmpConn) Dial(dst string) (Conn, error) {
 	c.checkConfig()
 
-	addr, err := net.ResolveUDPAddr("udp", dst)
+	addr, err := net.ResolveIPAddr("ip", dst)
 	if err != nil {
 		return nil, err
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	c.cancel = cancel
-	var d net.Dialer
-	conn, err := d.DialContext(ctx, "udp", addr.String())
+
+	conn, err := icmp.ListenPacket("ip4:icmp", "")
 	if err != nil {
 		return nil, err
 	}
-	c.cancel = nil
 
 	id := common.Guid()
 	fm := frame.NewFrameMgr(c.config.CutSize, c.config.MaxId, c.config.BufferSize, c.config.MaxWin, c.config.ResendTimems, c.config.Compress, c.config.Stat)
 	fm.SetDebugid(id)
 
-	dialer := &rudpConnDialer{conn: conn.(*net.UDPConn), fm: fm}
+	dialer := &ricmpConnDialer{serveraddr: addr, conn: conn, fm: fm}
 
-	u := &rudpConn{config: c.config, dialer: dialer}
+	u := &ricmpConn{config: c.config, dialer: dialer}
 
-	loggo.Debug("start connect remote rudp %s %s", u.Info(), id)
+	loggo.Debug("start connect remote ricmp %s %s", u.Info(), id)
 
 	u.dialer.fm.Connect()
 
@@ -293,12 +287,12 @@ func (c *rudpConn) Dial(dst string) (Conn, error) {
 			f := e.Value.(*frame.Frame)
 			mb, _ := u.dialer.fm.MarshalFrame(f)
 			u.dialer.conn.SetReadDeadline(time.Now().Add(time.Millisecond * 100))
-			u.dialer.conn.Write(mb)
+			u.send_icmp(u.dialer.conn, mb, u.dialer.serveraddr)
 		}
 
 		// recv udp
 		u.dialer.conn.SetReadDeadline(time.Now().Add(time.Millisecond * 100))
-		n, _ := u.dialer.conn.Read(buf)
+		n, _, _ := u.recv_icmp(u.dialer.conn, buf)
 		if n > 0 {
 			f := &frame.Frame{}
 			err := proto.Unmarshal(buf[0:n], f)
@@ -311,7 +305,7 @@ func (c *rudpConn) Dial(dst string) (Conn, error) {
 		}
 
 		if c.isclose {
-			loggo.Debug("can not connect remote rudp %s", u.Info())
+			loggo.Debug("can not connect remote ricmp %s", u.Info())
 			break
 		}
 
@@ -319,7 +313,7 @@ func (c *rudpConn) Dial(dst string) (Conn, error) {
 		now := time.Now()
 		diffclose := now.Sub(startConnectTime)
 		if diffclose > time.Millisecond*time.Duration(c.config.ConnectTimeoutMs) {
-			loggo.Debug("can not connect remote rudp %s", u.Info())
+			loggo.Debug("can not connect remote ricmp %s", u.Info())
 			break
 		}
 
@@ -339,51 +333,46 @@ func (c *rudpConn) Dial(dst string) (Conn, error) {
 		return nil, errors.New("connect timeout")
 	}
 
-	loggo.Debug("connect remote ok rudp %s", u.Info())
+	loggo.Debug("connect remote ok ricmp %s", u.Info())
 
-	wg := group.NewGroup("rudpConn serveListenerSonny"+" "+u.Info(), nil, nil)
+	wg := group.NewGroup("ricmpConn serveListenerSonny"+" "+u.Info(), nil, nil)
 
 	u.dialer.wg = wg
 
-	wg.Go("rudpConn updateDialerSonny"+" "+u.Info(), func() error {
+	wg.Go("ricmpConn updateDialerSonny"+" "+u.Info(), func() error {
 		return u.updateDialerSonny()
 	})
 
 	return u, nil
 }
 
-func (c *rudpConn) Listen(dst string) (Conn, error) {
+func (c *ricmpConn) Listen(dst string) (Conn, error) {
 	c.checkConfig()
 
-	ipaddr, err := net.ResolveUDPAddr("udp", dst)
-	if err != nil {
-		return nil, err
-	}
-
-	listenerconn, err := net.ListenUDP("udp", ipaddr)
+	conn, err := icmp.ListenPacket("ip4:icmp", "")
 	if err != nil {
 		return nil, err
 	}
 
 	ch := common.NewChannel(c.config.AcceptChanLen)
 
-	wg := group.NewGroup("rudpConn Listen"+" "+dst, nil, nil)
+	wg := group.NewGroup("ricmpConn Listen"+" "+dst, nil, nil)
 
-	listener := &rudpConnListener{
-		listenerconn: listenerconn,
+	listener := &ricmpConnListener{
+		listenerconn: conn,
 		wg:           wg,
 		accept:       ch,
 	}
 
-	u := &rudpConn{config: c.config, listener: listener}
-	wg.Go("rudpConn loopListenerRecv"+" "+dst, func() error {
+	u := &ricmpConn{config: c.config, listener: listener}
+	wg.Go("ricmpConn loopListenerRecv"+" "+dst, func() error {
 		return u.loopListenerRecv()
 	})
 
 	return u, nil
 }
 
-func (c *rudpConn) Accept() (Conn, error) {
+func (c *ricmpConn) Accept() (Conn, error) {
 	c.checkConfig()
 
 	if c.listener.wg == nil {
@@ -394,7 +383,7 @@ func (c *rudpConn) Accept() (Conn, error) {
 		if s == nil {
 			break
 		}
-		sonny := s.(*rudpConn)
+		sonny := s.(*ricmpConn)
 		_, ok := c.listener.sonny.Load(sonny.listenersonny.dstaddr.String())
 		if !ok {
 			continue
@@ -407,23 +396,23 @@ func (c *rudpConn) Accept() (Conn, error) {
 	return nil, errors.New("listener close")
 }
 
-func (c *rudpConn) checkConfig() {
+func (c *ricmpConn) checkConfig() {
 	if c.config == nil {
-		c.config = DefaultRudpConfig()
+		c.config = DefaultRicmpConfig()
 	}
 }
 
-func (c *rudpConn) SetConfig(config *RudpConfig) {
+func (c *ricmpConn) SetConfig(config *RicmpConfig) {
 	c.config = config
 }
 
-func (c *rudpConn) loopListenerRecv() error {
+func (c *ricmpConn) loopListenerRecv() error {
 	c.checkConfig()
 
 	buf := make([]byte, c.config.MaxPacketSize)
 	for !c.listener.wg.IsExit() {
 		c.listener.listenerconn.SetReadDeadline(time.Now().Add(time.Millisecond * 100))
-		n, srcaddr, err := c.listener.listenerconn.ReadFromUDP(buf)
+		n, srcaddr, err := c.recv_icmp(c.listener.listenerconn, buf)
 		if err != nil {
 			continue
 		}
@@ -436,22 +425,22 @@ func (c *rudpConn) loopListenerRecv() error {
 			fm := frame.NewFrameMgr(c.config.CutSize, c.config.MaxId, c.config.BufferSize, c.config.MaxWin, c.config.ResendTimems, c.config.Compress, c.config.Stat)
 			fm.SetDebugid(id)
 
-			sonny := &rudpConnListenerSonny{
+			sonny := &ricmpConnListenerSonny{
 				dstaddr:    srcaddr,
 				fatherconn: c.listener.listenerconn,
 				fm:         fm,
 			}
 
-			u := &rudpConn{config: c.config, listenersonny: sonny}
+			u := &ricmpConn{config: c.config, listenersonny: sonny}
 			c.listener.sonny.Store(srcaddrstr, u)
 
-			c.listener.wg.Go("rudpConn accept"+" "+u.Info(), func() error {
+			c.listener.wg.Go("ricmpConn accept"+" "+u.Info(), func() error {
 				return c.accept(u)
 			})
 
-			loggo.Debug("start accept remote rudp %s %s", u.Info(), id)
+			loggo.Debug("start accept remote ricmp %s %s", u.Info(), id)
 		} else {
-			u := v.(*rudpConn)
+			u := v.(*ricmpConn)
 
 			f := &frame.Frame{}
 			err := proto.Unmarshal(buf[0:n], f)
@@ -464,7 +453,7 @@ func (c *rudpConn) loopListenerRecv() error {
 		}
 
 		c.listener.sonny.Range(func(key, value interface{}) bool {
-			u := value.(*rudpConn)
+			u := value.(*ricmpConn)
 			if u.isclose {
 				c.listener.sonny.Delete(key)
 				loggo.Debug("delete sonny from map %s", u.Info())
@@ -475,9 +464,9 @@ func (c *rudpConn) loopListenerRecv() error {
 	return nil
 }
 
-func (c *rudpConn) accept(u *rudpConn) error {
+func (c *ricmpConn) accept(u *ricmpConn) error {
 
-	loggo.Debug("server begin accept rudp %s", u.Info())
+	loggo.Debug("server begin accept ricmp %s", u.Info())
 
 	startConnectTime := time.Now()
 	done := false
@@ -500,13 +489,13 @@ func (c *rudpConn) accept(u *rudpConn) error {
 				break
 			}
 			u.listenersonny.fatherconn.SetWriteDeadline(time.Now().Add(time.Millisecond * 100))
-			u.listenersonny.fatherconn.WriteToUDP(mb, u.listenersonny.dstaddr)
+			u.send_icmp(u.listenersonny.fatherconn, mb, u.listenersonny.dstaddr)
 		}
 
 		now := time.Now()
 		diffclose := now.Sub(startConnectTime)
 		if diffclose > time.Millisecond*time.Duration(c.config.ConnectTimeoutMs) {
-			loggo.Debug("can not connect by remote rudp %s", u.Info())
+			loggo.Debug("can not connect by remote ricmp %s", u.Info())
 			break
 		}
 
@@ -523,37 +512,37 @@ func (c *rudpConn) accept(u *rudpConn) error {
 		return nil
 	}
 
-	loggo.Debug("server accept rudp ok %s", u.Info())
+	loggo.Debug("server accept ricmp ok %s", u.Info())
 
 	c.listener.accept.Write(u)
 
-	wg := group.NewGroup("rudpConn ListenerSonny"+" "+u.Info(), c.listener.wg, nil)
+	wg := group.NewGroup("ricmpConn ListenerSonny"+" "+u.Info(), c.listener.wg, nil)
 
 	u.listenersonny.wg = wg
 
-	wg.Go("rudpConn updateListenerSonny"+" "+u.Info(), func() error {
+	wg.Go("ricmpConn updateListenerSonny"+" "+u.Info(), func() error {
 		return u.updateListenerSonny()
 	})
 
-	loggo.Debug("accept rudp finish %s", u.Info())
+	loggo.Debug("accept ricmp finish %s", u.Info())
 
 	return nil
 }
 
-func (c *rudpConn) updateListenerSonny() error {
-	return c.update_rudp(c.listenersonny.wg, c.listenersonny.fm, c.listenersonny.fatherconn, c.listenersonny.dstaddr, false)
+func (c *ricmpConn) updateListenerSonny() error {
+	return c.update_ricmp(c.listenersonny.wg, c.listenersonny.fm, c.listenersonny.fatherconn, c.listenersonny.dstaddr, false)
 }
 
-func (c *rudpConn) updateDialerSonny() error {
-	return c.update_rudp(c.dialer.wg, c.dialer.fm, c.dialer.conn, nil, true)
+func (c *ricmpConn) updateDialerSonny() error {
+	return c.update_ricmp(c.dialer.wg, c.dialer.fm, c.dialer.conn, c.dialer.serveraddr, true)
 }
 
-func (c *rudpConn) update_rudp(wg *group.Group, fm *frame.FrameMgr, conn *net.UDPConn, dstaddr *net.UDPAddr, readconn bool) error {
+func (c *ricmpConn) update_ricmp(wg *group.Group, fm *frame.FrameMgr, conn *icmp.PacketConn, dstaddr *net.IPAddr, readconn bool) error {
 
-	loggo.Debug("start rudp conn %s", c.Info())
+	loggo.Debug("start ricmp conn %s", c.Info())
 
 	stage := "open"
-	wg.Go("rudpConn update_rudp send"+" "+c.Info(), func() error {
+	wg.Go("ricmpConn update_ricmp send"+" "+c.Info(), func() error {
 		for !wg.IsExit() && stage != "closewait" {
 			// send udp
 			sendlist := fm.GetSendList()
@@ -566,13 +555,8 @@ func (c *rudpConn) update_rudp(wg *group.Group, fm *frame.FrameMgr, conn *net.UD
 						return err
 					}
 					conn.SetWriteDeadline(time.Now().Add(time.Millisecond * 100))
-					if dstaddr != nil {
-						conn.WriteToUDP(mb, dstaddr)
-						//loggo.Debug("%s send frame to %s %d", c.Info(), dstaddr, f.Id)
-					} else {
-						conn.Write(mb)
-						//loggo.Debug("%s send frame %d", c.Info(), f.Id)
-					}
+					c.send_icmp(conn, mb, dstaddr)
+					//loggo.Debug("%s send frame to %s %d", c.Info(), dstaddr, f.Id)
 				}
 			} else {
 				time.Sleep(time.Millisecond * 100)
@@ -582,12 +566,12 @@ func (c *rudpConn) update_rudp(wg *group.Group, fm *frame.FrameMgr, conn *net.UD
 	})
 
 	if readconn {
-		wg.Go("rudpConn update_rudp recv"+" "+c.Info(), func() error {
+		wg.Go("ricmpConn update_ricmp recv"+" "+c.Info(), func() error {
 			bytes := make([]byte, c.config.MaxPacketSize)
 			for !wg.IsExit() && stage != "closewait" {
 				// recv udp
 				conn.SetReadDeadline(time.Now().Add(time.Millisecond * 100))
-				n, _ := conn.Read(bytes)
+				n, _, _ := c.recv_icmp(conn, bytes)
 				if n > 0 {
 					f := &frame.Frame{}
 					err := proto.Unmarshal(bytes[0:n], f)
@@ -626,7 +610,7 @@ func (c *rudpConn) update_rudp(wg *group.Group, fm *frame.FrameMgr, conn *net.UD
 
 	stage = "close"
 	fm.Close()
-	loggo.Debug("close rudp conn fm %s", c.Info())
+	loggo.Debug("close ricmp conn fm %s", c.Info())
 
 	startCloseTime := time.Now()
 	for !wg.IsExit() {
@@ -650,7 +634,7 @@ func (c *rudpConn) update_rudp(wg *group.Group, fm *frame.FrameMgr, conn *net.UD
 	}
 
 	stage = "closewait"
-	loggo.Debug("close rudp conn update %s", c.Info())
+	loggo.Debug("close ricmp conn update %s", c.Info())
 
 	startEndTime := time.Now()
 	for !wg.IsExit() {
@@ -670,7 +654,16 @@ func (c *rudpConn) update_rudp(wg *group.Group, fm *frame.FrameMgr, conn *net.UD
 		time.Sleep(time.Millisecond * 10)
 	}
 
-	loggo.Debug("close rudp conn %s", c.Info())
+	loggo.Debug("close ricmp conn %s", c.Info())
 
 	return errors.New("closed")
+}
+
+func (c *ricmpConn) send_icmp(conn *icmp.PacketConn, data []byte, dst *net.IPAddr) {
+	// TODO
+}
+
+func (c *ricmpConn) recv_icmp(conn *icmp.PacketConn, data []byte) (int, *net.IPAddr, error) {
+	// TODO
+	return 0, nil, nil
 }
