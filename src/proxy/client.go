@@ -30,13 +30,13 @@ type Client struct {
 	wg         *group.Group
 }
 
-func NewClient(config *Config, server string, name string, clienttypestr string, proxyprotostr []string, fromaddr []string, toaddr []string) (*Client, error) {
+func NewClient(config *Config, serverproto string, server string, name string, clienttypestr string, proxyprotostr []string, fromaddr []string, toaddr []string) (*Client, error) {
 
 	if config == nil {
 		config = DefaultConfig()
 	}
 
-	cn, err := conn.NewConn(config.Proto)
+	cn, err := conn.NewConn(serverproto)
 	if cn == nil {
 		return nil, err
 	}

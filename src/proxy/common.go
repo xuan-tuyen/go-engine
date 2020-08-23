@@ -23,7 +23,6 @@ type Config struct {
 	PingTimeoutInter          int    // 主通道ping超时间隔
 	ConnTimeout               int    // 每个conn的不活跃超时时间
 	ConnectTimeout            int    // 每个conn的连接超时
-	Proto                     string // 协议类型
 	Key                       string // 连接密码
 	Encrypt                   string // 加密密钥
 	Compress                  int    // 压缩设置
@@ -45,7 +44,6 @@ func DefaultConfig() *Config {
 		PingTimeoutInter:          30,
 		ConnTimeout:               60,
 		ConnectTimeout:            10,
-		Proto:                     "tcp",
 		Key:                       "123456",
 		Encrypt:                   "default",
 		Compress:                  128,

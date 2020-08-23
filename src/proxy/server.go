@@ -25,49 +25,60 @@ type ClientConn struct {
 }
 
 type Server struct {
-	config     *Config
-	listenaddr string
-	listenConn conn.Conn
-	wg         *group.Group
-	clients    sync.Map
+	config      *Config
+	listenaddrs []string
+	listenConns []conn.Conn
+	wg          *group.Group
+	clients     sync.Map
 }
 
-func NewServer(config *Config, listenaddr string) (*Server, error) {
+func NewServer(config *Config, proto []string, listenaddrs []string) (*Server, error) {
 
 	if config == nil {
 		config = DefaultConfig()
 	}
 
-	conn, err := conn.NewConn(config.Proto)
-	if conn == nil {
-		return nil, err
+	var listenConns []conn.Conn
+
+	for i, _ := range proto {
+		conn, err := conn.NewConn(proto[i])
+		if conn == nil {
+			return nil, err
+		}
+
+		listenConn, err := conn.Listen(listenaddrs[i])
+		if err != nil {
+			return nil, err
+		}
+
+		listenConns = append(listenConns, listenConn)
 	}
 
-	listenConn, err := conn.Listen(listenaddr)
-	if err != nil {
-		return nil, err
-	}
-
-	wg := group.NewGroup("Server"+" "+listenaddr, nil, func() {
-		loggo.Info("group start exit %s", listenConn.Info())
-		listenConn.Close()
-		loggo.Info("group start exit %s", listenConn.Info())
+	wg := group.NewGroup("Server", nil, func() {
+		for i, _ := range listenConns {
+			loggo.Info("group start exit %s", listenConns[i].Info())
+			listenConns[i].Close()
+			loggo.Info("group start exit %s", listenConns[i].Info())
+		}
 	})
 
 	s := &Server{
-		config:     config,
-		listenaddr: listenaddr,
-		listenConn: listenConn,
-		wg:         wg,
+		config:      config,
+		listenaddrs: listenaddrs,
+		listenConns: listenConns,
+		wg:          wg,
 	}
 
-	wg.Go("Server listen"+" "+listenaddr, func() error {
-		atomic.AddInt32(&gStateThreadNum.ThreadNum, 1)
-		defer atomic.AddInt32(&gStateThreadNum.ThreadNum, -1)
-		return s.listen()
-	})
+	for i, _ := range proto {
+		listenaddr := listenaddrs[i]
+		wg.Go("Server listen"+" "+listenaddr, func() error {
+			atomic.AddInt32(&gStateThreadNum.ThreadNum, 1)
+			defer atomic.AddInt32(&gStateThreadNum.ThreadNum, -1)
+			return s.listen(i)
+		})
+	}
 
-	wg.Go("Client state"+" "+listenaddr, func() error {
+	wg.Go("Client state", func() error {
 		return showState(wg)
 	})
 
@@ -79,10 +90,10 @@ func (s *Server) Close() {
 	s.wg.Wait()
 }
 
-func (s *Server) listen() error {
-	loggo.Info("listen start %s", s.listenaddr)
+func (s *Server) listen(index int) error {
+	loggo.Info("listen start %d %s", index, s.listenaddrs[index])
 	for !s.wg.IsExit() {
-		conn, err := s.listenConn.Accept()
+		conn, err := s.listenConns[index].Accept()
 		if err != nil {
 			loggo.Info("Server listen Accept fail %s", err)
 			continue
@@ -102,7 +113,7 @@ func (s *Server) listen() error {
 			return s.serveClient(clientconn)
 		})
 	}
-	loggo.Info("listen end %s", s.listenaddr)
+	loggo.Info("listen end %d %s", index, s.listenaddrs[index])
 	return nil
 }
 
