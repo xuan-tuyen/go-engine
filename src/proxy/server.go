@@ -70,11 +70,11 @@ func NewServer(config *Config, proto []string, listenaddrs []string) (*Server, e
 	}
 
 	for i, _ := range proto {
-		listenaddr := listenaddrs[i]
-		wg.Go("Server listen"+" "+listenaddr, func() error {
+		index := i
+		wg.Go("Server listen"+" "+listenaddrs[i], func() error {
 			atomic.AddInt32(&gStateThreadNum.ThreadNum, 1)
 			defer atomic.AddInt32(&gStateThreadNum.ThreadNum, -1)
-			return s.listen(i)
+			return s.listen(index)
 		})
 	}
 
