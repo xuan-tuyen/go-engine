@@ -27,11 +27,6 @@ type RudpConfig struct {
 	CloseTimeoutMs     int
 	CloseWaitTimeoutMs int
 	AcceptChanLen      int
-	WinControlOpen     bool
-	WinControlAMin     int
-	WinControlAMax     int
-	WinControlLeft     int
-	WinControlRight    int
 }
 
 func DefaultRudpConfig() *RudpConfig {
@@ -49,11 +44,6 @@ func DefaultRudpConfig() *RudpConfig {
 		CloseTimeoutMs:     5000,
 		CloseWaitTimeoutMs: 5000,
 		AcceptChanLen:      128,
-		WinControlOpen:     true,
-		WinControlAMin:     85,
-		WinControlAMax:     95,
-		WinControlLeft:     10,
-		WinControlRight:    10,
 	}
 }
 
@@ -279,7 +269,6 @@ func (c *rudpConn) Dial(dst string) (Conn, error) {
 	id := common.Guid()
 	fm := frame.NewFrameMgr(c.config.CutSize, c.config.MaxId, c.config.BufferSize, c.config.MaxWin, c.config.ResendTimems, c.config.Compress, c.config.Stat)
 	fm.SetDebugid(id)
-	fm.SetWinControl(c.config.WinControlOpen, c.config.WinControlAMin, c.config.WinControlAMax, c.config.WinControlLeft, c.config.WinControlRight)
 
 	dialer := &rudpConnDialer{conn: conn.(*net.UDPConn), fm: fm}
 
@@ -446,7 +435,6 @@ func (c *rudpConn) loopListenerRecv() error {
 			id := common.Guid()
 			fm := frame.NewFrameMgr(c.config.CutSize, c.config.MaxId, c.config.BufferSize, c.config.MaxWin, c.config.ResendTimems, c.config.Compress, c.config.Stat)
 			fm.SetDebugid(id)
-			fm.SetWinControl(c.config.WinControlOpen, c.config.WinControlAMin, c.config.WinControlAMax, c.config.WinControlLeft, c.config.WinControlRight)
 
 			sonny := &rudpConnListenerSonny{
 				dstaddr:    srcaddr,
