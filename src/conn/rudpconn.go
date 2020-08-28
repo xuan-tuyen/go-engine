@@ -577,6 +577,8 @@ func (c *rudpConn) update_rudp(wg *group.Group, fm *frame.FrameMgr, conn *net.UD
 		})
 	}
 
+	reason := ""
+
 	for !wg.IsExit() {
 
 		avctive := fm.Update()
@@ -602,11 +604,13 @@ func (c *rudpConn) update_rudp(wg *group.Group, fm *frame.FrameMgr, conn *net.UD
 
 		// timeout
 		if fm.IsHBTimeout(c.config.HBTimeoutms) {
+			reason = "HBTimeout"
 			loggo.Debug("close inactive conn %s", c.Info())
 			break
 		}
 
 		if fm.IsRemoteClosed() {
+			reason = "RemoteClose"
 			loggo.Debug("closed by remote conn %s", c.Info())
 			break
 		}
@@ -683,5 +687,5 @@ func (c *rudpConn) update_rudp(wg *group.Group, fm *frame.FrameMgr, conn *net.UD
 
 	loggo.Debug("close rudp conn %s", c.Info())
 
-	return errors.New("closed")
+	return errors.New("closed " + reason)
 }
