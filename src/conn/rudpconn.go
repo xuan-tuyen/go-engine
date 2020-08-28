@@ -38,9 +38,9 @@ func DefaultRudpConfig() *RudpConfig {
 	return &RudpConfig{
 		MaxPacketSize:      1024,
 		CutSize:            500,
-		MaxId:              50000,
+		MaxId:              10000,
 		BufferSize:         1024 * 1024,
-		MaxWin:             5000,
+		MaxWin:             1000,
 		ResendTimems:       200,
 		Compress:           0,
 		Stat:               0,
@@ -50,10 +50,10 @@ func DefaultRudpConfig() *RudpConfig {
 		CloseWaitTimeoutMs: 5000,
 		AcceptChanLen:      128,
 		WinControlOpen:     true,
-		WinControlAMin:     90,
+		WinControlAMin:     85,
 		WinControlAMax:     95,
 		WinControlLeft:     10,
-		WinControlRight:    20,
+		WinControlRight:    10,
 	}
 }
 
@@ -565,33 +565,6 @@ func (c *rudpConn) update_rudp(wg *group.Group, fm *frame.FrameMgr, conn *net.UD
 	loggo.Debug("start rudp conn %s", c.Info())
 
 	stage := "open"
-	wg.Go("rudpConn update_rudp send"+" "+c.Info(), func() error {
-		for !wg.IsExit() && stage != "closewait" {
-			// send udp
-			sendlist := fm.GetSendList()
-			if sendlist.Len() > 0 {
-				for e := sendlist.Front(); e != nil; e = e.Next() {
-					f := e.Value.(*frame.Frame)
-					mb, err := fm.MarshalFrame(f)
-					if err != nil {
-						loggo.Error("MarshalFrame fail %s", err)
-						return err
-					}
-					conn.SetWriteDeadline(time.Now().Add(time.Millisecond * 100))
-					if dstaddr != nil {
-						conn.WriteToUDP(mb, dstaddr)
-						//loggo.Debug("%s send frame to %s %d", c.Info(), dstaddr, f.Id)
-					} else {
-						conn.Write(mb)
-						//loggo.Debug("%s send frame %d", c.Info(), f.Id)
-					}
-				}
-			} else {
-				time.Sleep(time.Millisecond * 100)
-			}
-		}
-		return nil
-	})
 
 	if readconn {
 		wg.Go("rudpConn update_rudp recv"+" "+c.Info(), func() error {
@@ -620,6 +593,25 @@ func (c *rudpConn) update_rudp(wg *group.Group, fm *frame.FrameMgr, conn *net.UD
 
 		avctive := fm.Update()
 
+		// send udp
+		sendlist := fm.GetSendList()
+		for e := sendlist.Front(); e != nil; e = e.Next() {
+			f := e.Value.(*frame.Frame)
+			mb, err := fm.MarshalFrame(f)
+			if err != nil {
+				loggo.Error("MarshalFrame fail %s", err)
+				return err
+			}
+			conn.SetWriteDeadline(time.Now().Add(time.Millisecond * 100))
+			if dstaddr != nil {
+				conn.WriteToUDP(mb, dstaddr)
+				//loggo.Debug("%s send frame to %s %d", c.Info(), dstaddr, f.Id)
+			} else {
+				conn.Write(mb)
+				//loggo.Debug("%s send frame %d", c.Info(), f.Id)
+			}
+		}
+
 		// timeout
 		if fm.IsHBTimeout(c.config.HBTimeoutms) {
 			loggo.Debug("close inactive conn %s", c.Info())
@@ -631,7 +623,7 @@ func (c *rudpConn) update_rudp(wg *group.Group, fm *frame.FrameMgr, conn *net.UD
 			break
 		}
 
-		if !avctive {
+		if !avctive && sendlist.Len() <= 0 {
 			time.Sleep(time.Millisecond * 10)
 		}
 	}
@@ -645,6 +637,25 @@ func (c *rudpConn) update_rudp(wg *group.Group, fm *frame.FrameMgr, conn *net.UD
 		now := time.Now()
 
 		fm.Update()
+
+		// send udp
+		sendlist := fm.GetSendList()
+		for e := sendlist.Front(); e != nil; e = e.Next() {
+			f := e.Value.(*frame.Frame)
+			mb, err := fm.MarshalFrame(f)
+			if err != nil {
+				loggo.Error("MarshalFrame fail %s", err)
+				return err
+			}
+			conn.SetWriteDeadline(time.Now().Add(time.Millisecond * 100))
+			if dstaddr != nil {
+				conn.WriteToUDP(mb, dstaddr)
+				//loggo.Debug("%s send frame to %s %d", c.Info(), dstaddr, f.Id)
+			} else {
+				conn.Write(mb)
+				//loggo.Debug("%s send frame %d", c.Info(), f.Id)
+			}
+		}
 
 		diffclose := now.Sub(startCloseTime)
 		if diffclose > time.Millisecond*time.Duration(c.config.CloseTimeoutMs) {

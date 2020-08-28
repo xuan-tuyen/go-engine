@@ -52,7 +52,6 @@ type winControl struct {
 	right       int
 	sendDataNum int
 	recvAckNum  int
-	times       int
 }
 
 type FrameMgr struct {
@@ -889,9 +888,6 @@ func (fm *FrameMgr) calcSendWinSize() {
 		fm.wc.win = fm.wc.minSize
 	}
 
-	fm.wc.times++
-	if fm.wc.times > 10 {
-		fm.wc.recvAckNum /= fm.wc.times
-		fm.wc.sendDataNum /= fm.wc.times
-	}
+	fm.wc.recvAckNum = 0
+	fm.wc.sendDataNum = 0
 }
