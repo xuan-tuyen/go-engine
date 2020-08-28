@@ -38,9 +38,9 @@ func DefaultRudpConfig() *RudpConfig {
 	return &RudpConfig{
 		MaxPacketSize:      1024,
 		CutSize:            500,
-		MaxId:              1000000,
+		MaxId:              50000,
 		BufferSize:         1024 * 1024,
-		MaxWin:             10000,
+		MaxWin:             5000,
 		ResendTimems:       200,
 		Compress:           0,
 		Stat:               0,
@@ -50,8 +50,8 @@ func DefaultRudpConfig() *RudpConfig {
 		CloseWaitTimeoutMs: 5000,
 		AcceptChanLen:      128,
 		WinControlOpen:     true,
-		WinControlAMin:     80,
-		WinControlAMax:     90,
+		WinControlAMin:     90,
+		WinControlAMax:     95,
 		WinControlLeft:     10,
 		WinControlRight:    20,
 	}
