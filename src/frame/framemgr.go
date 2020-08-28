@@ -32,6 +32,29 @@ type FrameStat struct {
 	recvOutWinNum   int
 }
 
+const (
+	WcStatueBegin    = 0
+	WcStatueSlowGrow = 1
+	WcStatueStable   = 2
+
+	WcBeginWin = 100
+)
+
+type winControl struct {
+	open        bool
+	win         int
+	minSize     int
+	maxSize     int
+	a           int
+	aMin        int
+	aMax        int
+	left        int
+	right       int
+	sendDataNum int
+	recvAckNum  int
+	times       int
+}
+
 type FrameMgr struct {
 	frame_max_size int
 	frame_max_id   int32
@@ -75,10 +98,20 @@ type FrameMgr struct {
 	lastPrintStat int64
 
 	debugid string
+
+	wc winControl
 }
 
 func (fm *FrameMgr) SetDebugid(debugid string) {
 	fm.debugid = debugid
+}
+
+func (fm *FrameMgr) SetWinControl(open bool, aMin int, aMax int, left int, right int) {
+	fm.wc.open = open
+	fm.wc.aMin = aMin
+	fm.wc.aMax = aMax
+	fm.wc.left = left
+	fm.wc.right = right
 }
 
 func NewFrameMgr(frame_max_size int, frame_max_id int, buffersize int, windowsize int, resend_timems int, compress int, openstat int) *FrameMgr {
@@ -86,7 +119,8 @@ func NewFrameMgr(frame_max_size int, frame_max_id int, buffersize int, windowsiz
 	sendb := rbuffergo.New(buffersize, false)
 	recvb := rbuffergo.New(buffersize, false)
 
-	fm := &FrameMgr{frame_max_size: frame_max_size, frame_max_id: int32(frame_max_id),
+	fm := &FrameMgr{
+		frame_max_size: frame_max_size, frame_max_id: int32(frame_max_id),
 		sendb: sendb, recvb: recvb,
 		sendblock: &sync.Mutex{}, recvblock: &sync.Mutex{},
 		recvlock: &sync.Mutex{}, sendlock: &sync.Mutex{},
@@ -100,7 +134,14 @@ func NewFrameMgr(frame_max_size int, frame_max_id int, buffersize int, windowsiz
 		lastSendHBTime: time.Now().UnixNano(), lastRecvHBTime: time.Now().UnixNano(),
 		rttns:     (int64)(resend_timems * 1000),
 		reqmap:    make(map[int32]int64),
-		connected: false, openstat: openstat, lastPrintStat: time.Now().UnixNano()}
+		connected: false, openstat: openstat, lastPrintStat: time.Now().UnixNano(),
+		wc: winControl{
+			win:     common.MinOfInt(WcBeginWin, windowsize),
+			minSize: common.MinOfInt(WcBeginWin, windowsize),
+			maxSize: windowsize,
+		},
+	}
+
 	if openstat > 0 {
 		fm.resetStat()
 	}
@@ -137,7 +178,7 @@ func (fm *FrameMgr) Update() bool {
 	fm.ping()
 	fm.hb()
 
-	fm.printStat(cur)
+	fm.second(cur)
 
 	return avtive > 0
 }
@@ -234,7 +275,8 @@ func (fm *FrameMgr) cutSendBufferToWindow(cur int64) {
 
 func (fm *FrameMgr) calSendList(cur int64) {
 
-	for e := fm.sendwin.FrontInter(); e != nil; e = e.Next() {
+	i := 0
+	for e := fm.sendwin.FrontInter(); e != nil && (!fm.wc.open || i < fm.wc.win); e = e.Next() {
 		f := e.Value.(*Frame)
 		if !f.Acked && (f.Resend || cur-f.Sendtime > int64(fm.resend_timems*(int)(time.Millisecond))) &&
 			cur-f.Sendtime > fm.rttns {
@@ -245,6 +287,8 @@ func (fm *FrameMgr) calSendList(cur int64) {
 				fm.fs.sendDataNum++
 				fm.fs.sendDataNumsMap[f.Id]++
 			}
+			fm.wc.sendDataNum++
+			i++
 			//loggo.Debug("debugid %v push frame to sendlist %v %v", fm.debugid, f.Id, len(f.Data.Data))
 		}
 	}
@@ -357,6 +401,7 @@ func (fm *FrameMgr) processRecvList(tmpreq map[int32]int, tmpack map[int32]int, 
 			fm.fs.recvAckNum += num
 			fm.fs.recvAckNumsMap[id] += num
 		}
+		fm.wc.recvAckNum++
 	}
 
 	for !fm.sendwin.Empty() {
@@ -742,17 +787,22 @@ func (fm *FrameMgr) resetStat() {
 	fm.fs.recvAckNumsMap = make(map[int32]int)
 }
 
-func (fm *FrameMgr) printStat(cur int64) {
-	if fm.openstat > 0 {
-		if cur-fm.lastPrintStat > (int64)(time.Second) {
-			fm.lastPrintStat = cur
+func (fm *FrameMgr) second(cur int64) {
+	if cur-fm.lastPrintStat > (int64)(time.Second) {
+		fm.lastPrintStat = cur
+
+		fm.calcSendWinSize()
+
+		if fm.openstat > 0 {
 			fs := fm.fs
 			loggo.Info("\nsendDataNum %v\nrecvDataNum %v\nsendReqNum %v\nrecvReqNum %v\nsendAckNum %v\nrecvAckNum %v\n"+
 				"sendDataNumsMap %v\nrecvDataNumsMap %v\nsendReqNumsMap %v\nrecvReqNumsMap %v\nsendAckNumsMap %v\nrecvAckNumsMap %v\n"+
 				"sendping %v\nrecvping %v\nsendpong %v\nrecvpong %v\n"+
 				"sendwin %v\nrecvwin %v\n"+
 				"recvOldNum %v\nrecvOutWinNum %v\n"+
-				"rtt %v\n",
+				"rtt %v\n"+
+				"controlwin %v\n"+
+				"ack/send %v%%\n",
 				fs.sendDataNum, fs.recvDataNum,
 				fs.sendReqNum, fs.recvReqNum,
 				fs.sendAckNum, fs.recvAckNum,
@@ -763,9 +813,11 @@ func (fm *FrameMgr) printStat(cur int64) {
 				fs.sendpong, fs.recvpong,
 				fm.sendwin.Size(), fm.recvwin.Size(),
 				fs.recvOldNum, fs.recvOutWinNum,
-				time.Duration(fm.rttns).String())
+				time.Duration(fm.rttns).String(),
+				fm.wc.win, fm.wc.a)
 			fm.resetStat()
 		}
+
 	}
 }
 
@@ -805,4 +857,41 @@ func (fm *FrameMgr) IsHBTimeout(timeoutms int) bool {
 		return true
 	}
 	return false
+}
+
+func (fm *FrameMgr) calcSendWinSize() {
+
+	if !fm.connected || fm.close || fm.remoteclosed {
+		fm.wc.win = int(fm.windowsize)
+		return
+	}
+
+	if !fm.wc.open {
+		return
+	}
+
+	if fm.wc.sendDataNum > 0 {
+		a := fm.wc.recvAckNum * 100 / fm.wc.sendDataNum
+		fm.wc.a = (fm.wc.a + a) / 2
+	}
+
+	if fm.wc.a < fm.wc.aMin {
+		fm.wc.win += fm.wc.left * (fm.wc.a - fm.wc.aMin)
+	} else if fm.wc.a > fm.wc.aMax {
+		fm.wc.win += fm.wc.right * (fm.wc.a - fm.wc.aMax)
+	} else {
+	}
+
+	if fm.wc.win > fm.wc.maxSize {
+		fm.wc.win = fm.wc.maxSize
+	}
+	if fm.wc.win < fm.wc.minSize {
+		fm.wc.win = fm.wc.minSize
+	}
+
+	fm.wc.times++
+	if fm.wc.times > 10 {
+		fm.wc.recvAckNum /= fm.wc.times
+		fm.wc.sendDataNum /= fm.wc.times
+	}
 }
