@@ -63,8 +63,9 @@ type FrameMgr struct {
 	lastPongTime int64
 	rttns        int64
 
-	lastSendHBTime int64
-	lastRecvHBTime int64
+	lastSendHBTime   int64
+	lastRecvHBTime   int64
+	lastRecvDataTime int64
 
 	reqmap map[int32]int64
 
@@ -98,7 +99,7 @@ func NewFrameMgr(frame_max_size int, frame_max_id int, buffersize int, windowsiz
 		recvlist: list.New(), recvid: 0,
 		close: false, remoteclosed: false, closesend: false,
 		lastPingTime: time.Now().UnixNano(), lastPongTime: time.Now().UnixNano(),
-		lastSendHBTime: time.Now().UnixNano(), lastRecvHBTime: time.Now().UnixNano(),
+		lastSendHBTime: time.Now().UnixNano(), lastRecvHBTime: time.Now().UnixNano(), lastRecvDataTime: time.Now().UnixNano(),
 		rttns:     (int64)(resend_timems * 1000),
 		reqmap:    make(map[int32]int64),
 		connected: false, openstat: openstat, lastPrintStat: time.Now().UnixNano(),
@@ -465,6 +466,8 @@ func (fm *FrameMgr) processRecvFrame(f *Frame) bool {
 				src = old
 			}
 
+			fm.lastRecvDataTime = time.Now().UnixNano()
+
 			fm.recvb.Write(src)
 			//loggo.Debug("debugid %v combined recv frame to recv buffer %v %v", fm.debugid, f.Id, len(src))
 			return true
@@ -808,7 +811,7 @@ func (fm *FrameMgr) MarshalFrame(f *Frame) ([]byte, error) {
 
 func (fm *FrameMgr) IsHBTimeout(timeoutms int) bool {
 	now := time.Now().UnixNano()
-	if now-fm.lastRecvHBTime > int64(time.Millisecond)*int64(timeoutms) {
+	if now-fm.lastRecvHBTime > int64(time.Millisecond)*int64(timeoutms) && now-fm.lastRecvDataTime > int64(time.Millisecond)*int64(timeoutms) {
 		return true
 	}
 	return false
